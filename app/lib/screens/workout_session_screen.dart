@@ -6,8 +6,6 @@ import '../providers/workout_provider.dart';
 import '../models/workout_protocol.dart';
 import '../models/workout_tracking.dart';
 import '../widgets/set_tracker_card.dart';
-import '../services/supabase_database_service.dart';
-import '../config/supabase_config.dart';
 
 class WorkoutSessionScreen extends StatefulWidget {
   const WorkoutSessionScreen({super.key});
@@ -26,8 +24,6 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
   final List<SetPerformance> _completedSets = [];
   late AnimationController _slideController;
   late AnimationController _fadeController;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
@@ -41,16 +37,6 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
-    );
-
-    _slideAnimation =
-        Tween<Offset>(begin: const Offset(0.0, 0.1), end: Offset.zero).animate(
-          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-        );
-
-    _fadeAnimation = CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeInOut,
     );
 
     _slideController.forward();
@@ -286,11 +272,20 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
           const SizedBox(height: 40),
           ElevatedButton(
             onPressed: (_currentSet > entry.sets)
-                ? () {
-                    if (provider.currentEntryIndex <
-                        protocol.entries.length - 1) {
+                ? () async {
+                    final isLastExercise =
+                        provider.currentEntryIndex >=
+                        protocol.entries.length - 1;
+
+                    await provider.completeExercise(
+                      List<SetPerformance>.from(_completedSets),
+                    );
+                    _completedSets.clear();
+
+                    if (!mounted) return;
+
+                    if (!isLastExercise) {
                       setState(() => _currentSet = 1);
-                      provider.nextExercise();
                     } else {
                       _finishWorkout(context, provider);
                     }
@@ -319,9 +314,6 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
       _currentSet++;
     });
 
-    // Auto-save to Supabase after each set
-    _saveSetToSupabase(performance);
-
     if (_currentSet <=
         (Provider.of<WorkoutProvider>(
               context,
@@ -335,40 +327,6 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
             ).currentEntry?.restSeconds ??
             60,
       );
-    }
-  }
-
-  Future<void> _saveSetToSupabase(SetPerformance performance) async {
-    try {
-      final userId = SupabaseConfig.userId;
-      if (userId == null) {
-        debugPrint('Error: No authenticated user');
-        return;
-      }
-
-      final provider = Provider.of<WorkoutProvider>(context, listen: false);
-      final entry = provider.currentEntry;
-
-      if (entry == null) return;
-
-      // Save to Supabase workout_sets table
-      await SupabaseDatabaseService().saveWorkoutSet({
-        'user_id': userId,
-        'exercise_name': entry.exercise.name,
-        'set_number': performance.setNumber,
-        'reps_performed': performance.repsPerformed,
-        'load_used': performance.loadUsed,
-        'actual_rpe': performance.actualRPE,
-        'completed': performance.completed,
-        'notes': performance.notes,
-        'logged_at': DateTime.now().toIso8601String(),
-      });
-
-      debugPrint(
-        'Set ${performance.setNumber} saved to Supabase: ${performance.repsPerformed} reps @ ${performance.loadUsed}kg, RPE ${performance.actualRPE}',
-      );
-    } catch (e) {
-      debugPrint('Error saving set to Supabase: $e');
     }
   }
 

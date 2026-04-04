@@ -4,6 +4,7 @@ import '../theme.dart';
 import '../models/workout_tracking.dart';
 import '../models/user_profile.dart';
 import '../providers/auth_provider.dart';
+import '../services/supabase_database_service.dart';
 
 /// Analytics Dashboard - Shows workout progress and AI insights
 class AnalyticsDashboard extends StatefulWidget {
@@ -14,7 +15,7 @@ class AnalyticsDashboard extends StatefulWidget {
 }
 
 class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
-  // final _firebase = FirebaseSyncService(); // Removed
+  final SupabaseDatabaseService _database = SupabaseDatabaseService();
   UserProfile? _profile;
   List<CompletedWorkout> _workouts = [];
   bool _isLoading = true;
@@ -34,16 +35,31 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final userId = authProvider.user?.id ?? '';
-      // TODO: Implement with Supabase
-      final profile = null; // await _firebase.getUserProfile(userId);
-      final workouts =
-          <
-            CompletedWorkout
-          >[]; // await _firebase.getWorkoutHistory(limit: 100);
+      final userId = authProvider.user?.id;
+      if (userId == null) {
+        throw Exception('No authenticated user');
+      }
+
+      final profileMap = await _database.getUserProfile(userId);
+      final sessions = await _database.getWorkoutSessions(limit: 100);
+
+      final workouts = <CompletedWorkout>[];
+      for (final session in sessions) {
+        final sessionId = session['id']?.toString();
+        if (sessionId == null || sessionId.isEmpty) {
+          continue;
+        }
+
+        final sets = await _database.getWorkoutSets(sessionId);
+        workouts.add(_toCompletedWorkout(session, sets));
+      }
+
+      await _database.saveAnalyticsEvent('analytics_dashboard_viewed', {
+        'workout_count': workouts.length,
+      });
 
       setState(() {
-        _profile = profile;
+        _profile = profileMap != null ? UserProfile.fromMap(profileMap) : null;
         _workouts = workouts;
         _isLoading = false;
       });
@@ -53,6 +69,56 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
         _isLoading = false;
       });
     }
+  }
+
+  CompletedWorkout _toCompletedWorkout(
+    Map<String, dynamic> session,
+    List<Map<String, dynamic>> sets,
+  ) {
+    final start =
+        DateTime.tryParse(session['start_time']?.toString() ?? '') ??
+        DateTime.tryParse(session['date']?.toString() ?? '') ??
+        DateTime.now();
+    final end =
+        DateTime.tryParse(session['end_time']?.toString() ?? '') ?? start;
+
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final set in sets) {
+      final name = set['exercise_name']?.toString() ?? 'Exercise';
+      grouped.putIfAbsent(name, () => []);
+      grouped[name]!.add(set);
+    }
+
+    final exercises = grouped.entries
+        .map(
+          (entry) => {
+            'exercise_name': entry.key,
+            'completed_at': end.toIso8601String(),
+            'sets': entry.value
+                .map(
+                  (set) => {
+                    'set_number': set['set_number'] ?? 1,
+                    'reps_performed': set['reps_performed'] ?? 0,
+                    'actual_rpe': (set['actual_rpe'] as num?)?.toDouble(),
+                    'load_used': (set['load_used'] as num?)?.toDouble(),
+                    'completed': set['completed'] ?? true,
+                    'notes': set['notes'],
+                  },
+                )
+                .toList(),
+          },
+        )
+        .toList();
+
+    return CompletedWorkout.fromMap({
+      'id': session['id']?.toString() ?? '',
+      'protocol_title': session['workout_type']?.toString() ?? 'Workout',
+      'start_time': start.toIso8601String(),
+      'end_time': end.toIso8601String(),
+      'total_duration_minutes': end.difference(start).inMinutes,
+      'readiness_score_at_start': 70,
+      'exercises': exercises,
+    });
   }
 
   @override

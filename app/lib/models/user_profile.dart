@@ -130,13 +130,14 @@ class UserProfile {
 
   Map<String, dynamic> toMap() {
     return {
+      'id': userId,
       'user_id': userId,
       'display_name': displayName,
       'photo_url': photoUrl,
       'body_composition': bodyComposition.toMap(),
-      'fitness_level': fitnessLevel.index,
-      'experience_level': experienceLevel?.index,
-      'training_goal': trainingGoal.index,
+      'fitness_level': fitnessLevel.name,
+      'experience_level': experienceLevel?.name,
+      'training_goal': trainingGoal.name,
       'philosophical_baseline': philosophicalBaseline,
       'training_days_per_week': trainingDaysPerWeek,
       'preferred_workout_duration': preferredWorkoutDuration,
@@ -149,16 +150,37 @@ class UserProfile {
   }
 
   factory UserProfile.fromMap(Map<String, dynamic> map) {
+    final rawFitness = map['fitness_level'];
+    final rawExperience = map['experience_level'];
+    final rawGoal = map['training_goal'];
+
     return UserProfile(
-      userId: map['user_id'] ?? '',
+      userId: map['id'] ?? map['user_id'] ?? '',
       displayName: map['display_name'],
       photoUrl: map['photo_url'],
-      bodyComposition: BodyComposition.fromMap(map['body_composition'] ?? {}),
-      fitnessLevel: FitnessLevel.values[map['fitness_level'] ?? 0],
-      experienceLevel: map['experience_level'] != null
-          ? ExperienceLevel.values[map['experience_level']]
-          : null,
-      trainingGoal: TrainingGoal.values[map['training_goal'] ?? 0],
+      bodyComposition: BodyComposition.fromMap(
+        map['body_composition'] ?? map['body_compression'] ?? {},
+      ),
+      fitnessLevel: rawFitness is int
+          ? FitnessLevel.values[rawFitness]
+          : FitnessLevel.values.firstWhere(
+              (v) => v.name == rawFitness,
+              orElse: () => FitnessLevel.beginner,
+            ),
+      experienceLevel: rawExperience == null
+          ? null
+          : rawExperience is int
+          ? ExperienceLevel.values[rawExperience]
+          : ExperienceLevel.values.firstWhere(
+              (v) => v.name == rawExperience,
+              orElse: () => ExperienceLevel.novice,
+            ),
+      trainingGoal: rawGoal is int
+          ? TrainingGoal.values[rawGoal]
+          : TrainingGoal.values.firstWhere(
+              (v) => v.name == rawGoal,
+              orElse: () => TrainingGoal.generalCombat,
+            ),
       philosophicalBaseline: map['philosophical_baseline'],
       trainingDaysPerWeek: map['training_days_per_week'] ?? 3,
       preferredWorkoutDuration: map['preferred_workout_duration'],

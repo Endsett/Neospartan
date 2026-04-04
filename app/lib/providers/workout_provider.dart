@@ -57,14 +57,12 @@ class WorkoutProvider with ChangeNotifier {
 
     // Create session in Supabase
     try {
-      final sessionData = await _database.saveWorkoutSession({
-        'protocol_title': protocol.title,
-        'protocol_tier': protocol.tier.toString(),
-        'estimated_duration': protocol.estimatedDurationMinutes,
-        'readiness_score': readinessScore,
-        'status': 'in_progress',
+      _currentSessionId = await _database.saveWorkoutSession({
+        'date': _startTime!.toIso8601String(),
+        'start_time': _startTime!.toIso8601String(),
+        'workout_type': protocol.title,
+        'notes': 'readiness:$readinessScore;status:in_progress',
       });
-      _currentSessionId = sessionData['id'];
     } catch (e) {
       debugPrint('Error creating workout session: $e');
     }
@@ -157,17 +155,57 @@ class WorkoutProvider with ChangeNotifier {
       try {
         await _database.saveWorkoutSession({
           'id': _currentSessionId,
-          'protocol_title': _activeProtocol!.title,
-          'protocol_tier': _activeProtocol!.tier.toString(),
-          'estimated_duration': _activeProtocol!.estimatedDurationMinutes,
-          'readiness_score': _initialReadinessScore ?? 70,
-          'status': 'completed',
-          'actual_duration': duration,
-          'completed_at': endTime.toIso8601String(),
+          'date': _startTime!.toIso8601String(),
+          'start_time': _startTime!.toIso8601String(),
+          'end_time': endTime.toIso8601String(),
+          'workout_type': _activeProtocol!.title,
+          'notes':
+              'readiness:${_initialReadinessScore ?? 70};duration:$duration;status:completed',
         });
       } catch (e) {
         debugPrint('Error updating workout session: $e');
       }
+    }
+
+    try {
+      final weekStart = endTime.subtract(Duration(days: endTime.weekday - 1));
+      final existing = await _database.getWeeklyProgress(weekStart);
+
+      final previousCompleted =
+          (existing?['workouts_completed'] as num?)?.toInt() ?? 0;
+      final previousPlanned =
+          (existing?['total_planned_workouts'] as num?)?.toInt() ?? 0;
+      final previousAverageRpe =
+          (existing?['average_rpe'] as num?)?.toDouble() ?? 0;
+      final previousTotalVolume =
+          (existing?['total_volume'] as num?)?.toDouble() ?? 0;
+      final previousAverageReadiness =
+          (existing?['average_readiness'] as num?)?.toInt() ?? 0;
+
+      final completedCount = previousCompleted + 1;
+
+      await _database.saveWeeklyProgress({
+        'week_starting': weekStart.toIso8601String(),
+        'workouts_completed': completedCount,
+        'total_planned_workouts': previousPlanned + 1,
+        'average_rpe':
+            ((previousAverageRpe * previousCompleted) + workout.averageRPE) /
+            completedCount,
+        'total_volume': previousTotalVolume + workout.totalVolume,
+        'average_readiness':
+            (((previousAverageReadiness * previousCompleted) +
+                        (_initialReadinessScore ?? 70)) /
+                    completedCount)
+                .round(),
+      });
+      await _database.saveAnalyticsEvent('workout_completed', {
+        'session_id': _currentSessionId,
+        'duration_minutes': duration,
+        'total_volume': workout.totalVolume,
+        'exercise_count': workout.exercises.length,
+      });
+    } catch (e) {
+      debugPrint('Error saving workout progress analytics: $e');
     }
 
     // Reset state
