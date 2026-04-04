@@ -178,110 +178,6 @@ Ensure the JSON is valid and contains all required fields. Use realistic exercis
 ''';
   }
 
-  /// Build prompt for plan adjustment (unused - for future AI integration)
-  @Deprecated('Method not currently used - reserved for future AI integration')
-  String _buildAdjustmentPrompt(
-    UserProfile profile,
-    WeeklyPlan currentPlan,
-    WeeklyProgress progress,
-  ) {
-    return '''
-You are an elite combat sports conditioning coach. Review the athlete's progress and adjust their training plan for next week.
-
-CURRENT PROFILE:
-- Level: ${profile.fitnessLevelText}
-- Goal: ${profile.trainingGoalText}
-
-LAST WEEK'S RESULTS:
-- Workouts Completed: ${progress.workoutsCompleted}/${progress.totalPlannedWorkouts}
-- Completion Rate: ${(progress.completionRate * 100).toStringAsFixed(0)}%
-- Average RPE: ${progress.averageRPE.toStringAsFixed(1)}
-- Average Readiness: ${progress.averageReadiness}/100
-- Total Volume: ${progress.totalVolume.toStringAsFixed(0)}kg
-${progress.userFeedback != null ? '- User Feedback: ${progress.userFeedback}' : ''}
-
-ADJUSTMENT GUIDELINES:
-${progress.shouldIncreaseDifficulty
-        ? '- Athlete is progressing well - INCREASE difficulty: add volume or intensity'
-        : progress.shouldDecreaseDifficulty
-        ? '- Athlete is struggling - DECREASE difficulty: reduce volume, focus on recovery'
-        : '- Maintain current intensity with minor adjustments'}
-
-Create an adjusted weekly plan for next week. Consider:
-1. Progression based on last week's performance
-2. Recovery needs based on readiness scores
-3. User feedback if provided
-4. Injury prevention and balanced programming
-
-Use the same JSON format as before.
-''';
-  }
-
-  /// Parse AI response into WeeklyPlan (unused - for future AI integration)
-  @Deprecated('Method not currently used - reserved for future AI integration')
-  WeeklyPlan _parseAIResponse(String response, UserProfile profile) {
-    try {
-      // Try to extract JSON from the response
-      final jsonStart = response.indexOf('{');
-      final jsonEnd = response.lastIndexOf('}');
-
-      if (jsonStart == -1 || jsonEnd == -1) {
-        throw Exception('No JSON found in response');
-      }
-
-      final jsonString = response.substring(jsonStart, jsonEnd + 1);
-      final data = jsonDecode(jsonString);
-
-      final weekPlan = <DailyWorkout>[];
-
-      for (final dayData in data['week_plan']) {
-        final entries = <ProtocolEntry>[];
-
-        for (final ex in dayData['exercises']) {
-          // Match exercise from library or create custom
-          final exercise = _matchExercise(ex['name']);
-
-          entries.add(
-            ProtocolEntry(
-              exercise: exercise,
-              sets: ex['sets'] ?? 3,
-              reps: int.tryParse(ex['reps'].toString()) ?? 10,
-              intensityRpe: (ex['rpe'] as num?)?.toDouble() ?? 7.0,
-              restSeconds: ex['rest_seconds'] ?? 60,
-            ),
-          );
-        }
-
-        weekPlan.add(
-          DailyWorkout(
-            day: dayData['day'] ?? 'Monday',
-            workoutType: dayData['workout_type'] ?? 'General',
-            focus: dayData['focus'] ?? '',
-            protocol: WorkoutProtocol(
-              title: '${dayData['day']} - ${dayData['workout_type']}',
-              subtitle: dayData['focus'] ?? 'Training session',
-              tier: ProtocolTier.ready,
-              entries: entries,
-              estimatedDurationMinutes: 45,
-              mindsetPrompt: 'Train with discipline and purpose',
-            ),
-          ),
-        );
-      }
-
-      return WeeklyPlan(
-        weekStarting: DateTime.now(),
-        dailyWorkouts: weekPlan,
-        weeklyNotes: data['weekly_notes'] ?? '',
-        intensityRecommendation: data['intensity_recommendation'] ?? '',
-      );
-    } catch (e) {
-      debugPrint('Error parsing AI response: $e');
-      debugPrint('Response: $response');
-      return _generateFallbackPlan(profile);
-    }
-  }
-
   /// Parse Gemini AI response into WeeklyPlan
   WeeklyPlan _parseAIResponseToPlan(String response, UserProfile profile) {
     try {
@@ -324,10 +220,12 @@ Use the same JSON format as before.
             protocol: WorkoutProtocol(
               title:
                   '${dayData['workout_type'] ?? 'Training'} - ${dayData['focus'] ?? ''}',
-              description: 'AI-generated workout',
+              subtitle: 'AI-generated workout',
+              tier: ProtocolTier.ready,
+              entries: entries,
               estimatedDurationMinutes:
                   int.tryParse(dayData['duration'].toString()) ?? 60,
-              entries: entries,
+              mindsetPrompt: 'Focus on perfect form and controlled movement',
             ),
           ),
         );
@@ -371,25 +269,25 @@ Use the same JSON format as before.
     );
   }
 
-  /// Convert day string to Day enum
-  Day _getDayOfWeek(String dayName) {
+  /// Convert day string to standard format
+  String _getDayOfWeek(String dayName) {
     switch (dayName.toLowerCase()) {
       case 'monday':
-        return Day.monday;
+        return 'Monday';
       case 'tuesday':
-        return Day.tuesday;
+        return 'Tuesday';
       case 'wednesday':
-        return Day.wednesday;
+        return 'Wednesday';
       case 'thursday':
-        return Day.thursday;
+        return 'Thursday';
       case 'friday':
-        return Day.friday;
+        return 'Friday';
       case 'saturday':
-        return Day.saturday;
+        return 'Saturday';
       case 'sunday':
-        return Day.sunday;
+        return 'Sunday';
       default:
-        return Day.monday;
+        return 'Monday';
     }
   }
 
