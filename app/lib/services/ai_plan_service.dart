@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import '../models/ai_memory.dart';
 import '../models/user_profile.dart';
 import '../models/workout_protocol.dart';
 import '../models/workout_tracking.dart';
 import '../models/exercise.dart';
+import 'ai_memory_service.dart';
+import 'context_ingestion_service.dart';
 
 /// AI Plan Service using Gemini 2.5 Flash for intelligent training plans
 class AIPlanService {
@@ -17,13 +20,18 @@ class AIPlanService {
 
   late GenerativeModel _model;
   bool _initialized = false;
+  final AIMemoryService _memoryService = AIMemoryService();
+  final ContextIngestionService _contextService = ContextIngestionService();
 
-  /// Initialize the service with Gemini 2.5 Flash
+  /// Initialize the service with Gemini 2.5 Flash and memory system
   Future<void> initialize() async {
     try {
       _model = GenerativeModel(model: 'gemini-2.0-flash-exp', apiKey: _apiKey);
+      await _memoryService.initialize(isGuest: false);
       _initialized = true;
-      debugPrint('AI Plan Service initialized with Gemini 2.0 Flash');
+      debugPrint(
+        'AI Plan Service initialized with Gemini 2.0 Flash and memory system',
+      );
     } catch (e) {
       debugPrint('Failed to initialize AI service: $e');
       _initialized = false;
@@ -33,7 +41,7 @@ class AIPlanService {
   /// Check if service is initialized
   bool get isInitialized => _initialized;
 
-  /// Generate initial training plan based on user profile using Gemini AI
+  /// Generate initial training plan based on user profile using Gemini AI with memory context
   Future<WeeklyPlan> generateInitialTrainingPlan(UserProfile profile) async {
     if (!_initialized) {
       debugPrint('AI not initialized, using fallback plan generation');
@@ -41,45 +49,117 @@ class AIPlanService {
     }
 
     try {
-      final prompt = _buildInitialPlanPrompt(profile);
+      // Store user profile in memory first
+      await _memoryService.storeMemory(
+        userId: profile.userId,
+        type: AIMemoryType.userProfile,
+        priority: MemoryPriority.critical,
+        data: profile.toMap(),
+        summary:
+            '${profile.displayName}: ${profile.fitnessLevel} athlete training for ${profile.trainingGoal}',
+      );
+
+      // Build intelligent prompt with context ingestion
+      final prompt = await _contextService.buildPrompt(
+        userId: profile.userId,
+        contextType: 'training_plan',
+        userProfile: profile,
+      );
 
       final response = await _model.generateContent([Content.text(prompt)]);
 
       final planText = response.text;
-      debugPrint('Gemini Response: $planText');
+      debugPrint('Gemini Response with memory context: $planText');
+
+      // Store the generated plan in memory
+      await _memoryService.storeMemory(
+        userId: profile.userId,
+        type: AIMemoryType.conversation,
+        priority: MemoryPriority.high,
+        data: {
+          'type': 'generated_plan',
+          'timestamp': DateTime.now().toIso8601String(),
+          'planPreview': planText?.substring(
+            0,
+            planText.length > 200 ? 200 : planText.length,
+          ),
+        },
+        tags: ['plan', 'generated'],
+      );
 
       // Parse the AI response into a WeeklyPlan
       return _parseAIResponseToPlan(planText!, profile);
     } catch (e) {
-      debugPrint('Error generating AI plan: $e');
+      debugPrint('Error generating AI plan with memory: $e');
       return _generateFallbackPlan(profile);
     }
   }
 
-  /// Adjust training plan based on weekly progress
+  /// Adjust training plan based on weekly progress using memory context
   Future<WeeklyPlan> adjustPlanBasedOnProgress(
     UserProfile profile,
     WeeklyPlan currentPlan,
     WeeklyProgress progress,
   ) async {
-    if (!isInitialized) {
+    if (!_initialized) {
       return _generateFallbackAdjustment(profile, currentPlan, progress);
     }
 
     try {
-      final content = jsonEncode({
-        'user_profile': profile.toMap(),
-        'current_plan': currentPlan.toMap(),
-        'progress': progress.toMap(),
-        'request': 'Adjust the training plan based on progress',
-      });
+      // Store progress data in memory
+      await _memoryService.storeMemory(
+        userId: profile.userId,
+        type: AIMemoryType.workoutHistory,
+        priority: MemoryPriority.high,
+        data: progress.toMap(),
+        summary: 'Weekly progress data stored',
+        tags: ['progress', 'weekly'],
+      );
 
-      debugPrint('AI Plan Request: $content');
+      // Store feedback if provided
+      if (progress.userFeedback != null && progress.userFeedback!.isNotEmpty) {
+        await _memoryService.storeMemory(
+          userId: profile.userId,
+          type: AIMemoryType.feedback,
+          priority: MemoryPriority.medium,
+          data: {
+            'feedback': progress.userFeedback,
+            'timestamp': DateTime.now().toIso8601String(),
+          },
+          summary: 'User feedback: ${progress.userFeedback}',
+          tags: ['feedback'],
+        );
+      }
 
-      // Simplified: Use fallback adjustment
-      return _generateFallbackAdjustment(profile, currentPlan, progress);
+      // Build prompt with adjustment context
+      final prompt = await _contextService.buildPrompt(
+        userId: profile.userId,
+        contextType: 'plan_adjustment',
+        userProfile: profile,
+        additionalContext: {
+          'currentPlan': currentPlan.toMap(),
+          'progress': progress.toMap(),
+        },
+      );
+
+      final response = await _model.generateContent([Content.text(prompt)]);
+      final planText = response.text;
+
+      // Store adjustment in memory
+      await _memoryService.storeMemory(
+        userId: profile.userId,
+        type: AIMemoryType.conversation,
+        priority: MemoryPriority.medium,
+        data: {
+          'type': 'plan_adjustment',
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+        tags: ['adjustment'],
+      );
+
+      return _parseAIResponseToPlan(planText!, profile);
     } catch (e) {
-      debugPrint('Error adjusting AI plan: $e');
+      debugPrint('Error adjusting AI plan with memory: $e');
       return _generateFallbackAdjustment(profile, currentPlan, progress);
     }
   }
@@ -459,76 +539,139 @@ Ensure the JSON is valid and contains all required fields. Use realistic exercis
     ];
     return days[index % 7];
   }
-}
 
-/// Weekly plan structure
-class WeeklyPlan {
-  final DateTime weekStarting;
-  final List<DailyWorkout> dailyWorkouts;
-  final String weeklyNotes;
-  final String intensityRecommendation;
+  // ============ MEMORY MANAGEMENT HELPERS ============
 
-  const WeeklyPlan({
-    required this.weekStarting,
-    required this.dailyWorkouts,
-    required this.weeklyNotes,
-    required this.intensityRecommendation,
-  });
+  /// Store completed workout in AI memory
+  Future<void> storeWorkoutInMemory(
+    String userId,
+    CompletedWorkout workout,
+  ) async {
+    if (!_initialized) return;
 
-  Map<String, dynamic> toMap() {
-    return {
-      'week_starting': weekStarting.toIso8601String(),
-      'daily_workouts': dailyWorkouts.map((d) => d.toMap()).toList(),
-      'weekly_notes': weeklyNotes,
-      'intensity_recommendation': intensityRecommendation,
-    };
+    try {
+      await _memoryService.storeMemory(
+        userId: userId,
+        type: AIMemoryType.workoutHistory,
+        priority: MemoryPriority.high,
+        data: workout.toMap(),
+        summary:
+            '${workout.protocolTitle}: ${workout.totalDurationMinutes}min, ${workout.exercises.length} exercises',
+        tags: ['workout', 'completed'],
+      );
+      debugPrint('Workout stored in AI memory: ${workout.id}');
+    } catch (e) {
+      debugPrint('Error storing workout in memory: $e');
+    }
   }
-}
 
-/// Daily workout structure
-class DailyWorkout {
-  final String day;
-  final String workoutType;
-  final String focus;
-  final WorkoutProtocol protocol;
+  /// Store readiness score in AI memory
+  Future<void> storeReadinessInMemory(
+    String userId,
+    int readinessScore, {
+    Map<String, dynamic>? additionalMetrics,
+  }) async {
+    if (!_initialized) return;
 
-  const DailyWorkout({
-    required this.day,
-    required this.workoutType,
-    required this.focus,
-    required this.protocol,
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'day': day,
-      'workout_type': workoutType,
-      'focus': focus,
-      'protocol': protocol.toMap(),
-    };
+    try {
+      await _memoryService.storeMemory(
+        userId: userId,
+        type: AIMemoryType.readiness,
+        priority: MemoryPriority.medium,
+        data: {
+          'score': readinessScore,
+          'timestamp': DateTime.now().toIso8601String(),
+          ...?additionalMetrics,
+        },
+        summary: 'Readiness: $readinessScore/100',
+        tags: ['readiness', 'daily'],
+      );
+    } catch (e) {
+      debugPrint('Error storing readiness in memory: $e');
+    }
   }
-}
 
-// Extension to add toMap method to WorkoutProtocol
-extension WorkoutProtocolMap on WorkoutProtocol {
-  Map<String, dynamic> toMap() {
-    return {
-      'title': title,
-      'subtitle': subtitle,
-      'tier': tier.toString(),
-      'estimated_duration_minutes': estimatedDurationMinutes,
-      'mindset_prompt': mindsetPrompt,
-      'entries': entries
-          .map(
-            (e) => {
-              'exercise_name': e.exercise.name,
-              'sets': e.sets,
-              'reps': e.reps,
-              'rpe': e.intensityRpe,
-              'rest_seconds': e.restSeconds,
-            },
-          )
-          .toList(),
-    };
+  /// Store health metrics in AI memory
+  Future<void> storeHealthMetricsInMemory(
+    String userId, {
+    int? hrv,
+    int? sleepScore,
+    double? weight,
+    Map<String, dynamic>? otherMetrics,
+  }) async {
+    if (!_initialized) return;
+
+    try {
+      final data = <String, dynamic>{
+        'timestamp': DateTime.now().toIso8601String(),
+        if (hrv != null) 'hrv': hrv,
+        if (sleepScore != null) 'sleepScore': sleepScore,
+        if (weight != null) 'weight': weight,
+        ...?otherMetrics,
+      };
+
+      String summary = 'Health metrics';
+      if (hrv != null) summary += ' - HRV: $hrv';
+      if (sleepScore != null) summary += ' - Sleep: $sleepScore';
+
+      await _memoryService.storeMemory(
+        userId: userId,
+        type: AIMemoryType.healthMetrics,
+        priority: MemoryPriority.medium,
+        data: data,
+        summary: summary,
+        tags: ['health', 'metrics'],
+      );
+    } catch (e) {
+      debugPrint('Error storing health metrics in memory: $e');
+    }
+  }
+
+  /// Store user feedback in AI memory
+  Future<void> storeFeedbackInMemory(
+    String userId,
+    String feedback, {
+    String? category,
+  }) async {
+    if (!_initialized) return;
+
+    try {
+      await _memoryService.storeMemory(
+        userId: userId,
+        type: AIMemoryType.feedback,
+        priority: MemoryPriority.medium,
+        data: {
+          'feedback': feedback,
+          'category': category ?? 'general',
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+        summary:
+            'Feedback: ${feedback.substring(0, feedback.length > 100 ? 100 : feedback.length)}...',
+        tags: ['feedback', category ?? 'general'],
+      );
+    } catch (e) {
+      debugPrint('Error storing feedback in memory: $e');
+    }
+  }
+
+  /// Get memory statistics
+  Future<Map<String, dynamic>> getMemoryStats(String userId) async {
+    return await _memoryService.getMemoryStats(userId);
+  }
+
+  /// Cleanup expired memories
+  Future<int> cleanupExpiredMemories(String userId) async {
+    return await _memoryService.cleanupExpiredMemories(userId);
+  }
+
+  /// Query relevant context for a specific need
+  Future<List<AIMemoryEntry>> queryRelevantContext(
+    String userId,
+    String query,
+  ) async {
+    return await _contextService.queryRelevantContext(
+      userId: userId,
+      query: query,
+    );
   }
 }
