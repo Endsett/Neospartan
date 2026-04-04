@@ -92,7 +92,7 @@ class SupabaseDatabaseService {
     try {
       debugPrint('Getting workout sessions');
 
-      var query = _supabase
+      dynamic query = _supabase
           .from('workout_sessions')
           .select()
           .eq('user_id', currentUserId!);
@@ -191,7 +191,7 @@ class SupabaseDatabaseService {
     try {
       debugPrint('Querying AI memories');
 
-      var query = _supabase
+      dynamic query = _supabase
           .from('ai_memories')
           .select()
           .eq('user_id', currentUserId!);

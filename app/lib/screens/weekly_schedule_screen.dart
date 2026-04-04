@@ -46,15 +46,9 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
       final weekEnd = _currentWeekStart.add(const Duration(days: 6));
 
       // Load workouts for the week
-      final workouts = await _firebase.getWorkoutsForDateRange(
-        _currentWeekStart,
-        weekEnd,
-      );
-
-      // Load scheduled workouts
-      final scheduled = await _firebase.getScheduledWorkoutsForWeek(
-        _currentWeekStart,
-      );
+      // TODO: Implement with Supabase
+      final workouts = <CompletedWorkout>[];
+      final scheduled = <Map<String, dynamic>>{};
 
       // Build calendar days
       final days = _buildCalendarDays(workouts, scheduled);
@@ -902,7 +896,8 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
 }
 
 // Extension methods for FirebaseSyncService
-extension WeeklyScheduleExtension {/* Removed FirebaseSyncService */
+extension WeeklyScheduleExtension on Object {
+  /* FirebaseSyncService removed */
   Future<Map<String, dynamic>> getScheduledWorkoutsForWeek(
     DateTime weekStart,
   ) async {

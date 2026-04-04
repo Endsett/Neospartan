@@ -31,7 +31,7 @@ class AIMemoryService {
         tags: tags,
         summary: summary,
         createdAt: DateTime.now(),
-        expiresAt: expiresAt,
+        expiresAt: expiresAt ?? DateTime.now().add(const Duration(days: 30)),
         lastAccessed: DateTime.now(),
         accessCount: 0,
       );

@@ -38,7 +38,8 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
   }
 
   Future<void> _loadImportedPlans() async {
-    final plans = await _firebase.getImportedPlans();
+    // final plans = await _firebase.getImportedPlans(); // TODO: Implement with Supabase
+    final plans = <Map<String, dynamic>>[]; // Placeholder
     setState(() => _importedPlans = plans);
   }
 
@@ -60,7 +61,7 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
 
   void _confirmImport(WorkoutProtocol protocol) async {
     final planId = 'plan_${DateTime.now().millisecondsSinceEpoch}';
-    await _firebase.saveImportedPlan(planId, {
+    // await _firebase.saveImportedPlan(planId, { // TODO: Implement with Supabase
       'id': planId,
       'protocol': protocol,
       'autopilot': _autopilotMode,
@@ -87,7 +88,8 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
     WorkoutProtocol finalProtocol = protocol;
 
     if (useAutopilot) {
-      final microCycle = await _firebase.buildMicroCycle();
+      // final microCycle = await _firebase.buildMicroCycle(); // TODO: Implement with Supabase
+      final microCycle = <Map<String, dynamic>>[]; // Placeholder
       final result = _domRlEngine.optimize(microCycle, protocol);
       finalProtocol = result.optimizedProtocol;
     }
@@ -443,7 +445,7 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
               IconButton(
                 icon: const Icon(Icons.delete, color: Colors.grey, size: 20),
                 onPressed: () async {
-                  await _firebase.deleteImportedPlan(plan['id'] as String);
+                  // await _firebase.deleteImportedPlan(plan['id'] as String); // TODO: Implement with Supabase
                   await _loadImportedPlans();
                 },
               ),
