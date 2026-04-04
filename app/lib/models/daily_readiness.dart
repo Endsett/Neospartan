@@ -5,6 +5,8 @@ class DailyReadiness {
   final String? notes;
   final List<String>? factors;
   final String userId;
+  final double? sleepQuality; // 0-1
+  final double? recoveryScore; // 0-1
 
   DailyReadiness({
     required this.date,
@@ -12,7 +14,21 @@ class DailyReadiness {
     this.notes,
     this.factors,
     required this.userId,
+    this.sleepQuality,
+    this.recoveryScore,
   });
+
+  // Overall readiness combines readiness score with other factors
+  double get overallReadiness {
+    double base = readinessScore.toDouble();
+    if (sleepQuality != null) {
+      base = (base + sleepQuality! * 100) / 2;
+    }
+    if (recoveryScore != null) {
+      base = (base + recoveryScore! * 100) / 2;
+    }
+    return base;
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -29,7 +45,9 @@ class DailyReadiness {
       date: DateTime.parse(map['date']),
       readinessScore: map['readiness_score'] ?? 0,
       notes: map['notes'],
-      factors: map['factors'] != null ? List<String>.from(map['factors']) : null,
+      factors: map['factors'] != null
+          ? List<String>.from(map['factors'])
+          : null,
       userId: map['user_id'] ?? '',
     );
   }

@@ -8,6 +8,7 @@ class Biometrics {
   final double? chestCircumference; // cm
   final double? armCircumference; // cm
   final double? thighCircumference; // cm
+  final double? hrv; // Heart Rate Variability
   final String userId;
 
   Biometrics({
@@ -19,6 +20,7 @@ class Biometrics {
     this.chestCircumference,
     this.armCircumference,
     this.thighCircumference,
+    this.hrv,
     required this.userId,
   });
 
@@ -32,6 +34,7 @@ class Biometrics {
       'chest_circumference': chestCircumference,
       'arm_circumference': armCircumference,
       'thigh_circumference': thighCircumference,
+      'hrv': hrv,
       'user_id': userId,
     };
   }
@@ -46,7 +49,20 @@ class Biometrics {
       chestCircumference: map['chest_circumference']?.toDouble(),
       armCircumference: map['arm_circumference']?.toDouble(),
       thighCircumference: map['thigh_circumference']?.toDouble(),
+      hrv: map['hrv']?.toDouble(),
       userId: map['user_id'] ?? '',
     );
   }
+}
+
+/// Types of biometric measurements
+enum BiometricType {
+  weight,
+  bodyFat,
+  muscleMass,
+  hrv,
+  waist,
+  chest,
+  arm,
+  thigh,
 }

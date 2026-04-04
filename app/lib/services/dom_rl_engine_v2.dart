@@ -1,6 +1,8 @@
 import 'dart:developer' as developer;
 import '../models/user_profile.dart';
 import '../models/workout_tracking.dart';
+import '../models/daily_readiness.dart';
+import '../models/biometrics.dart';
 import '../repositories/workout_repository.dart';
 import '../repositories/biometrics_repository.dart';
 import '../repositories/daily_readiness_repository.dart';
@@ -53,7 +55,6 @@ class DomRlEngineV2 {
       );
       final hrvReadings = await _biometricsRepository.getBiometricsForRange(
         userId,
-        BiometricType.hrv,
         startDate.subtract(const Duration(days: 7)),
         startDate,
       );
@@ -102,7 +103,7 @@ class DomRlEngineV2 {
     DateTime date,
     List<CompletedWorkout> recentWorkouts,
     List<DailyReadiness> recentReadiness,
-    List<BiometricReading> hrvReadings,
+    List<Biometrics> hrvReadings,
     int daysOut,
   ) async {
     // Base fatigue from recent training load
@@ -186,7 +187,9 @@ class DomRlEngineV2 {
     }
 
     if (readiness.isNotEmpty) {
-      final poorSleep = readiness.where((r) => r.sleepQuality < 5).length;
+      final poorSleep = readiness
+          .where((r) => (r.sleepQuality ?? 0) < 5)
+          .length;
       if (poorSleep >= 2) {
         factors.add('Inadequate sleep quality');
       }
@@ -468,7 +471,6 @@ class DomRlEngineV2 {
       );
       final hrvReadings = await _biometricsRepository.getBiometricsForRange(
         userId,
-        BiometricType.hrv,
         last7Days,
         now,
       );
@@ -478,7 +480,7 @@ class DomRlEngineV2 {
       // Check 1: Declining HRV
       if (hrvReadings.length >= 3) {
         final hrvTrend = _calculateTrend(
-          hrvReadings.map((r) => r.value).toList(),
+          hrvReadings.map((r) => r.hrv ?? 0).toList(),
         );
         if (hrvTrend < -0.15) {
           indicators.add(

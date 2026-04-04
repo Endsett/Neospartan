@@ -7,6 +7,47 @@ import '../services/supabase_database_service.dart';
 class WorkoutRepository {
   final SupabaseDatabaseService _database = SupabaseDatabaseService();
 
+  /// Get workouts for date range
+  Future<List<CompletedWorkout>> getWorkoutsForDateRange(
+    String userId,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    try {
+      // TODO: Implement with actual Supabase query
+      developer.log(
+        'Getting workouts for date range',
+        name: 'WorkoutRepository',
+      );
+      return [];
+    } catch (e) {
+      developer.log(
+        'Error getting workouts for date range: $e',
+        name: 'WorkoutRepository',
+      );
+      return [];
+    }
+  }
+
+  /// Get exercise history
+  Future<List<Map<String, dynamic>>> getExerciseHistory(
+    String userId,
+    String exerciseId, {
+    int limit = 50,
+  }) async {
+    try {
+      // TODO: Implement with actual Supabase query
+      developer.log('Getting exercise history', name: 'WorkoutRepository');
+      return [];
+    } catch (e) {
+      developer.log(
+        'Error getting exercise history: $e',
+        name: 'WorkoutRepository',
+      );
+      return [];
+    }
+  }
+
   /// Save workout session
   Future<bool> saveWorkout(String userId, CompletedWorkout workout) async {
     try {
