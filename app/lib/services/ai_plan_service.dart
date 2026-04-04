@@ -82,39 +82,6 @@ extension WorkoutProtocolMap on WorkoutProtocol {
   }
 }
 
-/// Weekly progress data for plan adjustments
-class WeeklyProgress {
-  final double completionPercentage;
-  final double averageRpe;
-  final int totalSessions;
-  final int strengthSessions;
-  final int conditioningSessions;
-  final DateTime weekStart;
-  final DateTime weekEnd;
-
-  const WeeklyProgress({
-    required this.completionPercentage,
-    required this.averageRpe,
-    required this.totalSessions,
-    required this.strengthSessions,
-    required this.conditioningSessions,
-    required this.weekStart,
-    required this.weekEnd,
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'completion_percentage': completionPercentage,
-      'average_rpe': averageRpe,
-      'total_sessions': totalSessions,
-      'strength_sessions': strengthSessions,
-      'conditioning_sessions': conditioningSessions,
-      'week_start': weekStart.toIso8601String(),
-      'week_end': weekEnd.toIso8601String(),
-    };
-  }
-}
-
 /// AI Plan Service using Gemini 2.5 Flash for intelligent training plans
 class AIPlanService {
   static final AIPlanService _instance = AIPlanService._internal();
@@ -372,11 +339,12 @@ ATHLETE PROFILE:
 - Goal: ${profile.trainingGoalText}
 
 WEEKLY PROGRESS:
-- Completion Rate: ${progress.completionPercentage}%
-- Average RPE: ${progress.averageRpe}/10
-- Total Sessions: ${progress.totalSessions}
-- Strength Sessions: ${progress.strengthSessions}
-- Conditioning Sessions: ${progress.conditioningSessions}
+- Completion Rate: ${(progress.completionRate * 100).toStringAsFixed(1)}%
+- Average RPE: ${progress.averageRPE}/10
+- Workouts Completed: ${progress.workoutsCompleted}/${progress.totalPlannedWorkouts}
+- Average Readiness: ${progress.averageReadiness}/100
+- Total Volume: ${progress.totalVolume}kg
+- Goals Achieved: ${progress.achievedGoals ? 'Yes' : 'No'}
 
 CURRENT PLAN:
 ${currentPlan.dailyWorkouts.map((d) => '- ${d.day}: ${d.workoutType} - ${d.focus}').join('\n')}
