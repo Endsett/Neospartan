@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../services/armor_analytics_service.dart';
-import '../services/firebase_sync_service.dart';
 import '../models/armor_analytics.dart';
 
 class GarrisonScreen extends StatefulWidget {

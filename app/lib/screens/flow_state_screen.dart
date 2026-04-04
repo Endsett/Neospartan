@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/workout_tracking.dart';
-import '../services/firebase_sync_service.dart';
 
 /// Flow State Assessment Screen
 /// Post-workout mental engagement tracking

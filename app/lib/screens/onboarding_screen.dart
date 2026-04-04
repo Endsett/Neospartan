@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme.dart';
 import '../models/user_profile.dart';
-import '../services/firebase_sync_service.dart';
 import '../services/ai_plan_service.dart';
 
 /// Multi-step onboarding screen for first-time users

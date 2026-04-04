@@ -6,7 +6,6 @@ import '../providers/workout_provider.dart';
 import '../models/fuel_log.dart';
 import '../models/workout_protocol.dart';
 import '../services/phalanx_ingestion_service.dart';
-import '../services/firebase_sync_service.dart';
 import '../services/dom_rl_engine.dart';
 
 import 'workout_session_screen.dart';

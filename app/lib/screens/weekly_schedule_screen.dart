@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/workout_tracking.dart';
-import '../services/firebase_sync_service.dart';
 import '../services/ai_plan_service.dart';
 import '../providers/auth_provider.dart';
 import '../models/user_profile.dart';
