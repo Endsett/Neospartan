@@ -3,6 +3,7 @@ import '../theme.dart';
 import '../models/workout_tracking.dart';
 import '../services/firebase_sync_service.dart';
 import '../services/dom_rl_engine_v2.dart';
+import '../services/ai_plan_service.dart';
 import '../providers/auth_provider.dart';
 import '../models/user_profile.dart';
 import 'package:provider/provider.dart';
@@ -605,16 +606,18 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
     );
 
     try {
-      final engine = DomRlEngineV2();
-      await engine.initialize();
+      final aiService = AIPlanService();
 
-      final mesocycle = await engine.generateMesocycle(
-        userId: userId,
-        goal: goal,
-        experienceLevel: experienceLevel,
-        weeks: 4,
-        trainingDaysPerWeek: trainingDaysPerWeek,
-      );
+      // Get user profile for AI plan generation
+      final authProvider = context.read<AuthProvider>();
+      final profile = authProvider.userProfile;
+
+      if (profile == null) {
+        throw Exception('User profile not found');
+      }
+
+      // Generate AI-powered training plan
+      final weeklyPlan = await aiService.generateInitialTrainingPlan(profile);
 
       Navigator.pop(context); // Close loading dialog
 
@@ -623,13 +626,13 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
         builder: (context) => AlertDialog(
           backgroundColor: LaconicTheme.ironGray,
           title: const Text(
-            'Plan Generated!',
+            'AI Plan Generated!',
             style: TextStyle(color: Colors.white),
           ),
           content: Text(
-            'Your ${mesocycle.goal.name} plan is ready!\n'
-            'Duration: ${mesocycle.weeks.length} weeks\n'
-            'Focus: ${mesocycle.weeks.first.focus}',
+            'Your personalized ${profile.trainingGoalText} plan is ready!\n'
+            'Duration: ${weeklyPlan.dailyWorkouts.length} days\n'
+            'Focus: ${weeklyPlan.intensityRecommendation}',
             style: const TextStyle(color: Colors.grey),
           ),
           actions: [

@@ -1,48 +1,55 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/user_profile.dart';
 import '../models/workout_protocol.dart';
 import '../models/workout_tracking.dart';
 import '../models/exercise.dart';
 
-/// Simple AI Plan Service for generating training plans
-/// NOTE: This is a simplified version without external AI dependencies
+/// AI Plan Service using Gemini 2.5 Flash for intelligent training plans
 class AIPlanService {
   static final AIPlanService _instance = AIPlanService._internal();
   factory AIPlanService() => _instance;
   AIPlanService._internal();
 
-  // API Key placeholder - simplified version (unused in local-only mode)
-  // static const String _apiKey = 'AIzaSyAp1gkplk30KQOPGenhjzcVnm_YQvz3Wyk';
+  // Gemini 2.5 Flash API Key
+  static const String _apiKey = 'AIzaSyAp1gkplk30KQOPGenhjzcVnm_YQvz3Wyk';
 
+  late GenerativeModel _model;
   bool _initialized = false;
 
-  /// Initialize the service
-  void initialize() {
-    _initialized = true;
-    debugPrint('AI Plan Service initialized (simplified mode)');
+  /// Initialize the service with Gemini 2.5 Flash
+  Future<void> initialize() async {
+    try {
+      _model = GenerativeModel(model: 'gemini-2.0-flash-exp', apiKey: _apiKey);
+      _initialized = true;
+      debugPrint('AI Plan Service initialized with Gemini 2.0 Flash');
+    } catch (e) {
+      debugPrint('Failed to initialize AI service: $e');
+      _initialized = false;
+    }
   }
 
   /// Check if service is initialized
   bool get isInitialized => _initialized;
 
-  /// Generate initial training plan based on user profile
+  /// Generate initial training plan based on user profile using Gemini AI
   Future<WeeklyPlan> generateInitialTrainingPlan(UserProfile profile) async {
-    if (!isInitialized) {
-      debugPrint('AI not available, using fallback plan generation');
+    if (!_initialized) {
+      debugPrint('AI not initialized, using fallback plan generation');
       return _generateFallbackPlan(profile);
     }
 
     try {
-      final content = jsonEncode({
-        'user_profile': profile.toMap(),
-        'request': 'Generate a personalized weekly training plan',
-      });
+      final prompt = _buildInitialPlanPrompt(profile);
 
-      debugPrint('AI Plan Request: $content');
+      final response = await _model.generateContent([Content.text(prompt)]);
 
-      // Simplified: Use fallback generation
-      return _generateFallbackPlan(profile);
+      final planText = response.text;
+      debugPrint('Gemini Response: $planText');
+
+      // Parse the AI response into a WeeklyPlan
+      return _parseAIResponseToPlan(planText!, profile);
     } catch (e) {
       debugPrint('Error generating AI plan: $e');
       return _generateFallbackPlan(profile);
@@ -114,8 +121,7 @@ Provide 2-3 specific recommendations for the next workout. Be concise and action
     }
   }
 
-  /// Build prompt for initial plan generation (unused - for future AI integration)
-  @Deprecated('Method not currently used - reserved for future AI integration')
+  /// Build prompt for initial plan generation using Gemini
   String _buildInitialPlanPrompt(UserProfile profile) {
     return '''
 You are an elite combat sports conditioning coach and strength trainer. Create a detailed weekly training plan for a ${profile.fitnessLevelText} level athlete training for ${profile.trainingGoalText}.
@@ -276,6 +282,67 @@ Use the same JSON format as before.
     }
   }
 
+  /// Parse Gemini AI response into WeeklyPlan
+  WeeklyPlan _parseAIResponseToPlan(String response, UserProfile profile) {
+    try {
+      // Try to extract JSON from the response
+      final jsonStart = response.indexOf('{');
+      final jsonEnd = response.lastIndexOf('}');
+
+      if (jsonStart == -1 || jsonEnd == -1) {
+        throw Exception('No JSON found in response');
+      }
+
+      final jsonString = response.substring(jsonStart, jsonEnd + 1);
+      final data = jsonDecode(jsonString);
+
+      final weekPlan = <DailyWorkout>[];
+
+      for (final dayData in data['week_plan']) {
+        final entries = <ProtocolEntry>[];
+
+        for (final ex in dayData['exercises']) {
+          // Match exercise from library or create custom
+          final exercise = _matchExercise(ex['name']);
+
+          entries.add(
+            ProtocolEntry(
+              exercise: exercise,
+              sets: ex['sets'] ?? 3,
+              reps: int.tryParse(ex['reps'].toString()) ?? 10,
+              intensityRpe: (ex['rpe'] as num?)?.toDouble() ?? 7.0,
+              restSeconds: ex['rest'] ?? 120,
+              notes: ex['notes'] ?? '',
+            ),
+          );
+        }
+
+        weekPlan.add(
+          DailyWorkout(
+            day: _getDayOfWeek(dayData['day']),
+            workoutType: dayData['workout_type'] ?? 'Training',
+            focus: dayData['focus'] ?? '',
+            protocolEntries: entries,
+            estimatedDuration:
+                int.tryParse(dayData['duration'].toString()) ?? 60,
+            intensityRpe: (dayData['intensity'] as num?)?.toDouble() ?? 7.0,
+          ),
+        );
+      }
+
+      return WeeklyPlan(
+        weekStarting: DateTime.now(),
+        dailyWorkouts: weekPlan,
+        weeklyNotes: data['weekly_notes'] ?? '',
+        intensityRecommendation: data['intensity_recommendation'] ?? '',
+      );
+    } catch (e) {
+      debugPrint('Error parsing Gemini response: $e');
+      debugPrint('Response: $response');
+      return _generateFallbackPlan(profile);
+    }
+  }
+
   /// Match exercise name to library
   Exercise _matchExercise(String name) {
     // Try to find matching exercise in library
@@ -299,6 +366,28 @@ Use the same JSON format as before.
       primaryMuscles: ['Full Body'],
       jointStress: {},
     );
+  }
+
+  /// Convert day string to Day enum
+  Day _getDayOfWeek(String dayName) {
+    switch (dayName.toLowerCase()) {
+      case 'monday':
+        return Day.monday;
+      case 'tuesday':
+        return Day.tuesday;
+      case 'wednesday':
+        return Day.wednesday;
+      case 'thursday':
+        return Day.thursday;
+      case 'friday':
+        return Day.friday;
+      case 'saturday':
+        return Day.saturday;
+      case 'sunday':
+        return Day.sunday;
+      default:
+        return Day.monday;
+    }
   }
 
   /// Generate fallback plan when AI is unavailable

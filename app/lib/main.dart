@@ -15,6 +15,7 @@ import 'providers/workout_provider.dart';
 import 'providers/ingestion_provider.dart';
 import 'providers/auth_provider.dart';
 import 'services/dom_rl_engine.dart';
+import 'services/ai_plan_service.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'services/firestore_service.dart';
@@ -42,8 +43,9 @@ void main() async {
 
     FirebaseSyncService().initialize();
     await DomRlEngine().initialize();
+    await AIPlanService().initialize();
     firebaseInitialized = true;
-    debugPrint('Firebase initialized successfully');
+    debugPrint('Firebase and AI services initialized successfully');
   } catch (e) {
     initError = e.toString();
     debugPrint('Firebase initialization failed: $e');
