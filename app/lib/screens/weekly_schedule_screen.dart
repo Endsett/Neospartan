@@ -42,9 +42,6 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
     });
 
     try {
-      // Calculate week range
-      final weekEnd = _currentWeekStart.add(const Duration(days: 6));
-
       // Load workouts for the week
       // TODO: Implement with Supabase
       final workouts = <CompletedWorkout>[];

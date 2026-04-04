@@ -375,9 +375,6 @@ Provide a concise summary that captures the key information.
     required String query,
     int limit = 10,
   }) async {
-    // Determine relevant memory types based on query keywords
-    final relevantTypes = _inferTypesFromQuery(query);
-
     final memories = await _memoryService.queryMemories(
       limit: limit * 2, // Get more to rank
     );

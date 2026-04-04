@@ -74,7 +74,7 @@ class SupabaseAuthService {
     try {
       debugPrint('Signing in with Google');
 
-      final response = await _supabase.auth.signInWithOAuth(
+      await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: 'io.supabase.flutter://callback',
       );

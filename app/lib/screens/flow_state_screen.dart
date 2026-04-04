@@ -297,15 +297,16 @@ class _FlowStateScreenState extends State<FlowStateScreen> {
     // );
 
     // Save to Firebase
-    final updatedWorkout = CompletedWorkout(
-      id: widget.workout.id,
-      protocolTitle: widget.workout.protocolTitle,
-      exercises: widget.workout.exercises,
-      startTime: widget.workout.startTime,
-      endTime: widget.workout.endTime,
-      totalDurationMinutes: widget.workout.totalDurationMinutes,
-      readinessScoreAtStart: widget.workout.readinessScoreAtStart,
-    );
+    // Create completed workout record
+    // final updatedWorkout = CompletedWorkout(
+    //   id: widget.workout.id,
+    //   protocolTitle: widget.workout.protocolTitle,
+    //   exercises: widget.workout.exercises,
+    //   startTime: widget.workout.startTime,
+    //   endTime: widget.workout.endTime,
+    //   totalDurationMinutes: widget.workout.totalDurationMinutes,
+    //   readinessScoreAtStart: widget.workout.readinessScoreAtStart,
+    // );
 
     // FirebaseSyncService().saveCompletedWorkout(updatedWorkout); // TODO: Implement with Supabase
     widget.onComplete();

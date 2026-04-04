@@ -1,5 +1,4 @@
 import 'dart:developer' as developer;
-import '../services/supabase_database_service.dart';
 
 /// Achievement Model
 class Achievement {
@@ -97,8 +96,6 @@ enum AchievementCategory { volume, consistency, strength, stoic, special }
 
 /// Achievement Repository
 class AchievementRepository {
-  final SupabaseDatabaseService _database = SupabaseDatabaseService();
-
   /// Get all available achievements (global list)
   Future<List<Achievement>> getAllAchievements() async {
     try {

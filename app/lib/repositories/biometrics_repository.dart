@@ -13,12 +13,40 @@ class BiometricsRepository {
       await _database.saveUserProfile(userId, {
         'body_compression': biometrics.toMap(),
       });
-      
-      developer.log('Biometrics saved successfully', name: 'BiometricsRepository');
+
+      developer.log(
+        'Biometrics saved successfully',
+        name: 'BiometricsRepository',
+      );
       return true;
     } catch (e) {
-      developer.log('Error saving biometrics: $e', name: 'BiometricsRepository');
+      developer.log(
+        'Error saving biometrics: $e',
+        name: 'BiometricsRepository',
+      );
       return false;
+    }
+  }
+
+  /// Get biometrics for date range
+  Future<List<Biometrics>> getBiometricsForRange(
+    String userId,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    try {
+      // TODO: Implement with actual Supabase query
+      developer.log(
+        'Getting biometrics for range',
+        name: 'BiometricsRepository',
+      );
+      return [];
+    } catch (e) {
+      developer.log(
+        'Error getting biometrics for range: $e',
+        name: 'BiometricsRepository',
+      );
+      return [];
     }
   }
 
@@ -31,7 +59,10 @@ class BiometricsRepository {
       // Fetch from user_profiles
       return [];
     } catch (e) {
-      developer.log('Error getting biometrics history: $e', name: 'BiometricsRepository');
+      developer.log(
+        'Error getting biometrics history: $e',
+        name: 'BiometricsRepository',
+      );
       return [];
     }
   }
