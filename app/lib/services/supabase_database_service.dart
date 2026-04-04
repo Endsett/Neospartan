@@ -143,6 +143,24 @@ class SupabaseDatabaseService {
     }
   }
 
+  /// Save a single workout set (for real-time logging)
+  Future<void> saveWorkoutSet(Map<String, dynamic> setData) async {
+    try {
+      debugPrint(
+        'Saving workout set: ${setData['exercise_name']} Set ${setData['set_number']}',
+      );
+
+      await _supabase.from('workout_sets').insert({
+        ...setData,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      debugPrint('Workout set saved successfully');
+    } catch (e) {
+      debugPrint('Error saving workout set: $e');
+      rethrow;
+    }
+  }
+
   /// Get workout sets for a session
   Future<List<Map<String, dynamic>>> getWorkoutSets(String sessionId) async {
     try {

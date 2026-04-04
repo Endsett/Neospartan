@@ -6,7 +6,8 @@ import '../providers/workout_provider.dart';
 import '../models/workout_protocol.dart';
 import '../models/workout_tracking.dart';
 import '../widgets/set_tracker_card.dart';
-import '../utils/page_transitions.dart';
+import '../services/supabase_database_service.dart';
+import '../config/supabase_config.dart';
 
 class WorkoutSessionScreen extends StatefulWidget {
   const WorkoutSessionScreen({super.key});
@@ -318,8 +319,8 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
       _currentSet++;
     });
 
-    // Auto-save to Firebase after each set
-    _saveSetToFirebase(performance);
+    // Auto-save to Supabase after each set
+    _saveSetToSupabase(performance);
 
     if (_currentSet <=
         (Provider.of<WorkoutProvider>(
@@ -337,14 +338,37 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
     }
   }
 
-  Future<void> _saveSetToFirebase(SetPerformance performance) async {
+  Future<void> _saveSetToSupabase(SetPerformance performance) async {
     try {
-      // Save individual set data - would be part of the workout log
+      final userId = SupabaseConfig.userId;
+      if (userId == null) {
+        debugPrint('Error: No authenticated user');
+        return;
+      }
+
+      final provider = Provider.of<WorkoutProvider>(context, listen: false);
+      final entry = provider.currentEntry;
+
+      if (entry == null) return;
+
+      // Save to Supabase workout_sets table
+      await SupabaseDatabaseService().saveWorkoutSet({
+        'user_id': userId,
+        'exercise_name': entry.exercise.name,
+        'set_number': performance.setNumber,
+        'reps_performed': performance.repsPerformed,
+        'load_used': performance.loadUsed,
+        'actual_rpe': performance.actualRPE,
+        'completed': performance.completed,
+        'notes': performance.notes,
+        'logged_at': DateTime.now().toIso8601String(),
+      });
+
       debugPrint(
-        'Set ${performance.setNumber} logged: ${performance.repsPerformed} reps @ RPE ${performance.actualRPE}',
+        'Set ${performance.setNumber} saved to Supabase: ${performance.repsPerformed} reps @ ${performance.loadUsed}kg, RPE ${performance.actualRPE}',
       );
     } catch (e) {
-      debugPrint('Error saving set: $e');
+      debugPrint('Error saving set to Supabase: $e');
     }
   }
 

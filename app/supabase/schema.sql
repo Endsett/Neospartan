@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS workout_sessions (
 -- Workout Sets Table
 CREATE TABLE IF NOT EXISTS workout_sets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   session_id UUID REFERENCES workout_sessions(id) ON DELETE CASCADE,
   exercise_name TEXT,
   set_number INTEGER,
