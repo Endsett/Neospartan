@@ -23,6 +23,7 @@ import 'services/supabase_auth_service.dart';
 import 'services/supabase_database_service.dart';
 import 'config/supabase_config.dart';
 import 'widgets/guest_mode_banner.dart';
+import 'widgets/warrior_animations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -88,6 +89,42 @@ class NeospartanApp extends StatelessWidget {
             ? AuthGate()
             : InitializationErrorScreen(error: initError),
         debugShowCheckedModeBanner: false,
+        // Custom page transitions for combat feel
+        onGenerateRoute: (settings) {
+          // Use CombatPageTransition for all routes
+          Widget? target;
+          switch (settings.name) {
+            case '/stadion':
+              target = const StadionScreen();
+              break;
+            case '/garrison':
+              target = const GarrisonScreen();
+              break;
+            case '/agoge':
+              target = const AgogeScreen();
+              break;
+            case '/stoic':
+              target = const StoicScreen();
+              break;
+            case '/phalanx':
+              target = const PhalanxScreen();
+              break;
+            case '/weekly_schedule':
+              target = const WeeklyScheduleScreen();
+              break;
+            case '/analytics':
+              target = const AnalyticsDashboard();
+              break;
+            case '/login':
+              target = const LoginScreen();
+              break;
+          }
+
+          if (target != null) {
+            return CombatPageTransition(child: target);
+          }
+          return null;
+        },
         routes: {
           '/stadion': (context) => const StadionScreen(),
           '/garrison': (context) => const GarrisonScreen(),
@@ -109,14 +146,7 @@ class AuthGate extends StatelessWidget {
       stream: SupabaseAuthService().authState,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            backgroundColor: Color(0xFF1a1a1a),
-            body: Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFd4af37)),
-              ),
-            ),
-          );
+          return const WarriorLoadingScreen(message: 'AUTHENTICATING');
         }
 
         final user = snapshot.data?.session?.user;
@@ -127,16 +157,7 @@ class AuthGate extends StatelessWidget {
             future: SupabaseDatabaseService().getUserProfile(user.id),
             builder: (context, profileSnapshot) {
               if (profileSnapshot.connectionState == ConnectionState.waiting) {
-                return const Scaffold(
-                  backgroundColor: Color(0xFF1a1a1a),
-                  body: Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Color(0xFFd4af37),
-                      ),
-                    ),
-                  ),
-                );
+                return const WarriorLoadingScreen(message: 'LOADING PROFILE');
               }
 
               final profile = profileSnapshot.data;
@@ -147,11 +168,9 @@ class AuthGate extends StatelessWidget {
               } else {
                 return OnboardingScreen(
                   onComplete: () {
-                    // Navigate to main app after onboarding
+                    // Navigate to main app after onboarding with combat transition
                     Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (context) => const MainNavigation(),
-                      ),
+                      CombatPageTransition(child: const MainNavigation()),
                     );
                   },
                 );
