@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/workout_tracking.dart';
+import '../models/user_profile.dart';
+import '../services/ai_plan_service.dart';
 
 /// Firebase Sync Service
 /// Handles data persistence and synchronization with Firebase Firestore
@@ -326,6 +328,236 @@ class FirebaseSyncService {
       jointFatigue: (map['joint_fatigue'] as Map<String, dynamic>? ?? {}).cast<String, int>(),
       flowState: map['flow_state'] ?? 5,
       readinessScore: map['readiness_score'] ?? 70,
+    );
+  }
+
+  // ============ USER PROFILE ============
+
+  /// Save user profile to Firestore
+  Future<void> saveUserProfile(UserProfile profile) async {
+    if (!isAuthenticated) {
+      debugPrint('Cannot save profile: User not authenticated');
+      return;
+    }
+
+    try {
+      await _firestore
+          .collection('users')
+          .doc(_userId)
+          .collection('profile')
+          .doc('main')
+          .set(profile.toMap());
+      
+      debugPrint('User profile saved');
+    } catch (e) {
+      debugPrint('Error saving user profile: $e');
+    }
+  }
+
+  /// Get user profile from Firestore
+  Future<UserProfile?> getUserProfile() async {
+    if (!isAuthenticated) return null;
+
+    try {
+      final doc = await _firestore
+          .collection('users')
+          .doc(_userId)
+          .collection('profile')
+          .doc('main')
+          .get();
+
+      if (doc.exists && doc.data() != null) {
+        return UserProfile.fromMap(doc.data()!);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error fetching user profile: $e');
+      return null;
+    }
+  }
+
+  /// Check if user has completed onboarding
+  Future<bool> hasCompletedOnboarding() async {
+    final profile = await getUserProfile();
+    return profile?.hasCompletedOnboarding ?? false;
+  }
+
+  // ============ AI TRAINING PLANS ============
+
+  /// Save AI-generated weekly plan
+  Future<void> saveWeeklyPlan(WeeklyPlan plan) async {
+    if (!isAuthenticated) return;
+
+    try {
+      final weekId = '${plan.weekStarting.year}-${plan.weekStarting.month.toString().padLeft(2, '0')}-${plan.weekStarting.day.toString().padLeft(2, '0')}';
+      
+      await _firestore
+          .collection('users')
+          .doc(_userId)
+          .collection('ai_training_plans')
+          .doc(weekId)
+          .set(plan.toMap());
+      
+      debugPrint('Weekly AI plan saved: $weekId');
+    } catch (e) {
+      debugPrint('Error saving weekly plan: $e');
+    }
+  }
+
+  /// Get weekly plan for specific date
+  Future<WeeklyPlan?> getWeeklyPlan(DateTime weekStart) async {
+    if (!isAuthenticated) return null;
+
+    try {
+      final weekId = '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-${weekStart.day.toString().padLeft(2, '0')}';
+      
+      final doc = await _firestore
+          .collection('users')
+          .doc(_userId)
+          .collection('ai_training_plans')
+          .doc(weekId)
+          .get();
+
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        return WeeklyPlan(
+          weekStarting: DateTime.parse(data['week_starting']),
+          dailyWorkouts: (data['daily_workouts'] as List<dynamic>)
+              .map((d) => _dailyWorkoutFromMap(d as Map<String, dynamic>))
+              .toList(),
+          weeklyNotes: data['weekly_notes'] ?? '',
+          intensityRecommendation: data['intensity_recommendation'] ?? '',
+        );
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error fetching weekly plan: $e');
+      return null;
+    }
+  }
+
+  /// Get current week's plan
+  Future<WeeklyPlan?> getCurrentWeekPlan() async {
+    final now = DateTime.now();
+    final weekStart = now.subtract(Duration(days: now.weekday - 1));
+    return getWeeklyPlan(weekStart);
+  }
+
+  /// Get scheduled workouts for a specific week
+  Future<Map<String, dynamic>> getScheduledWorkoutsForWeek(DateTime weekStart) async {
+    if (!isAuthenticated) return {};
+
+    try {
+      final plan = await getWeeklyPlan(weekStart);
+      if (plan == null) return {};
+
+      final scheduled = <String, dynamic>{};
+      for (final workout in plan.dailyWorkouts) {
+        final dateKey = '${workout.day.toLowerCase()}_${weekStart.month}_${weekStart.day}';
+        scheduled[dateKey] = {
+          'workout_name': workout.protocol.title,
+          'workout_type': workout.workoutType,
+          'focus': workout.focus,
+        };
+      }
+      return scheduled;
+    } catch (e) {
+      debugPrint('Error getting scheduled workouts: $e');
+      return {};
+    }
+  }
+
+  // ============ PROGRESS TRACKING ============
+
+  /// Save weekly progress data
+  Future<void> saveWeeklyProgress(WeeklyProgress progress) async {
+    if (!isAuthenticated) return;
+
+    try {
+      final weekId = '${progress.weekStarting.year}-${progress.weekStarting.month.toString().padLeft(2, '0')}-${progress.weekStarting.day.toString().padLeft(2, '0')}';
+      
+      await _firestore
+          .collection('users')
+          .doc(_userId)
+          .collection('weekly_progress')
+          .doc(weekId)
+          .set(progress.toMap());
+      
+      debugPrint('Weekly progress saved: $weekId');
+    } catch (e) {
+      debugPrint('Error saving weekly progress: $e');
+    }
+  }
+
+  /// Get weekly progress for auto-adjustment
+  Future<WeeklyProgress?> getWeeklyProgress(DateTime weekStart) async {
+    if (!isAuthenticated) return null;
+
+    try {
+      final weekId = '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-${weekStart.day.toString().padLeft(2, '0')}';
+      
+      final doc = await _firestore
+          .collection('users')
+          .doc(_userId)
+          .collection('weekly_progress')
+          .doc(weekId)
+          .get();
+
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        return WeeklyProgress(
+          weekStarting: DateTime.parse(data['week_starting']),
+          workoutsCompleted: data['workouts_completed'] ?? 0,
+          totalPlannedWorkouts: data['total_planned_workouts'] ?? 0,
+          averageRPE: data['average_rpe']?.toDouble() ?? 0,
+          totalVolume: data['total_volume']?.toDouble() ?? 0,
+          averageReadiness: data['average_readiness'] ?? 70,
+          achievedGoals: data['achieved_goals'] ?? false,
+          userFeedback: data['user_feedback'],
+        );
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error fetching weekly progress: $e');
+      return null;
+    }
+  }
+
+  // ============ ADDITIONAL PARSERS ============
+
+  DailyWorkout _dailyWorkoutFromMap(Map<String, dynamic> map) {
+    return DailyWorkout(
+      day: map['day'] ?? 'Monday',
+      workoutType: map['workout_type'] ?? 'General',
+      focus: map['focus'] ?? '',
+      protocol: _protocolFromMap(map['protocol'] ?? {}),
+    );
+  }
+
+  WorkoutProtocol _protocolFromMap(Map<String, dynamic> map) {
+    final entries = (map['entries'] as List<dynamic>? ?? [])
+        .map((e) => _protocolEntryFromMap(e as Map<String, dynamic>))
+        .toList();
+    
+    return WorkoutProtocol(
+      title: map['title'] ?? 'Workout',
+      description: map['description'] ?? '',
+      difficulty: map['difficulty'] ?? 1,
+      entries: entries,
+    );
+  }
+
+  ProtocolEntry _protocolEntryFromMap(Map<String, dynamic> map) {
+    return ProtocolEntry(
+      exercise: Exercise.library.firstWhere(
+        (e) => e.name.toLowerCase() == (map['exercise_name'] ?? '').toLowerCase(),
+        orElse: () => Exercise.library.first,
+      ),
+      sets: map['sets'] ?? 3,
+      reps: map['reps'] ?? 10,
+      intensityRpe: map['rpe']?.toDouble() ?? 7.0,
+      restSeconds: map['rest_seconds'] ?? 60,
+      notes: map['notes'],
     );
   }
 }

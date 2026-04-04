@@ -9,10 +9,12 @@ import 'screens/agoge_screen.dart';
 import 'screens/stoic_screen.dart';
 import 'screens/phalanx_screen.dart';
 import 'screens/weekly_schedule_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'providers/workout_provider.dart';
 import 'providers/ingestion_provider.dart';
 import 'services/dom_rl_engine.dart';
 import 'services/firebase_sync_service.dart';
+import 'services/ai_plan_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,7 +55,7 @@ void main() async {
   );
 }
 
-class NeospartanApp extends StatelessWidget {
+class NeospartanApp extends StatefulWidget {
   final bool firebaseInitialized;
   final String? initError;
   
@@ -64,13 +66,67 @@ class NeospartanApp extends StatelessWidget {
   });
 
   @override
+  State<NeospartanApp> createState() => _NeospartanAppState();
+}
+
+class _NeospartanAppState extends State<NeospartanApp> {
+  bool _hasCompletedOnboarding = true; // Default to true while checking
+  bool _isCheckingOnboarding = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.firebaseInitialized) {
+      _checkOnboardingStatus();
+    }
+  }
+
+  Future<void> _checkOnboardingStatus() async {
+    try {
+      final firebase = FirebaseSyncService();
+      final hasCompleted = await firebase.hasCompletedOnboarding();
+      setState(() {
+        _hasCompletedOnboarding = hasCompleted;
+        _isCheckingOnboarding = false;
+      });
+    } catch (e) {
+      debugPrint('Error checking onboarding status: $e');
+      setState(() {
+        _hasCompletedOnboarding = false; // Show onboarding if error
+        _isCheckingOnboarding = false;
+      });
+    }
+  }
+
+  void _onOnboardingComplete() {
+    setState(() {
+      _hasCompletedOnboarding = true;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    Widget home;
+    
+    if (!widget.firebaseInitialized) {
+      home = FirebaseInitErrorScreen(error: widget.initError);
+    } else if (_isCheckingOnboarding) {
+      home = const Scaffold(
+        backgroundColor: LaconicTheme.deepBlack,
+        body: Center(
+          child: CircularProgressIndicator(color: LaconicTheme.spartanBronze),
+        ),
+      );
+    } else if (!_hasCompletedOnboarding) {
+      home = OnboardingScreen(onComplete: _onOnboardingComplete);
+    } else {
+      home = const NeospartanShell();
+    }
+
     return MaterialApp(
       title: 'Neospartan',
       theme: LaconicTheme.theme,
-      home: firebaseInitialized 
-          ? const NeospartanShell()
-          : FirebaseInitErrorScreen(error: initError),
+      home: home,
       debugShowCheckedModeBanner: false,
     );
   }
