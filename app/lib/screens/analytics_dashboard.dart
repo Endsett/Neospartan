@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../models/workout_tracking.dart';
 import '../models/user_profile.dart';
-import '../services/firebase_sync_service.dart';
 import '../providers/auth_provider.dart';
 
 /// Analytics Dashboard - Shows workout progress and AI insights
