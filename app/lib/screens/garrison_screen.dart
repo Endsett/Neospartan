@@ -42,13 +42,9 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
     // Load Armor Analytics
     // final microCycle = await _firebase.buildMicroCycle(); // TODO: Implement with Supabase
     final microCycle = MicroCycle(
-      id: '',
-      userId: '',
+      days: [],
       startDate: DateTime.now(),
       endDate: DateTime.now().add(const Duration(days: 7)),
-      days: [],
-      goals: [],
-      notes: '',
     );
     final armorResult = _armorService.analyze(microCycle);
 

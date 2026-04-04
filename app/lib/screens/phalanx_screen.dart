@@ -94,13 +94,9 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
       // final microCycle = await _firebase.buildMicroCycle(); // TODO: Implement with Supabase
       // Create empty MicroCycle for now
       final microCycle = MicroCycle(
-        id: '',
-        userId: '',
+        days: [],
         startDate: DateTime.now(),
         endDate: DateTime.now().add(const Duration(days: 7)),
-        days: [],
-        goals: [],
-        notes: '',
       );
       final result = _domRlEngine.optimize(microCycle, protocol);
       finalProtocol = result.optimizedProtocol;
