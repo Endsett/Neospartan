@@ -43,8 +43,9 @@ class _AgogeScreenState extends State<AgogeScreen> {
     setState(() => _isLoading = true);
 
     // Fetch readiness data
-    final data = await _healthService.fetchReadinessData();
-    final score = data['score'] as int;
+    // TODO: Implement readiness data fetching
+    // final data = await _healthService.fetchReadinessData();
+    final score = 80; // Default readiness score
 
     // Build micro-cycle from Firebase
     final microCycle = await _firebase.buildMicroCycle();

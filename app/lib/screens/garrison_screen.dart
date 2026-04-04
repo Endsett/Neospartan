@@ -32,8 +32,12 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
 
   Future<void> _refreshData() async {
     setState(() => _isLoading = true);
-    await _healthService.requestPermissions();
-    final data = await _healthService.fetchReadinessData();
+    // TODO: Implement health service
+    // await _healthService.requestPermissions();
+    // final data = await _healthService.fetchReadinessData();
+
+    // Use mock data for now
+    final data = {'hrv': 65.0, 'sleep': 7.5, 'rhr': 55, 'score': 85};
 
     // Load Armor Analytics
     final microCycle = await _firebase.buildMicroCycle();

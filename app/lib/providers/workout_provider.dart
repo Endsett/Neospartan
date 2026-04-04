@@ -222,7 +222,6 @@ class WorkoutProvider with ChangeNotifier {
     _isWorkoutActive = false;
     _startTime = null;
     _initialReadinessScore = null;
-    _currentEntry = null;
     _exerciseSets.clear();
     _completedExercises.clear();
     notifyListeners();
