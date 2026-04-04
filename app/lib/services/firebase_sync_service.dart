@@ -26,6 +26,25 @@ class FirebaseSyncService {
     });
   }
 
+  /// Sign in anonymously to enable data storage
+  Future<void> signInAnonymously() async {
+    try {
+      if (!isAuthenticated) {
+        final credential = await _auth.signInAnonymously();
+        debugPrint('Signed in anonymously: ${credential.user?.uid}');
+      }
+    } catch (e) {
+      debugPrint('Anonymous sign-in failed: $e');
+    }
+  }
+
+  /// Ensure user is authenticated (for data operations)
+  Future<void> ensureAuthenticated() async {
+    if (!isAuthenticated) {
+      await signInAnonymously();
+    }
+  }
+
   // ============ WORKOUT HISTORY ============
 
   /// Save completed workout to Firestore

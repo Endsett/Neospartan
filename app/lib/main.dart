@@ -29,6 +29,7 @@ void main() async {
     );
     
     FirebaseSyncService().initialize();
+    await FirebaseSyncService().ensureAuthenticated(); // Ensure user can store data
     await DomRlEngine().initialize();
     firebaseInitialized = true;
     debugPrint('Firebase initialized successfully');
