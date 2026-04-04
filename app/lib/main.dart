@@ -20,7 +20,6 @@ import 'package:flutter/foundation.dart';
 import 'services/firestore_service.dart';
 import 'services/firebase_sync_service.dart';
 import 'widgets/guest_mode_banner.dart';
-import 'utils/page_transitions.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
