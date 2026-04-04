@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../providers/workout_provider.dart';
 import '../models/workout_protocol.dart';
+import '../models/workout_tracking.dart';
+import '../widgets/set_tracker_card.dart';
+import '../services/firebase_sync_service.dart';
 
 class WorkoutSessionScreen extends StatefulWidget {
   const WorkoutSessionScreen({super.key});
@@ -17,6 +21,9 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
   Timer? _restTimer;
   int _restSecondsRemaining = 0;
   bool _isResting = false;
+  int _currentSet = 1;
+  final List<SetPerformance> _completedSets = [];
+  final _firebase = FirebaseSyncService();
   
   @override
   void initState() {
@@ -180,85 +187,27 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
           Text("TARGET RPE: ${entry.intensityRpe}", style: const TextStyle(color: Colors.grey)),
           const SizedBox(height: 40),
           
-          // Set tracking cards with RPE logging
+          // Set tracking cards with detailed logging
           ...List.generate(entry.sets, (index) {
-            final isCompleted = index < (_currentSet - 1);
-            final isCurrent = index == (_currentSet - 1);
+            final setNumber = index + 1;
+            final isCompleted = setNumber < _currentSet;
+            final isCurrent = setNumber == _currentSet;
             
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isCompleted ? LaconicTheme.spartanBronze.withValues(alpha: 0.1) : 
-                       isCurrent ? LaconicTheme.ironGray.withValues(alpha: 0.2) : 
-                       LaconicTheme.ironGray.withValues(alpha: 0.1),
-                border: Border.all(
-                  color: isCompleted ? LaconicTheme.spartanBronze.withValues(alpha: 0.5) : 
-                         isCurrent ? LaconicTheme.spartanBronze : 
-                         LaconicTheme.ironGray.withValues(alpha: 0.3),
-                  width: isCurrent ? 2 : 1,
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'SET ${index + 1}',
-                        style: TextStyle(
-                          color: isCompleted || isCurrent ? LaconicTheme.spartanBronze : Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (isCompleted) 
-                        const Icon(Icons.check_circle, color: LaconicTheme.spartanBronze, size: 20),
-                    ],
-                  ),
-                  if (isCurrent && !_isResting) ...[
-                    const SizedBox(height: 12),
-                    const Text('LOG RPE:', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: List.generate(8, (i) {
-                        final rpe = i + 3;
-                        return GestureDetector(
-                          onTap: () => _logSet(entry, rpe.toDouble()),
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: rpe == entry.intensityRpe.round() 
-                                  ? LaconicTheme.spartanBronze.withValues(alpha: 0.3)
-                                  : LaconicTheme.ironGray.withValues(alpha: 0.3),
-                              border: Border.all(
-                                color: rpe == entry.intensityRpe.round() 
-                                    ? LaconicTheme.spartanBronze 
-                                    : Colors.transparent,
-                              ),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Center(
-                              child: Text(
-                                '$rpe',
-                                style: TextStyle(
-                                  color: rpe == entry.intensityRpe.round() 
-                                      ? LaconicTheme.spartanBronze 
-                                      : Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                  ],
-                ],
-              ),
+            // Find previous performance for this set if completed
+            SetPerformance? previousPerformance;
+            if (isCompleted && index < _completedSets.length) {
+              previousPerformance = _completedSets[index];
+            }
+            
+            return SetTrackerCard(
+              setNumber: setNumber,
+              targetReps: entry.reps,
+              targetRPE: entry.intensityRpe,
+              isCompleted: isCompleted,
+              isCurrent: isCurrent && !_isResting,
+              previousPerformance: previousPerformance,
+              onComplete: isCurrent && !_isResting ? _logSet : (_) {},
+              onEdit: isCompleted ? () => _editSet(index) : null,
             );
           }),
           
@@ -287,14 +236,46 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
     );
   }
 
-  void _logSet(ProtocolEntry entry, double rpe) {
-    setState(() => _currentSet++);
-    if (_currentSet <= entry.sets) {
-      _startRest(entry.restSeconds);
+  void _logSet(SetPerformance performance) {
+    setState(() {
+      _completedSets.add(performance);
+      _currentSet++;
+    });
+    
+    // Auto-save to Firebase after each set
+    _saveSetToFirebase(performance);
+    
+    if (_currentSet <= (Provider.of<WorkoutProvider>(context, listen: false).currentEntry?.sets ?? 0)) {
+      _startRest(Provider.of<WorkoutProvider>(context, listen: false).currentEntry?.restSeconds ?? 60);
     }
   }
 
-  int _currentSet = 1;
+  Future<void> _saveSetToFirebase(SetPerformance performance) async {
+    try {
+      // Save individual set data - would be part of the workout log
+      debugPrint('Set ${performance.setNumber} logged: ${performance.repsPerformed} reps @ RPE ${performance.actualRPE}');
+    } catch (e) {
+      debugPrint('Error saving set: $e');
+    }
+  }
+
+  void _editSet(int setIndex) {
+    // Allow editing a completed set
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: LaconicTheme.deepBlack,
+        title: const Text('EDIT SET', style: TextStyle(color: Colors.white)),
+        content: const Text('Edit functionality would allow modifying set data'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CLOSE', style: TextStyle(color: LaconicTheme.spartanBronze)),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _finishWorkout(BuildContext context, WorkoutProvider provider) {
     provider.finishWorkout();

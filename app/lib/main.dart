@@ -8,6 +8,7 @@ import 'screens/garrison_screen.dart';
 import 'screens/agoge_screen.dart';
 import 'screens/stoic_screen.dart';
 import 'screens/phalanx_screen.dart';
+import 'screens/weekly_schedule_screen.dart';
 import 'providers/workout_provider.dart';
 import 'providers/ingestion_provider.dart';
 import 'services/dom_rl_engine.dart';
@@ -87,11 +88,12 @@ class _NeospartanShellState extends State<NeospartanShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final List<Widget> _screens = [
-    const AgogeScreen(),
-    const GarrisonScreen(),
-    const StadionScreen(),
-    const StoicScreen(),
-    const PhalanxScreen(),
+    const AgogeScreen(),      // Training - Combat Conditioning
+    const WeeklyScheduleScreen(), // Schedule - Weekly Plan
+    const GarrisonScreen(),   // Recovery - Readiness & Armor
+    const StadionScreen(),    // Exercises - Movement Library
+    const StoicScreen(),      // Mindset - Mental Conditioning
+    const PhalanxScreen(),    // Import - Plan Ingestion
   ];
 
   @override
@@ -133,11 +135,12 @@ class _NeospartanShellState extends State<NeospartanShell> {
               ),
             ),
           ),
-          _drawerItem(0, "AGOGE", Icons.auto_awesome),
-          _drawerItem(1, "GARRISON", Icons.shield_outlined),
-          _drawerItem(2, "STADION", Icons.directions_run),
-          _drawerItem(3, "STOIC", Icons.psychology),
-          _drawerItem(4, "PHALANX", Icons.document_scanner),
+          _drawerItem(0, "TRAINING", Icons.auto_awesome, "Combat Conditioning"),
+          _drawerItem(1, "SCHEDULE", Icons.calendar_today, "Weekly Plan"),
+          _drawerItem(2, "RECOVERY", Icons.shield_outlined, "Readiness & Armor"),
+          _drawerItem(3, "EXERCISES", Icons.directions_run, "Movement Library"),
+          _drawerItem(4, "MINDSET", Icons.psychology, "Mental Conditioning"),
+          _drawerItem(5, "IMPORT", Icons.document_scanner, "Plan Ingestion"),
           const Spacer(),
           Padding(
             padding: const EdgeInsets.all(20.0),
@@ -155,17 +158,30 @@ class _NeospartanShellState extends State<NeospartanShell> {
     );
   }
 
-  Widget _drawerItem(int index, String title, IconData icon) {
+  Widget _drawerItem(int index, String title, IconData icon, String subtitle) {
     bool isSelected = _selectedIndex == index;
     return ListTile(
       leading: Icon(icon, color: isSelected ? LaconicTheme.spartanBronze : Colors.grey),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: isSelected ? Colors.white : Colors.grey,
-          letterSpacing: 2.0,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.grey,
+              letterSpacing: 2.0,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: isSelected ? LaconicTheme.spartanBronze : Colors.grey.withValues(alpha: 0.5),
+              fontSize: 10,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ],
       ),
       onTap: () {
         setState(() {
