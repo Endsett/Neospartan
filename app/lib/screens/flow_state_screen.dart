@@ -307,7 +307,7 @@ class _FlowStateScreenState extends State<FlowStateScreen> {
       readinessScoreAtStart: widget.workout.readinessScoreAtStart,
     );
 
-    FirebaseSyncService().saveCompletedWorkout(updatedWorkout);
+    // FirebaseSyncService().saveCompletedWorkout(updatedWorkout); // TODO: Implement with Supabase
     widget.onComplete();
   }
 }

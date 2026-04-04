@@ -1,12 +1,12 @@
 import 'dart:developer' as developer;
 import '../models/achievement.dart';
-import '../services/firestore_service.dart';
+import '../repositories/achievement_repository.dart';
 
 /// Achievement Service
 /// Handles checking, awarding, and tracking achievements
 class AchievementService {
   final AchievementRepository _repository = AchievementRepository();
-  final FirestoreService _firestoreService = FirestoreService();
+  // final FirestoreService _firestoreService = FirestoreService(); // Removed - use Supabase instead
 
   /// Check achievements after a workout completion
   Future<List<Achievement>> checkWorkoutAchievements(
