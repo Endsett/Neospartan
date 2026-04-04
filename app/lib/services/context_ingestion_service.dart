@@ -389,35 +389,6 @@ Provide a concise summary that captures the key information.
     return memories.take(limit).toList();
   }
 
-  /// Infer memory types from query keywords
-  List<AIMemoryType> _inferTypesFromQuery(String query) {
-    final lower = query.toLowerCase();
-    final types = <AIMemoryType>[];
-
-    if (lower.contains('workout') ||
-        lower.contains('exercise') ||
-        lower.contains('training')) {
-      types.add(AIMemoryType.workoutHistory);
-    }
-    if (lower.contains('recovery') ||
-        lower.contains('sleep') ||
-        lower.contains('hrv')) {
-      types.add(AIMemoryType.healthMetrics);
-      types.add(AIMemoryType.readiness);
-    }
-    if (lower.contains('goal') ||
-        lower.contains('preference') ||
-        lower.contains('like')) {
-      types.add(AIMemoryType.preferences);
-      types.add(AIMemoryType.userProfile);
-    }
-    if (types.isEmpty) {
-      // Default to all types if no keywords match
-      return AIMemoryType.values;
-    }
-    return types;
-  }
-
   /// Calculate relevance score for a query
   double _calculateQueryRelevance(AIMemoryEntry memory, String query) {
     var score = memory.relevanceScore;

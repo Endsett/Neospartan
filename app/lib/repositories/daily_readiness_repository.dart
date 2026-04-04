@@ -1,11 +1,8 @@
 import 'dart:developer' as developer;
 import '../models/daily_readiness.dart';
-import '../services/supabase_database_service.dart';
 
 /// Repository for Daily Readiness data using Supabase
 class DailyReadinessRepository {
-  final SupabaseDatabaseService _database = SupabaseDatabaseService();
-
   /// Save daily readiness
   Future<bool> saveDailyReadiness(DailyReadiness readiness) async {
     try {
