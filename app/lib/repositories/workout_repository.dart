@@ -235,7 +235,7 @@ class WorkoutRepository {
                 ),
                 totalReps: exercise.sets.fold<int>(
                   0,
-                  (total, s) => total + s.repsPerformed,
+                  (total, s) => total + (s.repsPerformed ?? 0),
                 ),
                 avgRpe: exercise.sets.isEmpty
                     ? 0
