@@ -377,6 +377,45 @@ Return a JSON object with the same structure as before:
 ''';
   }
 
+  /// Generate training plan with thinking model and thought summaries (for debugging)
+  Future<Map<String, dynamic>> generatePlanWithThinking(
+    UserProfile profile,
+  ) async {
+    if (!isInitialized) {
+      debugPrint('AI Plan Service not initialized');
+      return {'plan': null, 'thoughts': null, 'error': 'Not initialized'};
+    }
+
+    try {
+      final prompt = _buildBasicPrompt(profile);
+
+      debugPrint('Generating plan with thinking model...');
+
+      final result = await _geminiClient.generateContentWithThoughts(
+        prompt,
+        maxRetries: AIConfig.maxRetries,
+        delay: AIConfig.baseDelay,
+        includeThoughts: AIConfig.includeThoughts,
+      );
+
+      if (result.text != null) {
+        final plan = _parseAIResponseToPlan(result.text!, profile);
+
+        return {
+          'plan': plan,
+          'thoughts': result.thoughtSummary,
+          'hasThoughts': result.hasThoughts,
+          'error': null,
+        };
+      }
+    } catch (e) {
+      debugPrint('Error generating plan with thinking: $e');
+      return {'plan': null, 'thoughts': null, 'error': e.toString()};
+    }
+
+    return {'plan': null, 'thoughts': null, 'error': 'Failed to generate plan'};
+  }
+
   /// Parse Gemini AI response into WeeklyPlan
   WeeklyPlan _parseAIResponseToPlan(String response, UserProfile profile) {
     try {
