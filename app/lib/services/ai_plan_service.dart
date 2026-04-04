@@ -15,9 +15,8 @@ class AIPlanService {
   GenerativeModel? _model;
   bool _initialized = false;
 
-  // Gemini API Key - In production, this should be stored securely
-  // For now, we'll use a placeholder that users need to replace
-  static const String _apiKey = 'YOUR_GEMINI_API_KEY_HERE';
+  // Gemini API Key - Production key
+  static const String _apiKey = 'AIzaSyAp1gkplk30KQOPGenhjzcVnm_YQvz3Wyk';
 
   /// Initialize the Gemini model
   void initialize() {
