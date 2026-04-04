@@ -212,6 +212,123 @@ class DomRlEngineV2 {
 
   // ==================== PERIODIZATION ====================
 
+  Future<AdaptiveWeeklyPeriodizationDecision> generateAdaptiveWeeklyDirective({
+    required String userId,
+    required WeeklyProgress weeklyProgress,
+  }) async {
+    try {
+      final recentReadiness = await _readinessRepository.getRecentReadiness(
+        userId,
+        days: 7,
+      );
+      final fatiguePredictions = await predictFatigue(userId, 7);
+
+      final readinessValues = recentReadiness
+          .map((r) => r.overallReadiness)
+          .toList(growable: false);
+      final readinessTrend = readinessValues.length >= 2
+          ? _calculateTrend(readinessValues)
+          : 0.0;
+
+      final averagePredictedFatigue = fatiguePredictions.isEmpty
+          ? 50.0
+          : fatiguePredictions
+                    .map((p) => p.predictedFatigueScore)
+                    .reduce((a, b) => a + b) /
+                fatiguePredictions.length;
+
+      final readinessBaseline = readinessValues.isEmpty
+          ? weeklyProgress.averageReadiness.toDouble()
+          : readinessValues.reduce((a, b) => a + b) / readinessValues.length;
+
+      if (averagePredictedFatigue >= 68 ||
+          readinessTrend <= -0.08 ||
+          weeklyProgress.shouldDecreaseDifficulty) {
+        final fatigueSeverity = ((averagePredictedFatigue - 68) / 25).clamp(
+          0.0,
+          1.0,
+        );
+        final volumeReduction = -(30 + (fatigueSeverity * 15)).round();
+        final intensityReduction = -(8 + (fatigueSeverity * 10)).round();
+
+        return AdaptiveWeeklyPeriodizationDecision(
+          directive: WeeklyDirective.deload,
+          volumeAdjustmentPercent: volumeReduction,
+          intensityAdjustmentPercent: intensityReduction,
+          readinessTrend: readinessTrend,
+          predictedFatigueScore: averagePredictedFatigue,
+          summary:
+              'Deload week: recovery metrics indicate accumulated fatigue. Reduce volume and intensity to restore performance.',
+          reasons: [
+            if (averagePredictedFatigue >= 68)
+              'Predicted fatigue elevated (${averagePredictedFatigue.toStringAsFixed(1)}/100)',
+            if (readinessTrend <= -0.08)
+              'Readiness trend declining (${(readinessTrend * 100).toStringAsFixed(1)}%)',
+            if (weeklyProgress.shouldDecreaseDifficulty)
+              'Weekly completion/readiness suggests reduced workload',
+          ],
+        );
+      }
+
+      if (averagePredictedFatigue <= 38 &&
+          readinessTrend >= 0.06 &&
+          weeklyProgress.shouldIncreaseDifficulty) {
+        final readinessHeadroom = ((readinessBaseline - 70) / 20).clamp(
+          0.0,
+          1.0,
+        );
+        final volumeIncrease = (8 + (readinessHeadroom * 7)).round();
+        final intensityIncrease = (3 + (readinessHeadroom * 5)).round();
+
+        return AdaptiveWeeklyPeriodizationDecision(
+          directive: WeeklyDirective.overload,
+          volumeAdjustmentPercent: volumeIncrease,
+          intensityAdjustmentPercent: intensityIncrease,
+          readinessTrend: readinessTrend,
+          predictedFatigueScore: averagePredictedFatigue,
+          summary:
+              'Overload week: recovery and readiness trends support progressive loading.',
+          reasons: [
+            'Predicted fatigue low (${averagePredictedFatigue.toStringAsFixed(1)}/100)',
+            'Readiness trend improving (${(readinessTrend * 100).toStringAsFixed(1)}%)',
+            'Weekly completion and RPE are in progression range',
+          ],
+        );
+      }
+
+      return AdaptiveWeeklyPeriodizationDecision(
+        directive: WeeklyDirective.maintain,
+        volumeAdjustmentPercent: 0,
+        intensityAdjustmentPercent: 0,
+        readinessTrend: readinessTrend,
+        predictedFatigueScore: averagePredictedFatigue,
+        summary:
+            'Maintain week: keep workload stable while reinforcing technique and consistency.',
+        reasons: [
+          'Fatigue and readiness are within stable range',
+          'No strong overload or deload trigger detected',
+        ],
+      );
+    } catch (e) {
+      developer.log(
+        'Error generating adaptive weekly directive: $e',
+        name: 'DomRlEngineV2',
+        error: e,
+      );
+
+      return AdaptiveWeeklyPeriodizationDecision(
+        directive: WeeklyDirective.maintain,
+        volumeAdjustmentPercent: 0,
+        intensityAdjustmentPercent: 0,
+        readinessTrend: 0,
+        predictedFatigueScore: 50,
+        summary:
+            'Maintain week (fallback): insufficient data for periodization shift.',
+        reasons: const ['Adaptive periodization fallback applied'],
+      );
+    }
+  }
+
   /// Generate a mesocycle (4-week training block) with periodization
   Future<MesocyclePlan> generateMesocycle({
     required String userId,
@@ -752,3 +869,37 @@ enum DeloadIndicatorType {
 enum DeloadSeverity { low, moderate, high, critical }
 
 enum DeloadRecommendationType { notNeeded, recommended, mandatory }
+
+enum WeeklyDirective { overload, maintain, deload }
+
+class AdaptiveWeeklyPeriodizationDecision {
+  final WeeklyDirective directive;
+  final int volumeAdjustmentPercent;
+  final int intensityAdjustmentPercent;
+  final double readinessTrend;
+  final double predictedFatigueScore;
+  final String summary;
+  final List<String> reasons;
+
+  const AdaptiveWeeklyPeriodizationDecision({
+    required this.directive,
+    required this.volumeAdjustmentPercent,
+    required this.intensityAdjustmentPercent,
+    required this.readinessTrend,
+    required this.predictedFatigueScore,
+    required this.summary,
+    required this.reasons,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'directive': directive.name,
+      'volume_adjustment_percent': volumeAdjustmentPercent,
+      'intensity_adjustment_percent': intensityAdjustmentPercent,
+      'readiness_trend': readinessTrend,
+      'predicted_fatigue_score': predictedFatigueScore,
+      'summary': summary,
+      'reasons': reasons,
+    };
+  }
+}
