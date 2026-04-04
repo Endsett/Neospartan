@@ -24,11 +24,8 @@ class DomRlEngineV2 {
   final DailyReadinessRepository _readinessRepository =
       DailyReadinessRepository();
 
-  bool _isInitialized = false;
-
   Future<void> initialize() async {
     await _baseEngine.initialize();
-    _isInitialized = true;
     developer.log('DOM-RL 2.0 Engine initialized', name: 'DomRlEngineV2');
   }
 
@@ -43,7 +40,6 @@ class DomRlEngineV2 {
   }) async {
     try {
       final startDate = fromDate ?? DateTime.now();
-      final endDate = startDate.add(Duration(days: daysAhead));
 
       // Get historical data
       final workouts = await _workoutRepository.getWorkoutsForDateRange(
@@ -231,12 +227,13 @@ class DomRlEngineV2 {
         endDate,
       );
       final avgVolume = recentWorkouts.isEmpty
-          ? 0
-          : recentWorkouts.fold<int>(
-                  0,
-                  (sum, w) => sum + w.totalDurationMinutes,
-                ) /
-                recentWorkouts.length;
+          ? 0.0
+          : (recentWorkouts.fold<int>(
+                      0,
+                      (sum, w) => sum + w.totalDurationMinutes,
+                    ) /
+                    recentWorkouts.length)
+                .toDouble();
 
       final weeklyPlans = <WeeklyPlan>[];
 
