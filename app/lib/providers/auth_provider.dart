@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_profile.dart';
 import '../repositories/user_repository.dart';
-import '../services/auth_service.dart';
+import '../services/supabase_auth_service.dart';
 
 /// Provider managing authentication state and user profile
 class AuthProvider extends ChangeNotifier {
-  final AuthService _authService = AuthService();
+  final SupabaseAuthService _authService = SupabaseAuthService();
   final UserRepository _userRepository = UserRepository();
 
   User? _user;
@@ -16,7 +16,7 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   bool _isInitialized = false;
-  StreamSubscription<User?>? _authStateSubscription;
+  StreamSubscription<AuthState>? _authStateSubscription;
 
   // Getters
   User? get user => _user;
@@ -25,11 +25,10 @@ class AuthProvider extends ChangeNotifier {
   String? get error => _error;
   bool get isInitialized => _isInitialized;
   bool get isAuthenticated => _user != null;
-  bool get isAnonymous => _user?.isAnonymous ?? false;
-  String? get userId => _user?.uid;
-  String? get displayName => _user?.displayName ?? _userProfile?.displayName;
+  String? get userId => _user?.id;
+  String? get displayName => _user?.userMetadata?['display_name'] ?? _userProfile?.displayName;
   String? get email => _user?.email;
-  String? get photoUrl => _user?.photoURL;
+  String? get photoUrl => _user?.userMetadata?['photo_url'] ?? _userProfile?.photoUrl;
 
   AuthProvider() {
     _init();
@@ -37,15 +36,15 @@ class AuthProvider extends ChangeNotifier {
 
   /// Initialize auth state listener
   void _init() {
-    _authStateSubscription = _authService.authStateChanges.listen(
-      (User? user) async {
+    _authStateSubscription = _authService.authState.listen(
+      (AuthState authState) async {
         developer.log(
-          'Auth state changed: ${user?.uid ?? 'signed out'}',
+          'Auth state changed: ${authState.session?.user?.id ?? 'signed out'}',
           name: 'AuthProvider',
         );
-        _user = user;
+        _user = authState.session?.user;
 
-        if (user != null) {
+        if (_user != null) {
           // Load or create user profile
           await _loadUserProfile();
         } else {
@@ -53,350 +52,132 @@ class AuthProvider extends ChangeNotifier {
         }
 
         _isInitialized = true;
-        _isLoading = false;
-        notifyListeners();
-      },
-      onError: (error) {
-        developer.log(
-          'Auth state stream error: $error',
-          name: 'AuthProvider',
-          error: error,
-        );
-        _error = 'Authentication service error';
-        _isInitialized = true;
-        _isLoading = false;
         notifyListeners();
       },
     );
   }
 
-  @override
-  void dispose() {
-    _authStateSubscription?.cancel();
-    super.dispose();
-  }
-
-  /// Load user profile from Firestore
+  /// Load user profile from repository
   Future<void> _loadUserProfile() async {
+    if (_user == null) return;
+
     try {
-      if (_user == null) return;
-
-      _userProfile = await _userRepository.getUserProfile(_user!.uid);
-
-      // If profile doesn't exist, create it
-      if (_userProfile == null) {
-        final isGuest = _user!.isAnonymous;
-        _userProfile = UserProfile(
-          userId: _user!.uid,
-          displayName: isGuest
-              ? 'Guest Spartan'
-              : (_user!.displayName ?? 'Spartan'),
-          photoUrl: _user!.photoURL,
-          bodyComposition: const BodyComposition(
-            weight: 70,
-            height: 175,
-            age: 25,
-          ),
-          fitnessLevel: FitnessLevel.beginner,
-          trainingGoal: TrainingGoal.generalCombat,
-          experienceLevel: ExperienceLevel.novice,
-          philosophicalBaseline: isGuest ? 'Just exploring' : null,
-          createdAt: DateTime.now(),
-        );
-
-        await _userRepository.createUserProfile(_userProfile!);
-        developer.log(
-          'Created new user profile for ${_user!.uid}',
-          name: 'AuthProvider',
-        );
-      }
+      _userProfile = await _userRepository.getUserProfile(_user!.id);
+      notifyListeners();
     } catch (e) {
-      developer.log(
-        'Error loading user profile: $e',
-        name: 'AuthProvider',
-        error: e,
-      );
-      // Don't throw - user can still use app with basic profile
+      developer.log('Error loading user profile: $e', name: 'AuthProvider');
+      _error = e.toString();
+      notifyListeners();
     }
   }
 
-  /// Clear error
-  void clearError() {
-    _error = null;
-    notifyListeners();
+  /// Sign in with email and password
+  Future<bool> signInWithEmail(String email, String password) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final response = await _authService.signInWithEmail(
+        email: email,
+        password: password,
+      );
+
+      if (response.user != null) {
+        developer.log('Sign in successful', name: 'AuthProvider');
+        return true;
+      } else {
+        _setError('Sign in failed');
+        return false;
+      }
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Sign up with email and password
+  Future<bool> signUpWithEmail({
+    required String email,
+    required String password,
+    String? displayName,
+  }) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final response = await _authService.signUpWithEmail(
+        email: email,
+        password: password,
+        displayName: displayName,
+      );
+
+      if (response.user != null) {
+        developer.log('Sign up successful', name: 'AuthProvider');
+        return true;
+      } else {
+        _setError('Sign up failed');
+        return false;
+      }
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
+    }
   }
 
   /// Sign in with Google
   Future<bool> signInWithGoogle() async {
     _setLoading(true);
-    _error = null;
+    _clearError();
 
     try {
-      await _authService.signInWithGoogle();
-      // Profile will be loaded by auth state listener
-      return true;
-    } on AuthException catch (e) {
-      _error = e.message;
-      developer.log(
-        'Google sign in error: ${e.message}',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
-      return false;
+      final response = await _authService.signInWithGoogle();
+
+      if (response.user != null) {
+        developer.log('Google sign in successful', name: 'AuthProvider');
+        return true;
+      } else {
+        _setError('Google sign in failed');
+        return false;
+      }
     } catch (e) {
-      _error = 'An unexpected error occurred';
-      developer.log(
-        'Unexpected Google sign in error: $e',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
+      _setError(e.toString());
       return false;
-    }
-  }
-
-  /// Sign up with Email and Password
-  Future<bool> signUpWithEmail({
-    required String email,
-    required String password,
-    required String displayName,
-  }) async {
-    _setLoading(true);
-    _error = null;
-
-    try {
-      await _authService.signUpWithEmail(
-        email: email,
-        password: password,
-        displayName: displayName,
-      );
-      return true;
-    } on AuthException catch (e) {
-      _error = e.message;
-      developer.log(
-        'Email sign up error: ${e.message}',
-        name: 'AuthProvider',
-        error: e,
-      );
+    } finally {
       _setLoading(false);
-      return false;
-    } catch (e) {
-      _error = 'An unexpected error occurred';
-      developer.log(
-        'Unexpected email sign up error: $e',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
-      return false;
-    }
-  }
-
-  /// Sign in with Email and Password
-  Future<bool> signInWithEmail({
-    required String email,
-    required String password,
-  }) async {
-    _setLoading(true);
-    _error = null;
-
-    try {
-      await _authService.signInWithEmail(email: email, password: password);
-      return true;
-    } on AuthException catch (e) {
-      _error = e.message;
-      developer.log(
-        'Email sign in error: ${e.message}',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
-      return false;
-    } catch (e) {
-      _error = 'An unexpected error occurred';
-      developer.log(
-        'Unexpected email sign in error: $e',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
-      return false;
-    }
-  }
-
-  /// Send password reset email
-  Future<bool> sendPasswordResetEmail(String email) async {
-    _setLoading(true);
-    _error = null;
-
-    try {
-      await _authService.sendPasswordResetEmail(email);
-      _setLoading(false);
-      return true;
-    } on AuthException catch (e) {
-      _error = e.message;
-      developer.log(
-        'Password reset error: ${e.message}',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
-      return false;
-    } catch (e) {
-      _error = 'An unexpected error occurred';
-      developer.log(
-        'Unexpected password reset error: $e',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
-      return false;
-    }
-  }
-
-  /// Sign in anonymously (preview mode)
-  Future<bool> signInAnonymously() async {
-    _setLoading(true);
-    _error = null;
-
-    try {
-      await _authService.signInAnonymously();
-      return true;
-    } on AuthException catch (e) {
-      _error = e.message;
-      developer.log(
-        'Anonymous sign in error: ${e.message}',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
-      return false;
-    } catch (e) {
-      _error = 'An unexpected error occurred';
-      developer.log(
-        'Unexpected anonymous sign in error: $e',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
-      return false;
-    }
-  }
-
-  /// Link anonymous account to Google
-  Future<bool> linkAnonymousToGoogle() async {
-    if (!isAnonymous) {
-      _error = 'Account is not anonymous';
-      notifyListeners();
-      return false;
-    }
-
-    _setLoading(true);
-    _error = null;
-
-    try {
-      await _authService.linkAnonymousToGoogle();
-      // Profile will be updated by auth state listener
-      _setLoading(false);
-      return true;
-    } on AuthException catch (e) {
-      _error = e.message;
-      developer.log(
-        'Link to Google error: ${e.message}',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
-      return false;
-    } catch (e) {
-      _error = 'An unexpected error occurred';
-      developer.log(
-        'Unexpected link to Google error: $e',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
-      return false;
-    }
-  }
-
-  /// Link anonymous account to Email
-  Future<bool> linkAnonymousToEmail({
-    required String email,
-    required String password,
-    required String displayName,
-  }) async {
-    if (!isAnonymous) {
-      _error = 'Account is not anonymous';
-      notifyListeners();
-      return false;
-    }
-
-    _setLoading(true);
-    _error = null;
-
-    try {
-      await _authService.linkAnonymousToEmail(
-        email: email,
-        password: password,
-        displayName: displayName,
-      );
-      // Update profile with new info
-      _userProfile = _userProfile!.copyWith(
-        displayName: displayName,
-        updatedAt: DateTime.now(),
-      );
-
-      await _userRepository.saveUserProfile(_userProfile!);
-      _setLoading(false);
-      return true;
-    } on AuthException catch (e) {
-      _error = e.message;
-      developer.log(
-        'Link to Email error: ${e.message}',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
-      return false;
-    } catch (e) {
-      _error = 'An unexpected error occurred';
-      developer.log(
-        'Unexpected link to Email error: $e',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
-      return false;
     }
   }
 
   /// Sign out
   Future<void> signOut() async {
     _setLoading(true);
-    _error = null;
 
     try {
       await _authService.signOut();
-      _user = null;
-      _userProfile = null;
-      _setLoading(false);
-    } on AuthException catch (e) {
-      _error = e.message;
-      developer.log(
-        'Sign out error: ${e.message}',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
+      developer.log('Sign out successful', name: 'AuthProvider');
     } catch (e) {
-      _error = 'An unexpected error occurred';
-      developer.log(
-        'Unexpected sign out error: $e',
-        name: 'AuthProvider',
-        error: e,
-      );
+      _setError(e.toString());
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Reset password
+  Future<bool> resetPassword(String email) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      await _authService.resetPassword(email);
+      developer.log('Password reset email sent', name: 'AuthProvider');
+      return true;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
       _setLoading(false);
     }
   }
@@ -405,104 +186,100 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> updateProfile({
     String? displayName,
     String? photoUrl,
-    String? philosophicalBaseline,
-    ExperienceLevel? experienceLevel,
-    DateTime? dateOfBirth,
-    String? gender,
-    double? height,
-    double? weight,
-    List<String>? fitnessGoals,
-    List<String>? equipment,
-    List<String>? injuryHistory,
-    Map<String, dynamic>? preferences,
-    BodyComposition? bodyComposition,
-    FitnessLevel? fitnessLevel,
-    TrainingGoal? trainingGoal,
-    int? trainingDaysPerWeek,
-    int? preferredWorkoutDuration,
-    List<String>? injuriesOrLimitations,
-    bool? enablePushNotifications,
-    bool? enableWeeklyEmails,
-    String? preferredWorkoutTime,
-    bool? hasCompletedOnboarding,
   }) async {
-    if (_user == null || _userProfile == null) {
-      _error = 'Not authenticated';
-      notifyListeners();
-      return false;
-    }
-
     _setLoading(true);
+    _clearError();
 
     try {
-      // Update Firebase Auth display name if provided
-      if (displayName != null && displayName != _user!.displayName) {
-        await _authService.updateDisplayName(displayName);
-      }
-
-      // Update profile in Firestore
-      _userProfile = _userProfile!.copyWith(
+      // Update auth metadata
+      await _authService.updateProfile(
         displayName: displayName,
         photoUrl: photoUrl,
-        philosophicalBaseline: philosophicalBaseline,
-        experienceLevel: experienceLevel,
-        bodyComposition: bodyComposition,
-        fitnessLevel: fitnessLevel,
-        trainingGoal: trainingGoal,
-        trainingDaysPerWeek: trainingDaysPerWeek,
-        preferredWorkoutDuration: preferredWorkoutDuration,
-        injuriesOrLimitations: injuriesOrLimitations,
-        hasCompletedOnboarding:
-            hasCompletedOnboarding ?? _userProfile!.hasCompletedOnboarding,
-        updatedAt: DateTime.now(),
       );
 
-      await _userRepository.saveUserProfile(_userProfile!);
+      // Update local user profile
+      if (_userProfile != null) {
+        final updatedProfile = UserProfile(
+          userId: _userProfile!.userId,
+          displayName: displayName ?? _userProfile!.displayName,
+          photoUrl: photoUrl ?? _userProfile!.photoUrl,
+          bodyCompression: _userProfile!.bodyCompression,
+          fitnessLevel: _userProfile!.fitnessLevel,
+          trainingGoal: _userProfile!.trainingGoal,
+          trainingDaysPerWeek: _userProfile!.trainingDaysPerWeek,
+          preferredWorkoutDuration: _userProfile!.preferredWorkoutDuration,
+          injuriesOrLimitations: _userProfile!.injuriesOrLimitations,
+          dateOfService: _userProfile!.dateOfService,
+          hasCompletedOnboarding: _userProfile!.hasCompletedOnboarding,
+          experienceLevel: _userProfile!.experienceLevel,
+          philosophicalBaseline: _userProfile!.philosophicalBaseline,
+          dateOfBirth: _userProfile!.dateOfBirth,
+        );
 
-      _setLoading(false);
+        await _userRepository.updateUserProfile(updatedProfile);
+        _userProfile = updatedProfile;
+      }
+
+      developer.log('Profile updated successfully', name: 'AuthProvider');
+      notifyListeners();
       return true;
     } catch (e) {
-      _error = 'Failed to update profile';
-      developer.log('Update profile error: $e', name: 'AuthProvider', error: e);
-      _setLoading(false);
+      _setError(e.toString());
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  /// Delete account
+  /// Delete user account
   Future<bool> deleteAccount() async {
     _setLoading(true);
-    _error = null;
+    _clearError();
 
     try {
       await _authService.deleteAccount();
-      _user = null;
-      _userProfile = null;
-      _setLoading(false);
+      developer.log('Account deleted successfully', name: 'AuthProvider');
       return true;
-    } on AuthException catch (e) {
-      _error = e.message;
-      developer.log(
-        'Delete account error: ${e.message}',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
-      return false;
     } catch (e) {
-      _error = 'An unexpected error occurred';
-      developer.log(
-        'Unexpected delete account error: $e',
-        name: 'AuthProvider',
-        error: e,
-      );
-      _setLoading(false);
+      _setError(e.toString());
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
+  /// Refresh session
+  Future<void> refreshSession() async {
+    try {
+      await _authService.refreshSession();
+    } catch (e) {
+      developer.log('Session refresh failed: $e', name: 'AuthProvider');
+    }
+  }
+
+  /// Clear error
+  void _clearError() {
+    _error = null;
+    notifyListeners();
+  }
+
+  /// Set error
+  void _setError(String error) {
+    _error = error;
+    developer.log('Auth error: $error', name: 'AuthProvider');
+    notifyListeners();
+  }
+
+  /// Set loading state
   void _setLoading(bool loading) {
     _isLoading = loading;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _authStateSubscription?.cancel();
+    _authService.dispose();
+    super.dispose();
   }
 }
