@@ -2,8 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/workout_tracking.dart';
-import '../models/workout_protocol.dart';
-import '../models/exercise.dart';
 
 /// Firebase Sync Service
 /// Handles data persistence and synchronization with Firebase Firestore

@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'package:flutter/foundation.dart';
 import '../models/workout_protocol.dart';
 import '../models/workout_tracking.dart';
 

@@ -1,7 +1,5 @@
-import 'package:flutter/foundation.dart';
 import '../models/workout_protocol.dart';
 import '../models/exercise.dart';
-import '../models/workout_tracking.dart';
 
 /// Tactical Retreat System
 /// Enforces recovery protocols when readiness drops below critical thresholds
@@ -88,7 +86,7 @@ class TacticalRetreatService {
           ),
           sets: 3,
           reps: 0,
-          intensityRPE: 3,
+          intensityRpe: 3,
           restSeconds: 60,
         ),
         // Thoracic bridge
@@ -99,7 +97,7 @@ class TacticalRetreatService {
           ),
           sets: 3,
           reps: 0,
-          intensityRPE: 3,
+          intensityRpe: 3,
           restSeconds: 60,
         ),
         // Light plank
@@ -107,7 +105,7 @@ class TacticalRetreatService {
           exercise: Exercise.library.firstWhere((e) => e.id == 'ex_005'),
           sets: 2,
           reps: 0,
-          intensityRPE: 4,
+          intensityRpe: 4,
           restSeconds: 90,
         ),
         // Shadow boxing for light movement
@@ -115,7 +113,7 @@ class TacticalRetreatService {
           exercise: Exercise.library.firstWhere((e) => e.id == 'ex_006'),
           sets: 3,
           reps: 0,
-          intensityRPE: 3,
+          intensityRpe: 3,
           restSeconds: 60,
         ),
       ],

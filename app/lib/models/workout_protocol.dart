@@ -29,14 +29,14 @@ class ProtocolEntry {
   final Exercise exercise;
   final int sets;
   final int reps;
-  final double intensityRPE;
+  final double intensityRpe;
   final int restSeconds;
 
   const ProtocolEntry({
     required this.exercise,
     required this.sets,
     required this.reps,
-    required this.intensityRPE,
+    required this.intensityRpe,
     required this.restSeconds,
   });
 }

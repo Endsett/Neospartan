@@ -1,3 +1,5 @@
+// No unused analytics import here
+
 /// Joint stress tracking for Armor Analytics
 class JointStressEntry {
   final String joint;
@@ -221,31 +223,3 @@ class MicroCycle {
   }
 }
 
-/// Armor Analytics result
-class ArmorAnalyticsResult {
-  final Map<String, List<int>> jointLoadHistory;
-  final List<JointRiskFlag> riskFlags;
-  final List<String> safeMovements;
-  final String summary;
-
-  const ArmorAnalyticsResult({
-    required this.jointLoadHistory,
-    required this.riskFlags,
-    required this.safeMovements,
-    required this.summary,
-  });
-}
-
-class JointRiskFlag {
-  final String joint;
-  final String riskLevel; // LOW, ELEVATED, HIGH, CRITICAL
-  final String message;
-  final String recommendation;
-
-  const JointRiskFlag({
-    required this.joint,
-    required this.riskLevel,
-    required this.message,
-    required this.recommendation,
-  });
-}

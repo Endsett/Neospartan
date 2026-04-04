@@ -30,21 +30,21 @@ class AgogeService {
           exercise: Exercise.library.firstWhere((e) => e.id == "ex_004"), // Sprints
           sets: 5,
           reps: 0,
-          intensityRPE: 10,
+          intensityRpe: 10,
           restSeconds: 90,
         ),
         ProtocolEntry(
           exercise: Exercise.library.firstWhere((e) => e.id == "ex_006"), // Thrusters
           sets: 4,
           reps: 12,
-          intensityRPE: 9,
+          intensityRpe: 9,
           restSeconds: 60,
         ),
         ProtocolEntry(
           exercise: Exercise.library.firstWhere((e) => e.id == "ex_005"), // Deadlifts
           sets: 5,
           reps: 5,
-          intensityRPE: 9,
+          intensityRpe: 9,
           restSeconds: 120,
         ),
       ],
@@ -63,21 +63,21 @@ class AgogeService {
           exercise: Exercise.library.firstWhere((e) => e.id == "ex_001"), // Lunges
           sets: 4,
           reps: 12,
-          intensityRPE: 8,
+          intensityRpe: 8,
           restSeconds: 60,
         ),
         ProtocolEntry(
           exercise: Exercise.library.firstWhere((e) => e.id == "ex_002"), // Push-ups
           sets: 4,
           reps: 20,
-          intensityRPE: 7,
+          intensityRpe: 7,
           restSeconds: 45,
         ),
         ProtocolEntry(
           exercise: Exercise.library.firstWhere((e) => e.id == "ex_003"), // Plank
           sets: 3,
           reps: 0,
-          intensityRPE: 6,
+          intensityRpe: 6,
           restSeconds: 30,
         ),
       ],
@@ -96,14 +96,14 @@ class AgogeService {
           exercise: Exercise.library.firstWhere((e) => e.id == "ex_003"), // Plank
           sets: 3,
           reps: 0,
-          intensityRPE: 5,
+          intensityRpe: 5,
           restSeconds: 60,
         ),
         ProtocolEntry(
           exercise: Exercise.library.firstWhere((e) => e.id == "ex_001"), // Lunges
           sets: 2,
           reps: 10,
-          intensityRPE: 6,
+          intensityRpe: 6,
           restSeconds: 90,
         ),
       ],
@@ -122,7 +122,7 @@ class AgogeService {
           exercise: Exercise.library.firstWhere((e) => e.id == "ex_003"), // Plank
           sets: 2,
           reps: 0,
-          intensityRPE: 3,
+          intensityRpe: 3,
           restSeconds: 120,
         ),
       ],

@@ -8,7 +8,7 @@ import '../models/workout_protocol.dart';
 import '../services/phalanx_ingestion_service.dart';
 import '../services/firebase_sync_service.dart';
 import '../services/dom_rl_engine.dart';
-import '../models/workout_tracking.dart';
+
 import 'workout_session_screen.dart';
 import 'pre_battle_primer_screen.dart';
 
@@ -70,6 +70,7 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
     setState(() => _pendingVerification = null);
     await _loadImportedPlans();
     
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text("PLAN IMPORTED SUCCESSFULLY"),
@@ -92,6 +93,7 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
       finalProtocol = result.optimizedProtocol;
     }
     
+    if (!mounted) return;
     final workoutProvider = Provider.of<WorkoutProvider>(context, listen: false);
     
     Navigator.push(
@@ -115,6 +117,7 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
       final success = provider.logFuel(_controller.text);
       if (success) {
         _controller.clear();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("INGESTION LOGGED"),
@@ -189,9 +192,9 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
                         style: const TextStyle(color: Colors.white, fontFamily: "Courier"),
                         decoration: InputDecoration(
                           hintText: "e.g., 300g chicken or 2e",
-                          hintStyle: TextStyle(color: Colors.grey.withOpacity(0.5)),
+                          hintStyle: TextStyle(color: Colors.grey.withValues(alpha: 0.5)),
                           filled: true,
-                          fillColor: LaconicTheme.ironGray.withOpacity(0.1),
+                          fillColor: LaconicTheme.ironGray.withValues(alpha: 0.1),
                           border: const OutlineInputBorder(borderSide: BorderSide.none),
                           suffixIcon: IconButton(
                             icon: const Icon(Icons.send, color: LaconicTheme.spartanBronze),
@@ -232,8 +235,8 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: LaconicTheme.ironGray.withOpacity(0.1),
-        border: Border.all(color: LaconicTheme.spartanBronze.withOpacity(0.3)),
+        color: LaconicTheme.ironGray.withValues(alpha: 0.1),
+        border: Border.all(color: LaconicTheme.spartanBronze.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -253,7 +256,7 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
               ),
               Switch(
                 value: _autopilotMode,
-                activeColor: LaconicTheme.spartanBronze,
+                activeThumbColor: LaconicTheme.spartanBronze,
                 onChanged: (val) => setState(() => _autopilotMode = val),
               ),
             ],
@@ -307,7 +310,7 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: LaconicTheme.ironGray.withOpacity(0.1),
+              color: LaconicTheme.ironGray.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(4),
             ),
             child: const Text(
@@ -332,8 +335,8 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: LaconicTheme.ironGray.withOpacity(0.1),
-        border: Border.all(color: LaconicTheme.ironGray.withOpacity(0.4)),
+        color: LaconicTheme.ironGray.withValues(alpha: 0.1),
+        border: Border.all(color: LaconicTheme.ironGray.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
@@ -356,8 +359,8 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: isAutopilot
-                      ? LaconicTheme.spartanBronze.withOpacity(0.2)
-                      : Colors.grey.withOpacity(0.2),
+                      ? LaconicTheme.spartanBronze.withValues(alpha: 0.2)
+                      : Colors.grey.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -463,12 +466,12 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: (result.confidence ?? 0) > 0.7
-                  ? LaconicTheme.spartanBronze.withOpacity(0.1)
-                  : Colors.orange.withOpacity(0.1),
+                  ? LaconicTheme.spartanBronze.withValues(alpha: 0.1)
+                  : Colors.orange.withValues(alpha: 0.1),
               border: Border.all(
                 color: (result.confidence ?? 0) > 0.7
-                    ? LaconicTheme.spartanBronze.withOpacity(0.3)
-                    : Colors.orange.withOpacity(0.3),
+                    ? LaconicTheme.spartanBronze.withValues(alpha: 0.3)
+                    : Colors.orange.withValues(alpha: 0.3),
               ),
               borderRadius: BorderRadius.circular(8),
             ),
@@ -524,8 +527,8 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: LaconicTheme.ironGray.withOpacity(0.1),
-              border: Border.all(color: LaconicTheme.ironGray.withOpacity(0.3)),
+              color: LaconicTheme.ironGray.withValues(alpha: 0.1),
+              border: Border.all(color: LaconicTheme.ironGray.withValues(alpha: 0.3)),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
@@ -587,8 +590,8 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: LaconicTheme.ironGray.withOpacity(0.2),
-        border: Border.all(color: LaconicTheme.spartanBronze.withOpacity(0.3)),
+        color: LaconicTheme.ironGray.withValues(alpha: 0.2),
+        border: Border.all(color: LaconicTheme.spartanBronze.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -645,8 +648,8 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: LaconicTheme.ironGray.withOpacity(0.1),
-          border: Border.all(color: LaconicTheme.ironGray.withOpacity(0.4)),
+          color: LaconicTheme.ironGray.withValues(alpha: 0.1),
+          border: Border.all(color: LaconicTheme.ironGray.withValues(alpha: 0.4)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -718,9 +721,9 @@ class _ImportTextDialogState extends State<_ImportTextDialog> {
                 hintText: '''Day 1: Push
 3x10 Bench Press @8 RPE
 4x8 Overhead Press @7 RPE''',
-                hintStyle: TextStyle(color: Colors.grey.withOpacity(0.5)),
+                hintStyle: TextStyle(color: Colors.grey.withValues(alpha: 0.5)),
                 filled: true,
-                fillColor: LaconicTheme.ironGray.withOpacity(0.2),
+                fillColor: LaconicTheme.ironGray.withValues(alpha: 0.2),
                 border: const OutlineInputBorder(borderSide: BorderSide.none),
               ),
             ),

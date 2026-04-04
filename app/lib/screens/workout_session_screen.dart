@@ -3,13 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../providers/workout_provider.dart';
-import '../models/workout_tracking.dart';
 import '../models/workout_protocol.dart';
-import '../models/exercise.dart';
-import '../services/firebase_sync_service.dart';
-import '../services/armor_analytics_service.dart';
-import '../services/tactical_retreat_service.dart';
-import 'flow_state_screen.dart';
 
 class WorkoutSessionScreen extends StatefulWidget {
   const WorkoutSessionScreen({super.key});
@@ -24,13 +18,6 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
   int _restSecondsRemaining = 0;
   bool _isResting = false;
   
-  final Map<int, List<SetPerformance>> _setPerformances = {};
-  final Map<String, int> _currentJointStress = {};
-  
-  final FirebaseSyncService _firebase = FirebaseSyncService();
-  final ArmorAnalyticsService _armor = ArmorAnalyticsService();
-  final TacticalRetreatService _tacticalRetreat = TacticalRetreatService();
-
   @override
   void initState() {
     super.initState();
@@ -128,7 +115,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
-      color: LaconicTheme.spartanBronze.withOpacity(0.2),
+      color: LaconicTheme.spartanBronze.withValues(alpha: 0.2),
       child: Column(
         children: [
           const Text('RECOVERY', style: TextStyle(color: LaconicTheme.spartanBronze, fontSize: 12, letterSpacing: 4.0)),
@@ -190,7 +177,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
             style: const TextStyle(color: LaconicTheme.spartanBronze, fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
-          Text("TARGET RPE: ${entry.intensityRPE}", style: const TextStyle(color: Colors.grey)),
+          Text("TARGET RPE: ${entry.intensityRpe}", style: const TextStyle(color: Colors.grey)),
           const SizedBox(height: 40),
           
           // Set tracking cards with RPE logging
@@ -202,13 +189,13 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isCompleted ? LaconicTheme.spartanBronze.withOpacity(0.1) : 
-                       isCurrent ? LaconicTheme.ironGray.withOpacity(0.2) : 
-                       LaconicTheme.ironGray.withOpacity(0.1),
+                color: isCompleted ? LaconicTheme.spartanBronze.withValues(alpha: 0.1) : 
+                       isCurrent ? LaconicTheme.ironGray.withValues(alpha: 0.2) : 
+                       LaconicTheme.ironGray.withValues(alpha: 0.1),
                 border: Border.all(
-                  color: isCompleted ? LaconicTheme.spartanBronze.withOpacity(0.5) : 
+                  color: isCompleted ? LaconicTheme.spartanBronze.withValues(alpha: 0.5) : 
                          isCurrent ? LaconicTheme.spartanBronze : 
-                         LaconicTheme.ironGray.withOpacity(0.3),
+                         LaconicTheme.ironGray.withValues(alpha: 0.3),
                   width: isCurrent ? 2 : 1,
                 ),
                 borderRadius: BorderRadius.circular(8),
@@ -244,11 +231,11 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: rpe == entry.intensityRPE.round() 
-                                  ? LaconicTheme.spartanBronze.withOpacity(0.3)
-                                  : LaconicTheme.ironGray.withOpacity(0.3),
+                              color: rpe == entry.intensityRpe.round() 
+                                  ? LaconicTheme.spartanBronze.withValues(alpha: 0.3)
+                                  : LaconicTheme.ironGray.withValues(alpha: 0.3),
                               border: Border.all(
-                                color: rpe == entry.intensityRPE.round() 
+                                color: rpe == entry.intensityRpe.round() 
                                     ? LaconicTheme.spartanBronze 
                                     : Colors.transparent,
                               ),
@@ -258,7 +245,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
                               child: Text(
                                 '$rpe',
                                 style: TextStyle(
-                                  color: rpe == entry.intensityRPE.round() 
+                                  color: rpe == entry.intensityRpe.round() 
                                       ? LaconicTheme.spartanBronze 
                                       : Colors.white,
                                   fontWeight: FontWeight.bold,

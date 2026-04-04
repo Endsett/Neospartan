@@ -345,21 +345,21 @@ class BackendApiService {
             exercise: Exercise.library.firstWhere((e) => e.id == 'ex_004'),
             sets: 5,
             reps: 0,
-            intensityRPE: 10,
+            intensityRpe: 10,
             restSeconds: 90,
           ),
           ProtocolEntry(
             exercise: Exercise.library.firstWhere((e) => e.id == 'ex_006'),
             sets: 4,
             reps: 12,
-            intensityRPE: 9,
+            intensityRpe: 9,
             restSeconds: 60,
           ),
           ProtocolEntry(
             exercise: Exercise.library.firstWhere((e) => e.id == 'ex_005'),
             sets: 5,
             reps: 5,
-            intensityRPE: 9,
+            intensityRpe: 9,
             restSeconds: 120,
           ),
         ];
@@ -369,21 +369,21 @@ class BackendApiService {
             exercise: Exercise.library.firstWhere((e) => e.id == 'ex_001'),
             sets: 4,
             reps: 12,
-            intensityRPE: 8,
+            intensityRpe: 8,
             restSeconds: 60,
           ),
           ProtocolEntry(
             exercise: Exercise.library.firstWhere((e) => e.id == 'ex_002'),
             sets: 4,
             reps: 20,
-            intensityRPE: 7,
+            intensityRpe: 7,
             restSeconds: 45,
           ),
           ProtocolEntry(
             exercise: Exercise.library.firstWhere((e) => e.id == 'ex_003'),
             sets: 3,
             reps: 0,
-            intensityRPE: 6,
+            intensityRpe: 6,
             restSeconds: 30,
           ),
         ];
@@ -393,14 +393,14 @@ class BackendApiService {
             exercise: Exercise.library.firstWhere((e) => e.id == 'ex_003'),
             sets: 3,
             reps: 0,
-            intensityRPE: 5,
+            intensityRpe: 5,
             restSeconds: 60,
           ),
           ProtocolEntry(
             exercise: Exercise.library.firstWhere((e) => e.id == 'ex_001'),
             sets: 2,
             reps: 10,
-            intensityRPE: 6,
+            intensityRpe: 6,
             restSeconds: 90,
           ),
         ];
@@ -410,7 +410,7 @@ class BackendApiService {
             exercise: Exercise.library.firstWhere((e) => e.id == 'ex_003'),
             sets: 2,
             reps: 0,
-            intensityRPE: 3,
+            intensityRpe: 3,
             restSeconds: 120,
           ),
         ];
@@ -438,7 +438,7 @@ class BackendApiService {
     // Apply adjustments to protocol
     final adjustedEntries = baseProtocol.entries.map((entry) {
       final newSets = (entry.sets * (1 + (action['volume_adjustment'] as double))).clamp(1, 10).round();
-      final newRpe = (entry.intensityRPE + (action['intensity_adjustment'] as double) * 3).clamp(3.0, 10.0);
+      final newRpe = (entry.intensityRpe + (action['intensity_adjustment'] as double) * 3).clamp(3.0, 10.0);
       final newRest = (entry.restSeconds + (action['rest_adjustment'] as int)).clamp(15, 300);
 
       return {
@@ -663,7 +663,7 @@ class BackendApiService {
       'exercise': _exerciseToJson(entry.exercise),
       'sets': entry.sets,
       'reps': entry.reps,
-      'intensityRPE': entry.intensityRPE,
+      'intensity_rpe': entry.intensityRpe,
       'rest_seconds': entry.restSeconds,
     };
   }

@@ -3,7 +3,7 @@ import '../theme.dart';
 import '../services/health_service.dart';
 import '../services/armor_analytics_service.dart';
 import '../services/firebase_sync_service.dart';
-import '../models/workout_tracking.dart';
+import '../models/armor_analytics.dart';
 
 class GarrisonScreen extends StatefulWidget {
   const GarrisonScreen({super.key});
@@ -131,7 +131,7 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
           child: CircularProgressIndicator(
             value: _data['score'] / 100,
             strokeWidth: 16,
-            backgroundColor: LaconicTheme.ironGray.withOpacity(0.3),
+            backgroundColor: LaconicTheme.ironGray.withValues(alpha: 0.3),
             color: LaconicTheme.spartanBronze,
           ),
         ),
@@ -175,8 +175,8 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: LaconicTheme.ironGray.withOpacity(0.1),
-        border: Border.all(color: riskColor.withOpacity(0.3)),
+        color: LaconicTheme.ironGray.withValues(alpha: 0.1),
+        border: Border.all(color: riskColor.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -217,8 +217,8 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
                     width: 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: flag.riskLevel == 'critical' ? Colors.red 
-                          : flag.riskLevel == 'high' ? Colors.orange 
+                      color: flag.riskLevel == JointRiskLevel.critical ? Colors.red 
+                          : flag.riskLevel == JointRiskLevel.high ? Colors.orange 
                           : Colors.yellow,
                       shape: BoxShape.circle,
                     ),
@@ -248,7 +248,7 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: LaconicTheme.spartanBronze.withOpacity(0.2),
+                    color: LaconicTheme.spartanBronze.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -270,8 +270,8 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: LaconicTheme.ironGray.withOpacity(0.2),
-          border: Border.all(color: LaconicTheme.ironGray.withOpacity(0.5)),
+          color: LaconicTheme.ironGray.withValues(alpha: 0.2),
+          border: Border.all(color: LaconicTheme.ironGray.withValues(alpha: 0.5)),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(

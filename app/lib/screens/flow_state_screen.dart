@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../theme.dart';
-import '../providers/workout_provider.dart';
 import '../models/workout_tracking.dart';
 import '../services/firebase_sync_service.dart';
 
@@ -122,7 +120,7 @@ class _FlowStateScreenState extends State<FlowStateScreen> {
                 hintText: 'What affected your focus? Distractions? Breakthroughs?',
                 hintStyle: TextStyle(color: Colors.grey.shade600),
                 filled: true,
-                fillColor: LaconicTheme.ironGray.withOpacity(0.2),
+                fillColor: LaconicTheme.ironGray.withValues(alpha: 0.2),
                 border: OutlineInputBorder(
                   borderSide: BorderSide.none,
                   borderRadius: BorderRadius.circular(4),
@@ -135,8 +133,8 @@ class _FlowStateScreenState extends State<FlowStateScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: LaconicTheme.spartanBronze.withOpacity(0.1),
-                border: Border.all(color: LaconicTheme.spartanBronze.withOpacity(0.3)),
+                color: LaconicTheme.spartanBronze.withValues(alpha: 0.1),
+                border: Border.all(color: LaconicTheme.spartanBronze.withValues(alpha: 0.3)),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -151,7 +149,7 @@ class _FlowStateScreenState extends State<FlowStateScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '${((_mentalEngagement + _focusClarity + _formDiscipline + _overallFlow) / 4).toStringAsFixed(1)}',
+                    ((_mentalEngagement + _focusClarity + _formDiscipline + _overallFlow) / 4).toStringAsFixed(1),
                     style: const TextStyle(
                       color: LaconicTheme.spartanBronze,
                       fontSize: 48,
@@ -247,7 +245,7 @@ class _FlowStateScreenState extends State<FlowStateScreen> {
             activeTrackColor: LaconicTheme.spartanBronze,
             inactiveTrackColor: LaconicTheme.ironGray,
             thumbColor: LaconicTheme.spartanBronze,
-            overlayColor: LaconicTheme.spartanBronze.withOpacity(0.2),
+            overlayColor: LaconicTheme.spartanBronze.withValues(alpha: 0.2),
             trackHeight: 4,
           ),
           child: Slider(

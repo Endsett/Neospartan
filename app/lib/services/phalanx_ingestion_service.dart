@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/exercise.dart';
@@ -9,7 +7,8 @@ import '../models/workout_protocol.dart';
 /// OCR + NLP pipeline for importing workout plans from various sources
 /// Runs locally on device using heuristic parsing (TFLite OCR model would be used for production)
 class PhalanxIngestionService {
-  static final PhalanxIngestionService _instance = PhalanxIngestionService._internal();
+  static final PhalanxIngestionService _instance =
+      PhalanxIngestionService._internal();
   factory PhalanxIngestionService() => _instance;
   PhalanxIngestionService._internal();
 
@@ -33,27 +32,35 @@ class PhalanxIngestionService {
 
   /// Parse raw text input (from OCR or manual entry)
   /// Handles various formats: shorthand, full text, structured data
-  IngestionResult parseWorkoutText(String rawText, {IngestionSource source = IngestionSource.manual}) {
+  IngestionResult parseWorkoutText(
+    String rawText, {
+    IngestionSource source = IngestionSource.manual,
+  }) {
     if (rawText.trim().isEmpty) {
       return IngestionResult.error('Empty input provided');
     }
 
-    final lines = rawText.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    final lines = rawText
+        .split('\n')
+        .where((l) => l.trim().isNotEmpty)
+        .toList();
     final parsedDays = <ParsedDay>[];
     var currentDay = <ParsedExercise>[];
     var dayIndex = 1;
 
     for (final line in lines) {
       final trimmed = line.trim();
-      
+
       // Check for day headers
       if (_isDayHeader(trimmed)) {
         if (currentDay.isNotEmpty) {
-          parsedDays.add(ParsedDay(
-            dayNumber: dayIndex++,
-            exercises: List.from(currentDay),
-            focus: _extractFocus(trimmed),
-          ));
+          parsedDays.add(
+            ParsedDay(
+              dayNumber: dayIndex++,
+              exercises: List.from(currentDay),
+              focus: _extractFocus(trimmed),
+            ),
+          );
           currentDay = [];
         }
         continue;
@@ -68,11 +75,9 @@ class PhalanxIngestionService {
 
     // Add final day
     if (currentDay.isNotEmpty) {
-      parsedDays.add(ParsedDay(
-        dayNumber: dayIndex,
-        exercises: currentDay,
-        focus: 'Mixed',
-      ));
+      parsedDays.add(
+        ParsedDay(dayNumber: dayIndex, exercises: currentDay, focus: 'Mixed'),
+      );
     }
 
     if (parsedDays.isEmpty) {
@@ -101,7 +106,8 @@ class PhalanxIngestionService {
     var currentDay = <ParsedExercise>[];
     var dayIndex = 1;
 
-    for (final line in lines.skip(1)) { // Skip header
+    for (final line in lines.skip(1)) {
+      // Skip header
       final parts = line.split(',');
       if (parts.length < 3) continue;
 
@@ -109,38 +115,35 @@ class PhalanxIngestionService {
       final day = parts[0].trim();
       final exerciseName = parts[1].trim();
       final sets = int.tryParse(parts[2]) ?? 3;
-      final reps = int.tryParse(parts[3]) ?? 10;
       final rpe = double.tryParse(parts[4]) ?? 7.0;
       final rest = int.tryParse(parts[5]) ?? 60;
 
       // Check for new day
       if (day.isNotEmpty && int.tryParse(day) != dayIndex) {
         if (currentDay.isNotEmpty) {
-          parsedDays.add(ParsedDay(
-            dayNumber: dayIndex++,
-            exercises: List.from(currentDay),
-          ));
+          parsedDays.add(
+            ParsedDay(dayNumber: dayIndex++, exercises: List.from(currentDay)),
+          );
           currentDay = [];
         }
       }
 
       final matchedExercise = _matchExerciseName(exerciseName);
-      currentDay.add(ParsedExercise(
-        name: exerciseName,
-        matchedExercise: matchedExercise,
-        sets: sets,
-        reps: 10,
-        rpe: rpe,
-        restSeconds: rest,
-        confidence: matchedExercise != null ? 0.9 : 0.5,
-      ));
+      currentDay.add(
+        ParsedExercise(
+          name: exerciseName,
+          matchedExercise: matchedExercise,
+          sets: sets,
+          reps: 10,
+          rpe: rpe,
+          restSeconds: rest,
+          confidence: matchedExercise != null ? 0.9 : 0.5,
+        ),
+      );
     }
 
     if (currentDay.isNotEmpty) {
-      parsedDays.add(ParsedDay(
-        dayNumber: dayIndex,
-        exercises: currentDay,
-      ));
+      parsedDays.add(ParsedDay(dayNumber: dayIndex, exercises: currentDay));
     }
 
     final protocol = _buildProtocolFromParsedDays(parsedDays);
@@ -156,7 +159,10 @@ class PhalanxIngestionService {
     final patterns = [
       RegExp(r'^day\s*\d+', caseSensitive: false),
       RegExp(r'^week\s*\d+', caseSensitive: false),
-      RegExp(r'^monday|tuesday|wednesday|thursday|friday|saturday|sunday', caseSensitive: false),
+      RegExp(
+        r'^monday|tuesday|wednesday|thursday|friday|saturday|sunday',
+        caseSensitive: false,
+      ),
       RegExp(r'^\d+:\s*'), // "1: " format
     ];
     return patterns.any((p) => p.hasMatch(line));
@@ -170,7 +176,9 @@ class PhalanxIngestionService {
     if (lower.contains('leg') || lower.contains('lower')) return 'Lower Body';
     if (lower.contains('upper')) return 'Upper Body';
     if (lower.contains('full') || lower.contains('total')) return 'Full Body';
-    if (lower.contains('cardio') || lower.contains('condition')) return 'Conditioning';
+    if (lower.contains('cardio') || lower.contains('condition')) {
+      return 'Conditioning';
+    }
     if (lower.contains('rest') || lower.contains('recovery')) return 'Recovery';
     return 'Mixed';
   }
@@ -178,9 +186,11 @@ class PhalanxIngestionService {
   /// Parse a single exercise line
   ParsedExercise? _parseExerciseLine(String line) {
     // Try various formats
-    
+
     // Format 1: "Exercise Name: 3x10 @8 RPE (60s rest)"
-    final format1 = RegExp(r'^([^:]+):\s*(\d+)\s*x\s*(\d+)\s*@?\s*(\d+(?:\.\d+)?)?\s*(?:RPE|rpe)?\s*(?:\((\d+)s?\s*rest\))?$');
+    final format1 = RegExp(
+      r'^([^:]+):\s*(\d+)\s*x\s*(\d+)\s*@?\s*(\d+(?:\.\d+)?)?\s*(?:RPE|rpe)?\s*(?:\((\d+)s?\s*rest\))?$',
+    );
     var match = format1.firstMatch(line);
     if (match != null) {
       final name = match.group(1)!.trim();
@@ -189,7 +199,7 @@ class PhalanxIngestionService {
       final rpe = double.tryParse(match.group(4) ?? '7') ?? 7.0;
       final rest = int.tryParse(match.group(5) ?? '60') ?? 60;
       final matched = _matchExerciseName(name);
-      
+
       return ParsedExercise(
         name: name,
         matchedExercise: matched,
@@ -202,14 +212,17 @@ class PhalanxIngestionService {
     }
 
     // Format 2: "3 sets of 10 reps Squats"
-    final format2 = RegExp(r'^(\d+)\s*(?:sets?|x)\s*(?:of\s*)?(\d+)\s*(?:reps?)?\s*(.+)$', caseSensitive: false);
+    final format2 = RegExp(
+      r'^(\d+)\s*(?:sets?|x)\s*(?:of\s*)?(\d+)\s*(?:reps?)?\s*(.+)$',
+      caseSensitive: false,
+    );
     match = format2.firstMatch(line);
     if (match != null) {
       final sets = int.tryParse(match.group(1)!) ?? 3;
       final reps = int.tryParse(match.group(2)!) ?? 10;
       final name = match.group(3)!.trim();
       final matched = _matchExerciseName(name);
-      
+
       return ParsedExercise(
         name: name,
         matchedExercise: matched,
@@ -229,7 +242,7 @@ class PhalanxIngestionService {
       final sets = int.tryParse(match.group(2)!) ?? 3;
       final reps = int.tryParse(match.group(3)!) ?? 10;
       final matched = _matchExerciseName(name);
-      
+
       return ParsedExercise(
         name: name,
         matchedExercise: matched,
@@ -249,7 +262,7 @@ class PhalanxIngestionService {
       final reps = int.tryParse(match.group(2)!) ?? 10;
       final name = match.group(3)!.trim();
       final matched = _matchExerciseName(name);
-      
+
       return ParsedExercise(
         name: name,
         matchedExercise: matched,
@@ -281,22 +294,22 @@ class PhalanxIngestionService {
   /// Match text to exercise in library using fuzzy matching
   Exercise? _matchExerciseName(String text) {
     final lower = text.toLowerCase().trim();
-    
+
     // Direct match
     for (final exercise in Exercise.library) {
       if (exercise.name.toLowerCase() == lower) {
         return exercise;
       }
     }
-    
+
     // Contains match
     for (final exercise in Exercise.library) {
-      if (exercise.name.toLowerCase().contains(lower) || 
+      if (exercise.name.toLowerCase().contains(lower) ||
           lower.contains(exercise.name.toLowerCase())) {
         return exercise;
       }
     }
-    
+
     // Keyword matching
     final keywords = {
       'squat': 'ex_002', // Thrusters as squat variant
@@ -312,7 +325,7 @@ class PhalanxIngestionService {
       'shadowbox': 'ex_006',
       'shadow': 'ex_006',
     };
-    
+
     for (final entry in keywords.entries) {
       if (lower.contains(entry.key)) {
         return Exercise.library.firstWhere(
@@ -321,7 +334,7 @@ class PhalanxIngestionService {
         );
       }
     }
-    
+
     return null;
   }
 
@@ -330,70 +343,83 @@ class PhalanxIngestionService {
     // Use first day as template for single-day protocol
     // Multi-day plans would create week-long protocols
     final firstDay = days.first;
-    
+
     final entries = firstDay.exercises.map((e) {
       return ProtocolEntry(
         exercise: e.matchedExercise ?? Exercise.library.first,
         sets: e.sets,
         reps: e.reps,
-        intensityRPE: e.rpe,
+        intensityRpe: e.rpe,
         restSeconds: e.restSeconds,
       );
     }).toList();
 
     return WorkoutProtocol(
       title: 'IMPORTED: ${firstDay.focus} PROTOCOL',
-      subtitle: 'Phalanx Import | ${days.length} days | Confidence: ${(days.first.exercises.fold(0.0, (sum, e) => sum + e.confidence) / firstDay.exercises.length * 100).round()}%',
+      subtitle:
+          'Phalanx Import | ${days.length} days | Confidence: ${(days.first.exercises.fold(0.0, (sum, e) => sum + e.confidence) / firstDay.exercises.length * 100).round()}%',
       tier: ProtocolTier.ready,
       entries: entries,
       estimatedDurationMinutes: entries.length * 8,
-      mindsetPrompt: 'This protocol was forged from your own records. Execute with precision.',
+      mindsetPrompt:
+          'This protocol was forged from your own records. Execute with precision.',
     );
   }
 
   /// Calculate overall confidence score
   double _calculateConfidence(List<ParsedDay> days, IngestionSource source) {
     if (days.isEmpty) return 0.0;
-    
-    final exerciseConfidences = days.expand((d) => d.exercises).map((e) => e.confidence);
-    final avgConfidence = exerciseConfidences.reduce((a, b) => a + b) / exerciseConfidences.length;
-    
+
+    final exerciseConfidences = days
+        .expand((d) => d.exercises)
+        .map((e) => e.confidence);
+    final avgConfidence =
+        exerciseConfidences.reduce((a, b) => a + b) /
+        exerciseConfidences.length;
+
     // Adjust for source quality
-    final sourceMultiplier = {
-      IngestionSource.structured: 1.0,
-      IngestionSource.csv: 0.95,
-      IngestionSource.ocr: 0.7,
-      IngestionSource.manual: 0.9,
-    }[source] ?? 0.8;
-    
+    final sourceMultiplier =
+        {
+          IngestionSource.structured: 1.0,
+          IngestionSource.csv: 0.95,
+          IngestionSource.ocr: 0.7,
+          IngestionSource.manual: 0.9,
+        }[source] ??
+        0.8;
+
     return (avgConfidence * sourceMultiplier).clamp(0.0, 1.0);
   }
 
   /// Generate warnings for low-confidence matches
   List<String> _generateWarnings(List<ParsedDay> days) {
     final warnings = <String>[];
-    
-    final unmatched = days.expand((d) => d.exercises).where((e) => e.matchedExercise == null).toList();
+
+    final unmatched = days
+        .expand((d) => d.exercises)
+        .where((e) => e.matchedExercise == null)
+        .toList();
     if (unmatched.isNotEmpty) {
-      warnings.add('${unmatched.length} exercises could not be matched to library');
+      warnings.add(
+        '${unmatched.length} exercises could not be matched to library',
+      );
     }
-    
-    final lowConfidence = days.expand((d) => d.exercises).where((e) => e.confidence < 0.5).toList();
+
+    final lowConfidence = days
+        .expand((d) => d.exercises)
+        .where((e) => e.confidence < 0.5)
+        .toList();
     if (lowConfidence.isNotEmpty) {
-      warnings.add('${lowConfidence.length} exercises parsed with low confidence - verify details');
+      warnings.add(
+        '${lowConfidence.length} exercises parsed with low confidence - verify details',
+      );
     }
-    
+
     return warnings;
   }
 }
 
 /// Ingestion source type
-enum IngestionSource {
-  ocr,
-  manual,
-  csv,
-  structured,
-}
+enum IngestionSource { ocr, manual, csv, structured }
 
 /// Ingestion result
 class IngestionResult {
@@ -429,10 +455,7 @@ class IngestionResult {
   }
 
   factory IngestionResult.error(String message) {
-    return IngestionResult._(
-      success: false,
-      errorMessage: message,
-    );
+    return IngestionResult._(success: false, errorMessage: message);
   }
 }
 

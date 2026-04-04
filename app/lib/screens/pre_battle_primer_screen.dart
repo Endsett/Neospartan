@@ -55,7 +55,7 @@ class _PreBattlePrimerScreenState extends State<PreBattlePrimerScreen> {
                     Icon(
                       Icons.shield_outlined,
                       size: 80,
-                      color: LaconicTheme.spartanBronze.withOpacity(0.8),
+                      color: LaconicTheme.spartanBronze.withValues(alpha: 0.8),
                     ),
                     const SizedBox(height: 40),
                     // Section title
@@ -75,7 +75,7 @@ class _PreBattlePrimerScreenState extends State<PreBattlePrimerScreen> {
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
                           border: Border.all(
-                            color: LaconicTheme.spartanBronze.withOpacity(0.3),
+                            color: LaconicTheme.spartanBronze.withValues(alpha: 0.3),
                           ),
                           borderRadius: BorderRadius.circular(8),
                         ),

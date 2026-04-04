@@ -1,6 +1,4 @@
-import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:tflite_flutter/tflite_flutter.dart';
 import '../models/workout_protocol.dart';
 import '../models/workout_tracking.dart';
 import '../models/exercise.dart';
@@ -13,14 +11,14 @@ class DomRlEngine {
   factory DomRlEngine() => _instance;
   DomRlEngine._internal();
 
-  Interpreter? _interpreter;
+
   bool _isInitialized = false;
   bool _useHeuristicFallback = true; // Use heuristic if TFLite not available
 
-  // DOM-RL weights for multi-objective optimization
-  double _powerWeight = 0.4;
-  double _enduranceWeight = 0.3;
-  double _recoveryWeight = 0.3;
+  // DOM-RL weights for multi-objective optimization (placeholder for model usage)
+  static const double powerWeight = 0.4;
+  static const double enduranceWeight = 0.3;
+  static const double recoveryWeight = 0.3;
 
   Future<void> initialize() async {
     try {
@@ -188,7 +186,7 @@ class DomRlEngine {
       final newSets = (entry.sets * (1 + action.volumeAdjustment)).clamp(1, 10).round();
 
       // Apply intensity adjustment to RPE
-      final newRpe = (entry.intensityRPE + action.intensityAdjustment * 3).clamp(3.0, 10.0);
+      final newRpe = (entry.intensityRpe + action.intensityAdjustment * 3).clamp(3.0, 10.0);
 
       // Apply rest adjustment
       final newRest = (entry.restSeconds + action.restAdjustment).clamp(15, 300);
@@ -197,7 +195,7 @@ class DomRlEngine {
         exercise: newExercise,
         sets: newSets,
         reps: entry.reps,
-        intensityRPE: double.parse(newRpe.toStringAsFixed(1)),
+        intensityRpe: double.parse(newRpe.toStringAsFixed(1)),
         restSeconds: newRest,
       ));
     }

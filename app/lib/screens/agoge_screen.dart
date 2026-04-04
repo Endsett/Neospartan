@@ -8,7 +8,6 @@ import '../services/ephor_scrutiny_service.dart';
 import '../services/tactical_retreat_service.dart';
 import '../services/firebase_sync_service.dart';
 import '../models/workout_protocol.dart';
-import '../models/workout_tracking.dart';
 import '../providers/workout_provider.dart';
 import 'workout_session_screen.dart';
 import 'pre_battle_primer_screen.dart';
@@ -108,7 +107,7 @@ class _AgogeScreenState extends State<AgogeScreen> {
           // DOM-RL toggle
           IconButton(
             icon: Icon(
-              _useDomRl ? Icons.brain : Icons.brain_outlined,
+              _useDomRl ? Icons.psychology : Icons.psychology_outlined,
               color: _useDomRl ? LaconicTheme.spartanBronze : Colors.grey,
             ),
             onPressed: () {
@@ -151,7 +150,7 @@ class _AgogeScreenState extends State<AgogeScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: LaconicTheme.spartanBronze.withOpacity(0.2),
+                              color: LaconicTheme.spartanBronze.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -245,8 +244,8 @@ class _AgogeScreenState extends State<AgogeScreen> {
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.2),
-        border: Border.all(color: Colors.red.withOpacity(0.5)),
+        color: Colors.red.withValues(alpha: 0.2),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -291,12 +290,12 @@ class _AgogeScreenState extends State<AgogeScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isPositive 
-            ? LaconicTheme.spartanBronze.withOpacity(0.1)
-            : Colors.orange.withOpacity(0.1),
+            ? LaconicTheme.spartanBronze.withValues(alpha: 0.1)
+            : Colors.orange.withValues(alpha: 0.1),
         border: Border.all(
           color: isPositive 
-              ? LaconicTheme.spartanBronze.withOpacity(0.3)
-              : Colors.orange.withOpacity(0.3),
+              ? LaconicTheme.spartanBronze.withValues(alpha: 0.3)
+              : Colors.orange.withValues(alpha: 0.3),
         ),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -346,8 +345,8 @@ class _AgogeScreenState extends State<AgogeScreen> {
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: LaconicTheme.ironGray.withOpacity(0.1),
-        border: Border.all(color: LaconicTheme.spartanBronze.withOpacity(0.2)),
+        color: LaconicTheme.ironGray.withValues(alpha: 0.1),
+        border: Border.all(color: LaconicTheme.spartanBronze.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
