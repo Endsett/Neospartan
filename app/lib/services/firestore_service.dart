@@ -139,7 +139,7 @@ class FirestoreService {
       final statsUpdated = await _userRepository.updateWorkoutStats(userId, {
         'workoutsCompleted': 1,
         'workoutMinutes': workout.totalDurationMinutes,
-        'lastWorkoutDate': workout.startTime?.toIso8601String(),
+        'lastWorkoutDate': workout.startTime.toIso8601String(),
       });
 
       return statsUpdated;

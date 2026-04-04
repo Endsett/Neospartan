@@ -7,10 +7,7 @@ import '../../theme.dart';
 class SignupScreen extends StatefulWidget {
   final VoidCallback? onSignupComplete;
 
-  const SignupScreen({
-    super.key,
-    this.onSignupComplete,
-  });
+  const SignupScreen({super.key, this.onSignupComplete});
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -100,7 +97,8 @@ class _SignupScreenState extends State<SignupScreen> {
                 const SizedBox(height: 16),
 
                 // Link anonymous account (if currently anonymous)
-                if (authProvider.isAnonymous) _buildLinkAnonymousButton(authProvider),
+                if (authProvider.isAnonymous)
+                  _buildLinkAnonymousButton(authProvider),
               ],
             ),
           ),
@@ -183,10 +181,7 @@ class _SignupScreenState extends State<SignupScreen> {
       controller: _emailController,
       keyboardType: TextInputType.emailAddress,
       style: const TextStyle(color: Colors.white),
-      decoration: _inputDecoration(
-        label: 'EMAIL',
-        icon: Icons.email_outlined,
-      ),
+      decoration: _inputDecoration(label: 'EMAIL', icon: Icons.email_outlined),
       validator: (value) {
         if (value == null || value.isEmpty) {
           return 'Enter your email';
@@ -324,11 +319,15 @@ class _SignupScreenState extends State<SignupScreen> {
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: authProvider.isLoading || !_agreeToTerms ? null : _handleSignUp,
+        onPressed: authProvider.isLoading || !_agreeToTerms
+            ? null
+            : _handleSignUp,
         style: ElevatedButton.styleFrom(
           backgroundColor: LaconicTheme.spartanBronze,
           foregroundColor: Colors.black,
-          disabledBackgroundColor: LaconicTheme.spartanBronze.withValues(alpha: 0.5),
+          disabledBackgroundColor: LaconicTheme.spartanBronze.withValues(
+            alpha: 0.5,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -430,10 +429,7 @@ class _SignupScreenState extends State<SignupScreen> {
           const SizedBox(height: 8),
           Text(
             'Create a permanent account to save your progress',
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.grey[400], fontSize: 12),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
@@ -529,9 +525,8 @@ class _SignupScreenState extends State<SignupScreen> {
     context.read<AuthProvider>().clearError();
 
     final success = await context.read<AuthProvider>().linkAnonymousToEmail(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-      displayName: _nameController.text.trim(),
+      _emailController.text.trim(),
+      _passwordController.text,
     );
 
     if (success && mounted) {

@@ -416,8 +416,8 @@ class _LoginScreenState extends State<LoginScreen> {
     context.read<AuthProvider>().clearError();
 
     final success = await context.read<AuthProvider>().signInWithEmail(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
+      _emailController.text.trim(),
+      _passwordController.text,
     );
 
     if (success && mounted) {
