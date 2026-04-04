@@ -6,6 +6,7 @@ import '../providers/workout_provider.dart';
 import '../models/workout_protocol.dart';
 import '../models/workout_tracking.dart';
 import '../widgets/set_tracker_card.dart';
+import '../utils/page_transitions.dart';
 
 class WorkoutSessionScreen extends StatefulWidget {
   const WorkoutSessionScreen({super.key});
@@ -14,24 +15,53 @@ class WorkoutSessionScreen extends StatefulWidget {
   State<WorkoutSessionScreen> createState() => _WorkoutSessionScreenState();
 }
 
-class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
+class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
+    with TickerProviderStateMixin {
   late Stopwatch _workoutStopwatch;
   Timer? _restTimer;
   int _restSecondsRemaining = 0;
   bool _isResting = false;
   int _currentSet = 1;
   final List<SetPerformance> _completedSets = [];
+  late AnimationController _slideController;
+  late AnimationController _fadeController;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
     _workoutStopwatch = Stopwatch()..start();
+
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0.0, 0.1), end: Offset.zero).animate(
+          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+        );
+
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeInOut,
+    );
+
+    _slideController.forward();
+    _fadeController.forward();
   }
 
   @override
   void dispose() {
     _workoutStopwatch.stop();
     _restTimer?.cancel();
+    _slideController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 

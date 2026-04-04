@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/workout_tracking.dart';
 import '../services/firebase_sync_service.dart';
+import '../services/dom_rl_engine_v2.dart';
+import '../providers/auth_provider.dart';
+import '../models/user_profile.dart';
+import 'package:provider/provider.dart';
 import '../widgets/weekly_calendar.dart';
 
 /// Weekly Schedule Screen - Shows workout history and allows scheduling
@@ -464,6 +468,195 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
     return days[weekday - 1];
   }
 
+  void _showCustomPlanDialog() {
+    final authProvider = context.read<AuthProvider>();
+    final profile = authProvider.userProfile;
+
+    if (profile == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: LaconicTheme.ironGray,
+        title: const Text(
+          'Generate Custom Plan',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Create a personalized 4-week training plan based on your goals and experience level.',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+            DropdownButtonFormField<TrainingGoal>(
+              value: TrainingGoal.generalCombat,
+              decoration: const InputDecoration(
+                labelText: 'Training Goal',
+                labelStyle: TextStyle(color: Colors.grey),
+              ),
+              dropdownColor: LaconicTheme.deepBlack,
+              items: TrainingGoal.values.map((goal) {
+                return DropdownMenuItem(
+                  value: goal,
+                  child: Text(
+                    goal.name.toUpperCase(),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {},
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<ExperienceLevel>(
+              value: profile.experienceLevel ?? ExperienceLevel.novice,
+              decoration: const InputDecoration(
+                labelText: 'Experience Level',
+                labelStyle: TextStyle(color: Colors.grey),
+              ),
+              dropdownColor: LaconicTheme.deepBlack,
+              items: ExperienceLevel.values.map((level) {
+                return DropdownMenuItem(
+                  value: level,
+                  child: Text(
+                    level.name.toUpperCase(),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {},
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<int>(
+              value: 4,
+              decoration: const InputDecoration(
+                labelText: 'Training Days per Week',
+                labelStyle: TextStyle(color: Colors.grey),
+              ),
+              dropdownColor: LaconicTheme.deepBlack,
+              items: [3, 4, 5, 6].map((days) {
+                return DropdownMenuItem(
+                  value: days,
+                  child: Text(
+                    '$days days',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {},
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              _generateCustomPlan(
+                goal: TrainingGoal.generalCombat,
+                experienceLevel:
+                    profile.experienceLevel ?? ExperienceLevel.novice,
+                trainingDaysPerWeek: 4,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: LaconicTheme.spartanBronze,
+            ),
+            child: const Text(
+              'GENERATE',
+              style: TextStyle(color: Colors.black),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _generateCustomPlan({
+    required TrainingGoal goal,
+    required ExperienceLevel experienceLevel,
+    required int trainingDaysPerWeek,
+  }) async {
+    final authProvider = context.read<AuthProvider>();
+    final userId = authProvider.userId;
+
+    if (userId == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        backgroundColor: LaconicTheme.ironGray,
+        content: Row(
+          children: [
+            CircularProgressIndicator(color: LaconicTheme.spartanBronze),
+            SizedBox(width: 20),
+            Text(
+              'Generating your custom plan...',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final engine = DomRlEngineV2();
+      await engine.initialize();
+
+      final mesocycle = await engine.generateMesocycle(
+        userId: userId,
+        goal: goal,
+        experienceLevel: experienceLevel,
+        weeks: 4,
+        trainingDaysPerWeek: trainingDaysPerWeek,
+      );
+
+      Navigator.pop(context); // Close loading dialog
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: LaconicTheme.ironGray,
+          title: const Text(
+            'Plan Generated!',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Text(
+            'Your ${mesocycle.goal.name} plan is ready!\n'
+            'Duration: ${mesocycle.weeks.length} weeks\n'
+            'Focus: ${mesocycle.weeks.first.focus}',
+            style: const TextStyle(color: Colors.grey),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: LaconicTheme.spartanBronze,
+              ),
+              child: const Text(
+                'AWESOME!',
+                style: TextStyle(color: Colors.black),
+              ),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      Navigator.pop(context); // Close loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error generating plan: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -664,6 +857,12 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
             ),
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showCustomPlanDialog,
+        backgroundColor: LaconicTheme.spartanBronze,
+        icon: const Icon(Icons.fitness_center),
+        label: const Text('Generate Plan'),
       ),
     );
   }

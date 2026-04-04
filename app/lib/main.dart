@@ -20,6 +20,7 @@ import 'package:flutter/foundation.dart';
 import 'services/firestore_service.dart';
 import 'services/firebase_sync_service.dart';
 import 'widgets/guest_mode_banner.dart';
+import 'utils/page_transitions.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -170,9 +171,13 @@ class NeospartanShell extends StatefulWidget {
   State<NeospartanShell> createState() => _NeospartanShellState();
 }
 
-class _NeospartanShellState extends State<NeospartanShell> {
+class _NeospartanShellState extends State<NeospartanShell>
+    with TickerProviderStateMixin {
   int _selectedIndex = 0;
+  int _previousIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
 
   final List<Widget> _screens = [
     const AgogeScreen(), // Training - Combat Conditioning
@@ -183,6 +188,37 @@ class _NeospartanShellState extends State<NeospartanShell> {
     const StoicScreen(), // Mindset - Mental Conditioning
     const PhalanxScreen(), // Import - Plan Ingestion
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _onItemTapped(int index) {
+    if (index != _selectedIndex) {
+      setState(() {
+        _previousIndex = _selectedIndex;
+        _selectedIndex = index;
+      });
+      _animationController.reset();
+      _animationController.forward();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -205,18 +241,37 @@ class _NeospartanShellState extends State<NeospartanShell> {
           Expanded(
             child: Stack(
               children: [
-                _screens[_selectedIndex],
+                // Previous screen (fading out)
+                if (_previousIndex != _selectedIndex)
+                  AnimatedOpacity(
+                    opacity: 0.0,
+                    duration: const Duration(milliseconds: 150),
+                    child: _screens[_previousIndex],
+                  ),
+                // Current screen (fading in)
+                FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: _screens[_selectedIndex],
+                ),
                 // Minimalist Floating Menu Button
                 Positioned(
                   top: authProvider.isAnonymous ? 100 : 40,
                   left: 20,
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.menu,
-                      color: LaconicTheme.spartanBronze,
-                      size: 30,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    transform: Matrix4.translationValues(
+                      authProvider.isAnonymous ? 0 : -10,
+                      0,
+                      0,
                     ),
-                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.menu,
+                        color: LaconicTheme.spartanBronze,
+                        size: 30,
+                      ),
+                      onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                    ),
                   ),
                 ),
               ],
@@ -306,9 +361,7 @@ class _NeospartanShellState extends State<NeospartanShell> {
         ],
       ),
       onTap: () {
-        setState(() {
-          _selectedIndex = index;
-        });
+        _onItemTapped(index);
         Navigator.pop(context);
       },
     );

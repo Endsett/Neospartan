@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../services/agoge_service.dart';
 import '../services/dom_rl_engine.dart';
+import '../services/dom_rl_engine_v2.dart';
 import '../services/ephor_scrutiny_service.dart';
 import '../services/tactical_retreat_service.dart';
 import '../services/firebase_sync_service.dart';
@@ -21,6 +22,7 @@ class AgogeScreen extends StatefulWidget {
 class _AgogeScreenState extends State<AgogeScreen> {
   final AgogeService _agogeService = AgogeService();
   final DomRlEngine _domRlEngine = DomRlEngine();
+  final DomRlEngineV2 _domRlEngineV2 = DomRlEngineV2();
   final EphorScrutinyService _ephorService = EphorScrutinyService();
   final TacticalRetreatService _tacticalRetreat = TacticalRetreatService();
   final FirebaseSyncService _firebase = FirebaseSyncService();
