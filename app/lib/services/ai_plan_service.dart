@@ -97,7 +97,7 @@ class AIPlanService {
   Future<void> initialize() async {
     try {
       await _geminiClient.initialize();
-      await _memoryService.initialize(isGuest: false);
+      // Memory service doesn't need initialization
       _initialized = true;
       debugPrint(
         'AI Plan Service initialized with Gemini 2.0 Flash and memory system',
@@ -130,6 +130,7 @@ class AIPlanService {
           priority: MemoryPriority.high,
           data: profile.toMap(),
           tags: ['profile', 'initial'],
+          summary: 'Initial user profile setup',
         );
       } catch (e) {
         debugPrint('Memory storage failed, continuing without memory: $e');
