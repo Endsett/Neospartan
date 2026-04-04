@@ -6,6 +6,7 @@ import '../models/user_profile.dart';
 import '../models/workout_protocol.dart';
 import '../models/workout_tracking.dart';
 import '../models/exercise.dart';
+import '../config/ai_config.dart';
 import 'ai_memory_service.dart';
 import 'context_ingestion_service.dart';
 
@@ -88,8 +89,6 @@ class AIPlanService {
   AIPlanService._internal();
 
   // Gemini 2.5 Flash API Key
-  static const String _apiKey = 'AIzaSyAp1gkplk30KQOPGenhjzcVnm_YQvz3Wyk';
-
   late GenerativeModel _model;
   bool _initialized = false;
   final AIMemoryService _memoryService = AIMemoryService();
@@ -98,7 +97,10 @@ class AIPlanService {
   /// Initialize the service with Gemini 2.5 Flash and memory system
   Future<void> initialize() async {
     try {
-      _model = GenerativeModel(model: 'gemini-2.0-flash-exp', apiKey: _apiKey);
+      _model = GenerativeModel(
+        model: AIConfig.geminiModel,
+        apiKey: AIConfig.geminiApiKey,
+      );
       await _memoryService.initialize(isGuest: false);
       _initialized = true;
       debugPrint(

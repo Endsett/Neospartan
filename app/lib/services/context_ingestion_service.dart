@@ -3,19 +3,21 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/ai_memory.dart';
 import '../models/user_profile.dart';
 import '../services/ai_memory_service.dart';
+import '../config/ai_config.dart';
 
 /// Context Ingestion Service - Intelligently feeds memory into Gemini prompts
 /// Analyzes context needs and constructs optimal prompts for AI interactions
 class ContextIngestionService {
-  static final ContextIngestionService _instance = ContextIngestionService._internal();
+  static final ContextIngestionService _instance =
+      ContextIngestionService._internal();
   factory ContextIngestionService() => _instance;
   ContextIngestionService._internal();
 
   final AIMemoryService _memoryService = AIMemoryService();
-  
+
   /// Maximum tokens to use for context (leaving room for response)
   static const int _maxContextTokens = 2000;
-  
+
   /// Token estimation: ~4 chars per token
   static const int _charsPerToken = 4;
 
@@ -116,7 +118,7 @@ Provide concise analysis with specific recommendations.
       // Add additional context if provided
       final fullContext = StringBuffer();
       fullContext.writeln(contextString);
-      
+
       if (additionalContext != null && additionalContext.isNotEmpty) {
         fullContext.writeln('\n--- ADDITIONAL CONTEXT ---');
         additionalContext.forEach((key, value) {
@@ -125,7 +127,8 @@ Provide concise analysis with specific recommendations.
       }
 
       // Get template and inject context
-      final template = _contextTemplates[contextType] ?? _contextTemplates['training_plan']!;
+      final template =
+          _contextTemplates[contextType] ?? _contextTemplates['training_plan']!;
       final prompt = template.replaceAll('{CONTEXT}', fullContext.toString());
 
       // Log prompt stats
@@ -137,7 +140,10 @@ Provide concise analysis with specific recommendations.
 
       return prompt;
     } catch (e) {
-      developer.log('Error building prompt: $e', name: 'ContextIngestionService');
+      developer.log(
+        'Error building prompt: $e',
+        name: 'ContextIngestionService',
+      );
       // Return minimal fallback prompt
       return _buildFallbackPrompt(contextType, userProfile);
     }
@@ -162,10 +168,7 @@ Provide concise analysis with specific recommendations.
 
       final typeMemories = await _memoryService.queryMemories(
         userId,
-        options: MemoryQueryOptions(
-          types: [priority],
-          limit: 10,
-        ),
+        options: MemoryQueryOptions(types: [priority], limit: 10),
       );
 
       // Sort by relevance and add until token limit
@@ -173,7 +176,7 @@ Provide concise analysis with specific recommendations.
 
       for (final memory in typeMemories) {
         final memoryTokens = _estimateMemoryTokens(memory);
-        
+
         if (currentTokens + memoryTokens > maxTokens) {
           // Try to add a summarized version if available
           if (memory.summary != null && memoryTokens > 100) {
@@ -188,7 +191,7 @@ Provide concise analysis with specific recommendations.
 
         memories.add(memory);
         currentTokens += memoryTokens;
-        
+
         // Record access for relevance tracking
         await _memoryService.recordAccess(userId, memory.id);
       }
@@ -275,7 +278,8 @@ Provide concise analysis with specific recommendations.
       data: profile.toMap(),
       createdAt: DateTime.now(),
       expiresAt: DateTime.now().add(const Duration(days: 365)),
-      summary: 'Profile: ${profile.displayName}, Level: ${profile.fitnessLevel}, Goal: ${profile.trainingGoal}',
+      summary:
+          'Profile: ${profile.displayName}, Level: ${profile.fitnessLevel}, Goal: ${profile.trainingGoal}',
       accessCount: 0,
       lastAccessed: DateTime.now(),
     );
@@ -285,13 +289,13 @@ Provide concise analysis with specific recommendations.
   String _buildFallbackPrompt(String contextType, UserProfile? profile) {
     final buffer = StringBuffer();
     buffer.writeln('You are a fitness coach helping an athlete.');
-    
+
     if (profile != null) {
       buffer.writeln('\nAthlete: ${profile.displayName}');
       buffer.writeln('Level: ${profile.fitnessLevel}');
       buffer.writeln('Goal: ${profile.trainingGoal}');
     }
-    
+
     buffer.writeln('\nProvide a basic training plan.');
     return buffer.toString();
   }
@@ -303,18 +307,19 @@ Provide concise analysis with specific recommendations.
       if (memory.summary != null) return memory.summary;
 
       // Create mini-prompt for summarization
-      final prompt = '''
+      final prompt =
+          '''
 Summarize the following fitness/training data in one sentence:
 Type: ${memory.type.name}
 Data: ${memory.data}
 
 Provide a concise summary that captures the key information.
-''';    
+''';
 
       // Use Gemini to generate summary
       final model = GenerativeModel(
-        model: 'gemini-2.0-flash-exp',
-        apiKey: 'AIzaSyAp1gkplk30KQOPGenhjzcVnm_YQvz3Wyk',
+        model: AIConfig.geminiModel,
+        apiKey: AIConfig.geminiApiKey,
       );
 
       final response = await model.generateContent([Content.text(prompt)]);
@@ -371,7 +376,7 @@ Provide a concise summary that captures the key information.
   }) async {
     // Determine relevant memory types based on query keywords
     final relevantTypes = _inferTypesFromQuery(query);
-    
+
     final memories = await _memoryService.queryMemories(
       userId,
       options: MemoryQueryOptions(
@@ -396,19 +401,19 @@ Provide a concise summary that captures the key information.
     final lower = query.toLowerCase();
     final types = <AIMemoryType>[];
 
-    if (lower.contains('workout') || 
-        lower.contains('exercise') || 
+    if (lower.contains('workout') ||
+        lower.contains('exercise') ||
         lower.contains('training')) {
       types.add(AIMemoryType.workoutHistory);
     }
-    if (lower.contains('recovery') || 
-        lower.contains('sleep') || 
+    if (lower.contains('recovery') ||
+        lower.contains('sleep') ||
         lower.contains('hrv')) {
       types.add(AIMemoryType.healthMetrics);
       types.add(AIMemoryType.readiness);
     }
-    if (lower.contains('goal') || 
-        lower.contains('preference') || 
+    if (lower.contains('goal') ||
+        lower.contains('preference') ||
         lower.contains('like')) {
       types.add(AIMemoryType.preferences);
       types.add(AIMemoryType.userProfile);
@@ -441,29 +446,36 @@ Provide a concise summary that captures the key information.
   /// Analyze prompt effectiveness
   Map<String, dynamic> analyzePrompt(String prompt, {String? expectedOutput}) {
     final analysis = <String, dynamic>{};
-    
+
     // Token estimate
     analysis['tokenEstimate'] = prompt.length ~/ _charsPerToken;
-    
+
     // Memory count (from context markers)
     final memoryMatches = RegExp(r'\[([A-Z_]+)\]').allMatches(prompt);
-    analysis['contextSections'] = memoryMatches.map((m) => m.group(1)).toSet().toList();
-    
+    analysis['contextSections'] = memoryMatches
+        .map((m) => m.group(1))
+        .toSet()
+        .toList();
+
     // Context density
     final lines = prompt.split('\n');
     final contextLines = lines.where((l) => l.startsWith('-')).length;
     analysis['contextDensity'] = contextLines / lines.length;
-    
+
     // Completeness check
-    final hasProfile = prompt.contains('userProfile') || prompt.contains('Profile');
-    final hasHistory = prompt.contains('workoutHistory') || prompt.contains('Workout');
-    final hasReadiness = prompt.contains('readiness') || prompt.contains('Readiness');
-    
+    final hasProfile =
+        prompt.contains('userProfile') || prompt.contains('Profile');
+    final hasHistory =
+        prompt.contains('workoutHistory') || prompt.contains('Workout');
+    final hasReadiness =
+        prompt.contains('readiness') || prompt.contains('Readiness');
+
     analysis['completeness'] = {
       'hasProfile': hasProfile,
       'hasHistory': hasHistory,
       'hasReadiness': hasReadiness,
-      'score': (hasProfile ? 1 : 0) + (hasHistory ? 1 : 0) + (hasReadiness ? 1 : 0),
+      'score':
+          (hasProfile ? 1 : 0) + (hasHistory ? 1 : 0) + (hasReadiness ? 1 : 0),
     };
 
     return analysis;
