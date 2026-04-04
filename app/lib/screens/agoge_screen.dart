@@ -6,7 +6,12 @@ import '../services/dom_rl_engine.dart';
 import '../services/ephor_scrutiny_service.dart';
 import '../services/tactical_retreat_service.dart';
 import '../services/state_persistence_service.dart';
+import '../services/ai_plan_service.dart';
+import '../services/dom_rl_engine_v2.dart';
 import '../models/workout_protocol.dart';
+import '../models/user_profile.dart';
+import '../models/session_readiness_input.dart';
+import '../models/workout_tracking.dart';
 import '../providers/workout_provider.dart';
 import 'workout_session_screen.dart';
 import 'pre_battle_primer_screen.dart';
@@ -24,6 +29,8 @@ class _AgogeScreenState extends State<AgogeScreen> {
   final EphorScrutinyService _ephorService = EphorScrutinyService();
   final TacticalRetreatService _tacticalRetreat = TacticalRetreatService();
   final StatePersistenceService _persistence = StatePersistenceService();
+  final AIPlanService _aiPlanService = AIPlanService();
+  final DomRlEngineV2 _domRlEngineV2 = DomRlEngineV2();
 
   WorkoutProtocol? _protocol;
   int _readinessScore = 0;
@@ -32,11 +39,299 @@ class _AgogeScreenState extends State<AgogeScreen> {
   EphorAnalysis? _ephorAnalysis;
   DomRlResult? _domRlResult;
   TacticalRetreatCheck? _retreatCheck;
+  WorkoutRecommendation? _structuredRecommendation;
+  bool _isRecommendationLoading = false;
+  AdaptiveWeeklyPeriodizationDecision? _weeklyDirective;
+  bool _isWeeklyDirectiveLoading = false;
+  SessionReadinessInput _sessionReadinessInput = const SessionReadinessInput(
+    soreness: 5,
+    motivation: 6,
+    sleepQuality: 6,
+    stress: 5,
+  );
 
   @override
   void initState() {
     super.initState();
     _loadProtocol();
+  }
+
+  Widget _buildSessionReadinessQuestionnaire() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: LaconicTheme.ironGray.withValues(alpha: 0.15),
+        border: Border.all(color: LaconicTheme.ironGray.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '2-MINUTE READINESS CHECK',
+            style: TextStyle(
+              color: LaconicTheme.spartanBronze,
+              fontSize: 10,
+              letterSpacing: 2.0,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _buildSliderRow(
+            'Soreness',
+            _sessionReadinessInput.soreness,
+            (v) => _updateSessionInput(soreness: v),
+          ),
+          _buildSliderRow(
+            'Motivation',
+            _sessionReadinessInput.motivation,
+            (v) => _updateSessionInput(motivation: v),
+          ),
+          _buildSliderRow(
+            'Sleep',
+            _sessionReadinessInput.sleepQuality,
+            (v) => _updateSessionInput(sleepQuality: v),
+          ),
+          _buildSliderRow(
+            'Stress',
+            _sessionReadinessInput.stress,
+            (v) => _updateSessionInput(stress: v),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: _protocol == null
+                  ? null
+                  : () async {
+                      await _loadStructuredRecommendation(_protocol!);
+                      await _loadAdaptiveWeeklyDirective();
+                    },
+              child: const Text('APPLY QUESTIONNAIRE TO AI RECOMMENDATIONS'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSliderRow(String label, int value, ValueChanged<int> onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$label: $value/10',
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+        Slider(
+          value: value.toDouble(),
+          min: 1,
+          max: 10,
+          divisions: 9,
+          activeColor: LaconicTheme.spartanBronze,
+          onChanged: (v) => onChanged(v.round()),
+        ),
+      ],
+    );
+  }
+
+  void _updateSessionInput({
+    int? soreness,
+    int? motivation,
+    int? sleepQuality,
+    int? stress,
+  }) {
+    setState(() {
+      _sessionReadinessInput = SessionReadinessInput(
+        soreness: soreness ?? _sessionReadinessInput.soreness,
+        motivation: motivation ?? _sessionReadinessInput.motivation,
+        sleepQuality: sleepQuality ?? _sessionReadinessInput.sleepQuality,
+        stress: stress ?? _sessionReadinessInput.stress,
+      );
+    });
+  }
+
+  Widget _buildWeeklyDirectiveCard() {
+    final directive = _weeklyDirective;
+    if (directive == null) return const SizedBox.shrink();
+
+    final color = directive.directive == WeeklyDirective.overload
+        ? Colors.green
+        : directive.directive == WeeklyDirective.deload
+        ? Colors.orange
+        : LaconicTheme.spartanBronze;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'WEEKLY DIRECTIVE: ${directive.directive.name.toUpperCase()}',
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            directive.summary,
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Volume: ${directive.volumeAdjustmentPercent > 0 ? '+' : ''}${directive.volumeAdjustmentPercent}% • Intensity: ${directive.intensityAdjustmentPercent > 0 ? '+' : ''}${directive.intensityAdjustmentPercent}%',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...directive.reasons
+              .take(2)
+              .map(
+                (r) => Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    '• $r',
+                    style: const TextStyle(color: Colors.grey, fontSize: 11),
+                  ),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _loadStructuredRecommendation(WorkoutProtocol protocol) async {
+    setState(() {
+      _isRecommendationLoading = true;
+    });
+
+    try {
+      final profile = _buildRecommendationProfile(protocol);
+      final log = _buildRecommendationLog(protocol);
+      final recommendation = await _aiPlanService
+          .getStructuredWorkoutRecommendations(
+            profile,
+            log,
+            readinessInput: _sessionReadinessInput,
+          );
+
+      if (mounted) {
+        setState(() {
+          _structuredRecommendation = recommendation;
+          _isRecommendationLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _structuredRecommendation = null;
+          _isRecommendationLoading = false;
+        });
+      }
+    }
+  }
+
+  UserProfile _buildRecommendationProfile(WorkoutProtocol protocol) {
+    return UserProfile(
+      userId: 'local_user',
+      displayName: 'Warrior',
+      bodyComposition: const BodyComposition(weight: 75, height: 175, age: 25),
+      fitnessLevel: FitnessLevel.intermediate,
+      trainingGoal: _inferGoalFromProtocol(protocol),
+      trainingDaysPerWeek: 4,
+      preferredWorkoutDuration: protocol.estimatedDurationMinutes,
+      createdAt: DateTime.now(),
+      hasCompletedOnboarding: true,
+    );
+  }
+
+  DailyLog _buildRecommendationLog(WorkoutProtocol protocol) {
+    final rpeEntries = protocol.entries.map((e) => e.intensityRpe).toList();
+
+    return DailyLog(
+      date: DateTime.now(),
+      rpeEntries: rpeEntries,
+      sleepQuality: _readinessScore >= 75 ? 8 : (_readinessScore >= 55 ? 7 : 5),
+      sleepHours: _readinessScore >= 75
+          ? 7.8
+          : (_readinessScore >= 55 ? 7.0 : 5.8),
+      jointFatigue: const {},
+      flowState: _readinessScore >= 75 ? 8 : 6,
+      readinessScore: _readinessScore,
+    );
+  }
+
+  TrainingGoal _inferGoalFromProtocol(WorkoutProtocol protocol) {
+    final title = protocol.title.toLowerCase();
+    if (title.contains('boxing')) return TrainingGoal.boxing;
+    if (title.contains('muay')) return TrainingGoal.muayThai;
+    if (title.contains('wrestling')) return TrainingGoal.wrestling;
+    if (title.contains('bjj') || title.contains('jiu')) return TrainingGoal.bjj;
+    if (title.contains('mma')) return TrainingGoal.mma;
+    if (title.contains('strength')) return TrainingGoal.strength;
+    if (title.contains('conditioning')) return TrainingGoal.conditioning;
+    return TrainingGoal.generalCombat;
+  }
+
+  Future<void> _loadAdaptiveWeeklyDirective() async {
+    setState(() {
+      _isWeeklyDirectiveLoading = true;
+    });
+
+    try {
+      final now = DateTime.now();
+      final weekStart = now.subtract(Duration(days: now.weekday - 1));
+      final weeklyProgress = WeeklyProgress(
+        weekStarting: weekStart,
+        workoutsCompleted: (_readinessScore >= 70
+            ? 4
+            : (_readinessScore >= 55 ? 3 : 2)),
+        totalPlannedWorkouts: 4,
+        averageRPE: (_protocol?.entries.isNotEmpty ?? false)
+            ? _protocol!.entries
+                      .map((e) => e.intensityRpe)
+                      .reduce((a, b) => a + b) /
+                  _protocol!.entries.length
+            : 7.0,
+        totalVolume: (_protocol?.entries.length ?? 0) * 180,
+        averageReadiness: _sessionReadinessInput.applyToReadiness(
+          _readinessScore,
+        ),
+        achievedGoals: _readinessScore >= 70,
+      );
+
+      final directive = await _domRlEngineV2.generateAdaptiveWeeklyDirective(
+        userId: 'local_user',
+        weeklyProgress: weeklyProgress,
+      );
+
+      if (mounted) {
+        setState(() {
+          _weeklyDirective = directive;
+          _isWeeklyDirectiveLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _weeklyDirective = null;
+          _isWeeklyDirectiveLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadProtocol() async {
@@ -45,6 +340,8 @@ class _AgogeScreenState extends State<AgogeScreen> {
     // First, check if we already have a protocol for today
     final savedProtocol = _persistence.loadDailyProtocol();
     if (savedProtocol != null && !_isNewDay()) {
+      await _loadStructuredRecommendation(savedProtocol);
+      await _loadAdaptiveWeeklyDirective();
       // Use saved protocol - don't regenerate
       if (mounted) {
         setState(() {
@@ -107,6 +404,9 @@ class _AgogeScreenState extends State<AgogeScreen> {
       'last_protocol_date',
       '${DateTime.now().year}-${DateTime.now().month}-${DateTime.now().day}',
     );
+
+    await _loadStructuredRecommendation(finalProtocol);
+    await _loadAdaptiveWeeklyDirective();
 
     if (mounted) {
       setState(() {
@@ -215,7 +515,33 @@ class _AgogeScreenState extends State<AgogeScreen> {
                     if (_ephorAnalysis != null) _buildEphorCard(),
 
                     const SizedBox(height: 20),
+                    _buildSessionReadinessQuestionnaire(),
+                    const SizedBox(height: 16),
+                    if (_isWeeklyDirectiveLoading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: LaconicTheme.spartanBronze,
+                          ),
+                        ),
+                      )
+                    else if (_weeklyDirective != null)
+                      _buildWeeklyDirectiveCard(),
+                    const SizedBox(height: 20),
                     _buildAIGard(),
+                    const SizedBox(height: 16),
+                    if (_isRecommendationLoading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: LaconicTheme.spartanBronze,
+                          ),
+                        ),
+                      )
+                    else if (_structuredRecommendation != null)
+                      _buildStructuredRecommendationCard(),
                     const SizedBox(height: 30),
 
                     // DOM-RL Action display
@@ -554,6 +880,75 @@ class _AgogeScreenState extends State<AgogeScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStructuredRecommendationCard() {
+    final recommendation = _structuredRecommendation;
+    if (recommendation == null) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: LaconicTheme.ironGray.withValues(alpha: 0.15),
+        border: Border.all(
+          color: LaconicTheme.spartanBronze.withValues(alpha: 0.35),
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'AI NEXT SESSION RECOMMENDATION',
+            style: TextStyle(
+              color: LaconicTheme.spartanBronze,
+              fontSize: 10,
+              letterSpacing: 2.0,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            recommendation.sessionFocus,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            recommendation.progressionDirective,
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          ...recommendation.exercises
+              .take(4)
+              .map(
+                (exercise) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    '• ${exercise.name} (${exercise.category.name.toUpperCase()})',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ),
+              ),
+          const SizedBox(height: 8),
+          ...recommendation.recoveryGuidance
+              .take(2)
+              .map(
+                (line) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '- $line',
+                    style: const TextStyle(color: Colors.grey, fontSize: 11),
+                  ),
+                ),
+              ),
         ],
       ),
     );

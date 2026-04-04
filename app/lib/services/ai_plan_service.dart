@@ -5,6 +5,7 @@ import '../models/user_profile.dart';
 import '../models/workout_protocol.dart';
 import '../models/workout_tracking.dart';
 import '../models/exercise.dart';
+import '../models/session_readiness_input.dart';
 import '../config/ai_config.dart';
 import 'ai_memory_service.dart';
 import 'context_ingestion_service.dart';
@@ -30,6 +31,61 @@ class WeeklyPlan {
       'daily_workouts': dailyWorkouts.map((d) => d.toMap()).toList(),
       'weekly_notes': weeklyNotes,
       'intensity_recommendation': intensityRecommendation,
+    };
+  }
+}
+
+class ExerciseRecommendationItem {
+  final String name;
+  final ExerciseCategory category;
+  final int intensityLevel;
+  final String targetMetaphor;
+  final String instructions;
+
+  const ExerciseRecommendationItem({
+    required this.name,
+    required this.category,
+    required this.intensityLevel,
+    required this.targetMetaphor,
+    required this.instructions,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'category': category.name,
+      'intensity_level': intensityLevel,
+      'target_metaphor': targetMetaphor,
+      'instructions': instructions,
+    };
+  }
+}
+
+class WorkoutRecommendation {
+  final String goal;
+  final String recoveryState;
+  final String progressionDirective;
+  final String sessionFocus;
+  final List<ExerciseRecommendationItem> exercises;
+  final List<String> recoveryGuidance;
+
+  const WorkoutRecommendation({
+    required this.goal,
+    required this.recoveryState,
+    required this.progressionDirective,
+    required this.sessionFocus,
+    required this.exercises,
+    required this.recoveryGuidance,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'goal': goal,
+      'recovery_state': recoveryState,
+      'progression_directive': progressionDirective,
+      'session_focus': sessionFocus,
+      'recommended_exercises': exercises.map((e) => e.toMap()).toList(),
+      'recovery_guidance': recoveryGuidance,
     };
   }
 }
@@ -297,38 +353,219 @@ Return a JSON object with the following structure:
   /// Get AI recommendations for specific workout adjustments
   Future<String> getWorkoutRecommendations(
     UserProfile profile,
-    DailyLog recentLogs,
-  ) async {
-    if (!isInitialized) {
-      return 'AI recommendations not available. Continue with current plan.';
-    }
-
+    DailyLog recentLogs, {
+    SessionReadinessInput? readinessInput,
+  }) async {
     try {
-      final prompt =
-          '''
-You are an elite combat sports conditioning coach. Based on the user's recent training data, provide specific recommendations for their next workout.
+      final recommendation = await getStructuredWorkoutRecommendations(
+        profile,
+        recentLogs,
+        readinessInput: readinessInput,
+      );
 
-User Profile:
-- Level: ${profile.fitnessLevelText}
-- Goal: ${profile.trainingGoalText}
-- Training days/week: ${profile.trainingDaysPerWeek}
+      final exerciseBlock = recommendation.exercises.isEmpty
+          ? 'No specific exercise matches found; use your current protocol with adjusted intensity.'
+          : recommendation.exercises
+                .map(
+                  (exercise) =>
+                      '- ${exercise.name} (${exercise.category.name.toUpperCase()}) · Intensity ${exercise.intensityLevel}/10',
+                )
+                .join('\n');
 
-Recent Training Data:
-- Readiness Score: ${recentLogs.readinessScore}/100
-- Sleep Quality: ${recentLogs.sleepQuality}/10
-- Sleep Hours: ${recentLogs.sleepHours}
-- Joint Fatigue: ${recentLogs.jointFatigue}
-- RPE Entries: ${recentLogs.rpeEntries}
+      return '''
+DEVELOPMENT PLAN RECOMMENDATION
+- Goal: ${recommendation.goal}
+- Recovery state: ${recommendation.recoveryState.replaceAll('_', ' ')}
+- Progression directive: ${recommendation.progressionDirective}
+- Suggested session focus: ${recommendation.sessionFocus}
 
-Provide 2-3 specific recommendations for the next workout. Be concise and actionable. Focus on intensity, exercise selection, and recovery considerations.
+NEXT SESSION EXERCISE RECOMMENDATIONS
+$exerciseBlock
+
+RECOVERY GUIDANCE
+${recommendation.recoveryGuidance.map((line) => '- $line').join('\n')}
 ''';
-
-      // Simplified: Return static recommendation
-      return prompt;
     } catch (e) {
       debugPrint('Error getting recommendations: $e');
       return 'Continue with current plan based on your readiness score.';
     }
+  }
+
+  Future<WorkoutRecommendation> getStructuredWorkoutRecommendations(
+    UserProfile profile,
+    DailyLog recentLogs, {
+    SessionReadinessInput? readinessInput,
+  }) async {
+    final adjustedLog = _applyReadinessInputToLog(recentLogs, readinessInput);
+
+    final recoveryState = _determineRecoveryState(adjustedLog);
+    final progressionDirective = _determineProgressionDirective(
+      profile,
+      adjustedLog,
+    );
+    final workoutType = _recommendWorkoutType(profile, recoveryState);
+
+    final candidateExercises = Exercise.forUserProfile(
+      profile,
+      workoutType: workoutType,
+      limit: 80,
+    );
+
+    final selectedExercises = _selectExercisesForRecoveryState(
+      candidateExercises,
+      recoveryState,
+    ).take(6).toList();
+
+    final maxJoint = adjustedLog.jointFatigue.entries.isEmpty
+        ? null
+        : adjustedLog.jointFatigue.entries.reduce(
+            (a, b) => a.value >= b.value ? a : b,
+          );
+
+    final recoveryNote = recoveryState == 'recovery'
+        ? 'Prioritize mobility, isometrics, and low-impact conditioning. Keep RPE 5-6.'
+        : recoveryState == 'high_performance'
+        ? 'Recovered and ready: include one explosive block at RPE 8-9 while keeping form strict.'
+        : 'Maintain workload at RPE 6-8 and focus on technical quality.';
+
+    final jointNote = maxJoint == null
+        ? 'No significant joint stress flags logged.'
+        : maxJoint.value >= 7
+        ? 'Protect ${maxJoint.key}: reduce joint-heavy loading and use controlled tempo.'
+        : 'Joint stress acceptable. Continue monitoring ${maxJoint.key}.';
+
+    final exercises = selectedExercises
+        .map(
+          (exercise) => ExerciseRecommendationItem(
+            name: exercise.name,
+            category: exercise.category,
+            intensityLevel: exercise.intensityLevel,
+            targetMetaphor: exercise.targetMetaphor,
+            instructions: exercise.instructions,
+          ),
+        )
+        .toList();
+
+    return WorkoutRecommendation(
+      goal: profile.trainingGoalText,
+      recoveryState: recoveryState,
+      progressionDirective: progressionDirective,
+      sessionFocus: workoutType,
+      exercises: exercises,
+      recoveryGuidance: [
+        recoveryNote,
+        jointNote,
+        if (readinessInput != null)
+          'Questionnaire-adjusted readiness: ${adjustedLog.readinessScore}/100 (soreness ${readinessInput.soreness}/10, stress ${readinessInput.stress}/10).',
+        'Sleep target: 7.5-9.0 hours before next hard session.',
+      ],
+    );
+  }
+
+  DailyLog _applyReadinessInputToLog(
+    DailyLog log,
+    SessionReadinessInput? readinessInput,
+  ) {
+    if (readinessInput == null) {
+      return log;
+    }
+
+    return DailyLog(
+      date: log.date,
+      rpeEntries: log.rpeEntries,
+      sleepQuality: ((log.sleepQuality + readinessInput.sleepQuality) / 2)
+          .round()
+          .clamp(1, 10),
+      sleepHours: log.sleepHours,
+      jointFatigue: log.jointFatigue,
+      flowState: log.flowState,
+      readinessScore: readinessInput.applyToReadiness(log.readinessScore),
+    );
+  }
+
+  String _determineRecoveryState(DailyLog log) {
+    final avgRpe = log.averageRPE;
+    final maxJoint = log.jointFatigue.values.isEmpty
+        ? 0
+        : log.jointFatigue.values.reduce((a, b) => a > b ? a : b);
+
+    if (log.readinessScore < 45 ||
+        log.sleepHours < 6 ||
+        log.sleepQuality < 5 ||
+        maxJoint >= 8) {
+      return 'recovery';
+    }
+    if (log.readinessScore >= 80 && log.sleepHours >= 7.5 && avgRpe <= 8) {
+      return 'high_performance';
+    }
+    return 'balanced';
+  }
+
+  String _determineProgressionDirective(UserProfile profile, DailyLog log) {
+    final state = _determineRecoveryState(log);
+    if (state == 'recovery') {
+      return 'DELOAD: reduce volume 25-35% and keep intensity moderate';
+    }
+
+    if (state == 'high_performance' &&
+        profile.fitnessLevel != FitnessLevel.beginner) {
+      return 'OVERLOAD: add one progression set or 2.5-5% load increase';
+    }
+
+    return 'MAINTAIN: keep volume stable and improve movement quality';
+  }
+
+  String _recommendWorkoutType(UserProfile profile, String recoveryState) {
+    if (recoveryState == 'recovery') {
+      return 'Active Recovery';
+    }
+
+    switch (profile.trainingGoal) {
+      case TrainingGoal.mma:
+        return 'MMA Skills & Conditioning';
+      case TrainingGoal.boxing:
+        return 'Boxing Footwork & Power';
+      case TrainingGoal.muayThai:
+        return 'Muay Thai Clinch & Striking';
+      case TrainingGoal.wrestling:
+        return 'Wrestling Takedown Chain';
+      case TrainingGoal.bjj:
+        return 'BJJ Guard & Control';
+      case TrainingGoal.generalCombat:
+        return 'Mixed Combat Conditioning';
+      case TrainingGoal.strength:
+        return 'Strength Progression';
+      case TrainingGoal.conditioning:
+        return 'Conditioning Intervals';
+    }
+  }
+
+  List<Exercise> _selectExercisesForRecoveryState(
+    List<Exercise> exercises,
+    String recoveryState,
+  ) {
+    if (exercises.isEmpty) return exercises;
+
+    final filtered = exercises.where((exercise) {
+      if (recoveryState == 'recovery') {
+        return exercise.intensityLevel <= 6 ||
+            exercise.category == ExerciseCategory.mobility ||
+            exercise.workoutTags.contains('recovery');
+      }
+
+      if (recoveryState == 'high_performance') {
+        return exercise.intensityLevel >= 7;
+      }
+
+      return exercise.intensityLevel >= 5 && exercise.intensityLevel <= 8;
+    }).toList();
+
+    if (filtered.isEmpty) {
+      return exercises.take(6).toList();
+    }
+
+    filtered.sort((a, b) => b.intensityLevel.compareTo(a.intensityLevel));
+    return filtered;
   }
 
   /// Build adjustment prompt when memory system fails
@@ -438,7 +675,11 @@ Return a JSON object with the same structure as before:
 
         for (final ex in dayData['exercises']) {
           // Match exercise from library or create custom
-          final exercise = _matchExercise(ex['name']);
+          final exercise = _matchExercise(
+            ex['name'],
+            profile: profile,
+            workoutType: dayData['workout_type']?.toString(),
+          );
 
           entries.add(
             ProtocolEntry(
@@ -484,11 +725,20 @@ Return a JSON object with the same structure as before:
   }
 
   /// Match exercise name to library
-  Exercise _matchExercise(String name) {
+  Exercise _matchExercise(
+    String name, {
+    required UserProfile profile,
+    String? workoutType,
+  }) {
     // Try to find matching exercise in library
     final normalizedName = name.toLowerCase();
+    final userLibrary = Exercise.forUserProfile(
+      profile,
+      workoutType: workoutType,
+      limit: 200,
+    );
 
-    for (final exercise in Exercise.library) {
+    for (final exercise in userLibrary) {
       if (normalizedName.contains(exercise.name.toLowerCase())) {
         return exercise;
       }
@@ -503,8 +753,12 @@ Return a JSON object with the same structure as before:
       targetMetaphor: name,
       instructions: 'Perform with proper form',
       intensityLevel: 5,
-      primaryMuscles: ['Full Body'],
+      primaryMuscles: const ['full_body'],
       jointStress: {},
+      idealGoals: [profile.trainingGoal],
+      minFitnessLevel: profile.fitnessLevel,
+      maxFitnessLevel: FitnessLevel.advanced,
+      workoutTags: workoutType != null ? [workoutType.toLowerCase()] : const [],
     );
   }
 
@@ -561,55 +815,37 @@ Return a JSON object with the same structure as before:
 
   /// Generate fallback protocol
   WorkoutProtocol _generateFallbackProtocol(UserProfile profile, String type) {
+    final userLibrary = Exercise.forUserProfile(
+      profile,
+      workoutType: type,
+      limit: 40,
+    );
     final exercises = <ProtocolEntry>[];
 
-    // Add basic exercises based on workout type
-    if (type.contains('Strength')) {
-      exercises.addAll([
+    final selected = userLibrary.take(4).toList();
+
+    if (selected.isEmpty) {
+      selected.addAll(Exercise.library.take(3));
+    }
+
+    for (var i = 0; i < selected.length; i++) {
+      final exercise = selected[i];
+      final isConditioning = type.toLowerCase().contains('conditioning');
+      final baseSets = isConditioning ? 4 : 3;
+      final baseReps = isConditioning ? 12 : 8;
+      final levelAdjustment = profile.fitnessLevel == FitnessLevel.beginner
+          ? 0
+          : 2;
+
+      exercises.add(
         ProtocolEntry(
-          exercise: Exercise.library.firstWhere(
-            (e) => e.name == 'Squat',
-            orElse: () => Exercise.library.first,
-          ),
-          sets: 4,
-          reps: profile.fitnessLevel == FitnessLevel.beginner ? 8 : 5,
-          intensityRpe: 7.5,
-          restSeconds: 180,
+          exercise: exercise,
+          sets: baseSets + (i % 2),
+          reps: baseReps + levelAdjustment,
+          intensityRpe: (exercise.intensityLevel / 1.2).clamp(5, 9).toDouble(),
+          restSeconds: isConditioning ? 45 + (i * 10) : 90 + (i * 15),
         ),
-        ProtocolEntry(
-          exercise: Exercise.library.firstWhere(
-            (e) => e.name == 'Push Ups',
-            orElse: () => Exercise.library.first,
-          ),
-          sets: 3,
-          reps: profile.fitnessLevel == FitnessLevel.beginner ? 10 : 15,
-          intensityRpe: 7,
-          restSeconds: 90,
-        ),
-      ]);
-    } else if (type.contains('Conditioning')) {
-      exercises.addAll([
-        ProtocolEntry(
-          exercise: Exercise.library.firstWhere(
-            (e) => e.name == 'Burpees',
-            orElse: () => Exercise.library.first,
-          ),
-          sets: 5,
-          reps: 10,
-          intensityRpe: 8,
-          restSeconds: 60,
-        ),
-        ProtocolEntry(
-          exercise: Exercise.library.firstWhere(
-            (e) => e.name == 'Mountain Climbers',
-            orElse: () => Exercise.library.first,
-          ),
-          sets: 4,
-          reps: 20,
-          intensityRpe: 7,
-          restSeconds: 45,
-        ),
-      ]);
+      );
     }
 
     return WorkoutProtocol(
