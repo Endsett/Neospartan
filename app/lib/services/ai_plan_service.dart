@@ -312,7 +312,6 @@ Use the same JSON format as before.
               reps: int.tryParse(ex['reps'].toString()) ?? 10,
               intensityRpe: (ex['rpe'] as num?)?.toDouble() ?? 7.0,
               restSeconds: ex['rest'] ?? 120,
-              notes: ex['notes'] ?? '',
             ),
           );
         }
@@ -322,10 +321,14 @@ Use the same JSON format as before.
             day: _getDayOfWeek(dayData['day']),
             workoutType: dayData['workout_type'] ?? 'Training',
             focus: dayData['focus'] ?? '',
-            protocolEntries: entries,
-            estimatedDuration:
-                int.tryParse(dayData['duration'].toString()) ?? 60,
-            intensityRpe: (dayData['intensity'] as num?)?.toDouble() ?? 7.0,
+            protocol: WorkoutProtocol(
+              title:
+                  '${dayData['workout_type'] ?? 'Training'} - ${dayData['focus'] ?? ''}',
+              description: 'AI-generated workout',
+              estimatedDurationMinutes:
+                  int.tryParse(dayData['duration'].toString()) ?? 60,
+              entries: entries,
+            ),
           ),
         );
       }
