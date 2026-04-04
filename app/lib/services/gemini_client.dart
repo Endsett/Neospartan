@@ -1,5 +1,4 @@
 import 'dart:developer' as developer;
-import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../config/ai_config.dart';
 
@@ -25,7 +24,10 @@ class GeminiClient {
       _initialized = true;
       developer.log('Gemini client initialized', name: 'GeminiClient');
     } catch (e) {
-      developer.log('Failed to initialize Gemini client: $e', name: 'GeminiClient');
+      developer.log(
+        'Failed to initialize Gemini client: $e',
+        name: 'GeminiClient',
+      );
       _initialized = false;
     }
   }
@@ -45,19 +47,22 @@ class GeminiClient {
     }
 
     var attempts = 0;
-    
+
     while (attempts < maxRetries) {
       try {
-        developer.log('Generating content (attempt ${attempts + 1})', name: 'GeminiClient');
-        
+        developer.log(
+          'Generating content (attempt ${attempts + 1})',
+          name: 'GeminiClient',
+        );
+
         final response = await _model.generateContent([Content.text(prompt)]);
         final result = response.text;
-        
+
         if (result != null && result.isNotEmpty) {
           developer.log('Content generated successfully', name: 'GeminiClient');
           return result;
         }
-        
+
         developer.log('Empty response from Gemini', name: 'GeminiClient');
       } catch (e) {
         attempts++;
@@ -66,15 +71,18 @@ class GeminiClient {
           name: 'GeminiClient',
           error: e,
         );
-        
+
         if (attempts < maxRetries) {
           // Exponential backoff
           await Future.delayed(delay * attempts);
         }
       }
     }
-    
-    developer.log('Failed to generate content after $maxRetries attempts', name: 'GeminiClient');
+
+    developer.log(
+      'Failed to generate content after $maxRetries attempts',
+      name: 'GeminiClient',
+    );
     return null;
   }
 
@@ -87,19 +95,25 @@ class GeminiClient {
 
     try {
       developer.log('Starting content stream', name: 'GeminiClient');
-      
-      final response = await _model.generateContentStream([Content.text(prompt)]);
-      
+
+      final response = await _model.generateContentStream([
+        Content.text(prompt),
+      ]);
+
       await for (final chunk in response) {
         final text = chunk.text;
         if (text != null) {
           yield text;
         }
       }
-      
+
       developer.log('Content stream completed', name: 'GeminiClient');
     } catch (e) {
-      developer.log('Error in content stream: $e', name: 'GeminiClient', error: e);
+      developer.log(
+        'Error in content stream: $e',
+        name: 'GeminiClient',
+        error: e,
+      );
       rethrow;
     }
   }
@@ -124,10 +138,10 @@ class GeminiClient {
     try {
       final response = await _model.generateContent([
         Content.text(
-          'Is this content safe for fitness advice? Answer with only "yes" or "no": $content'
-        )
+          'Is this content safe for fitness advice? Answer with only "yes" or "no": $content',
+        ),
       ]);
-      
+
       final result = response.text?.toLowerCase().trim();
       return result == 'yes';
     } catch (e) {
