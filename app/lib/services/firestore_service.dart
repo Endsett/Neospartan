@@ -19,7 +19,8 @@ class FirestoreService {
   final UserRepository _userRepository = UserRepository();
   final WorkoutRepository _workoutRepository = WorkoutRepository();
   final BiometricsRepository _biometricsRepository = BiometricsRepository();
-  final DailyReadinessRepository _readinessRepository = DailyReadinessRepository();
+  final DailyReadinessRepository _readinessRepository =
+      DailyReadinessRepository();
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -52,21 +53,22 @@ class FirestoreService {
     String userId, {
     int limit = 50,
     String? startAfterId,
-  }) =>
-      _workoutRepository.getWorkoutHistory(userId, limit: limit, startAfterId: startAfterId);
+  }) => _workoutRepository.getWorkoutHistory(
+    userId,
+    limit: limit,
+    startAfterId: startAfterId,
+  );
 
   Future<List<CompletedWorkout>> getWorkoutsForDateRange(
     String userId,
     DateTime start,
     DateTime end,
-  ) =>
-      _workoutRepository.getWorkoutsForDateRange(userId, start, end);
+  ) => _workoutRepository.getWorkoutsForDateRange(userId, start, end);
 
   Stream<List<CompletedWorkout>> workoutHistoryStream(
     String userId, {
     int limit = 20,
-  }) =>
-      _workoutRepository.workoutHistoryStream(userId, limit: limit);
+  }) => _workoutRepository.workoutHistoryStream(userId, limit: limit);
 
   Stream<List<CompletedWorkout>> todayWorkoutsStream(String userId) =>
       _workoutRepository.todayWorkoutsStream(userId);
@@ -82,22 +84,19 @@ class FirestoreService {
   Future<BiometricReading?> getLatestBiometric(
     String userId,
     BiometricType type,
-  ) =>
-      _biometricsRepository.getLatestBiometric(userId, type);
+  ) => _biometricsRepository.getLatestBiometric(userId, type);
 
   Future<List<BiometricReading>> getBiometricsForRange(
     String userId,
     BiometricType type,
     DateTime start,
     DateTime end,
-  ) =>
-      _biometricsRepository.getBiometricsForRange(userId, type, start, end);
+  ) => _biometricsRepository.getBiometricsForRange(userId, type, start, end);
 
   Stream<BiometricReading?> latestBiometricStream(
     String userId,
     BiometricType type,
-  ) =>
-      _biometricsRepository.latestBiometricStream(userId, type);
+  ) => _biometricsRepository.latestBiometricStream(userId, type);
 
   // ==================== DAILY READINESS OPERATIONS ====================
 
@@ -113,8 +112,7 @@ class FirestoreService {
   Future<List<DailyReadiness>> getRecentReadiness(
     String userId, {
     int days = 7,
-  }) =>
-      _readinessRepository.getRecentReadiness(userId, days: days);
+  }) => _readinessRepository.getRecentReadiness(userId, days: days);
 
   Stream<DailyReadiness?> todayReadinessStream(String userId) =>
       _readinessRepository.todayReadinessStream(userId);
@@ -131,16 +129,18 @@ class FirestoreService {
   ) async {
     try {
       // Save workout
-      final workoutSaved = await _workoutRepository.saveWorkout(userId, workout);
+      final workoutSaved = await _workoutRepository.saveWorkout(
+        userId,
+        workout,
+      );
       if (!workoutSaved) return false;
 
       // Update user stats
-      final statsUpdated = await _userRepository.updateWorkoutStats(
-        userId,
-        workoutsCompleted: 1,
-        workoutMinutes: workout.totalDurationMinutes,
-        lastWorkoutDate: workout.startTime,
-      );
+      final statsUpdated = await _userRepository.updateWorkoutStats(userId, {
+        'workoutsCompleted': 1,
+        'workoutMinutes': workout.totalDurationMinutes,
+        'lastWorkoutDate': workout.startTime?.toIso8601String(),
+      });
 
       return statsUpdated;
     } catch (e) {
@@ -161,7 +161,10 @@ class FirestoreService {
         _workoutRepository.getWorkoutsForDateRange(userId, weekStart, now),
         _readinessRepository.getTodayReadiness(userId),
         _biometricsRepository.getLatestBiometric(userId, BiometricType.hrv),
-        _biometricsRepository.getLatestBiometric(userId, BiometricType.restingHR),
+        _biometricsRepository.getLatestBiometric(
+          userId,
+          BiometricType.restingHR,
+        ),
       ]);
 
       return DashboardData(
@@ -172,7 +175,10 @@ class FirestoreService {
         latestRestingHR: results[4] as BiometricReading?,
       );
     } catch (e) {
-      developer.log('Error getting dashboard data: $e', name: 'FirestoreService');
+      developer.log(
+        'Error getting dashboard data: $e',
+        name: 'FirestoreService',
+      );
       return DashboardData();
     }
   }
@@ -180,8 +186,7 @@ class FirestoreService {
   // ==================== UTILITY OPERATIONS ====================
 
   /// Check if user exists in Firestore
-  Future<bool> userExists(String userId) =>
-      _userRepository.userExists(userId);
+  Future<bool> userExists(String userId) => _userRepository.userExists(userId);
 
   /// Get Firestore instance for raw operations
   FirebaseFirestore get firestore => _firestore;
@@ -195,7 +200,10 @@ class FirestoreService {
       );
       developer.log('Offline persistence enabled', name: 'FirestoreService');
     } catch (e) {
-      developer.log('Error enabling offline persistence: $e', name: 'FirestoreService');
+      developer.log(
+        'Error enabling offline persistence: $e',
+        name: 'FirestoreService',
+      );
     }
   }
 }
@@ -219,5 +227,6 @@ class DashboardData {
   int get workoutsThisWeek => thisWeekWorkouts.length;
   int get totalWorkoutMinutesThisWeek =>
       thisWeekWorkouts.fold(0, (sum, w) => sum + w.totalDurationMinutes);
-  double get averageReadiness => todayReadiness?.overallReadiness.toDouble() ?? 70.0;
+  double get averageReadiness =>
+      todayReadiness?.overallReadiness.toDouble() ?? 70.0;
 }

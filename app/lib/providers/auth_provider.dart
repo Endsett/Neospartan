@@ -262,6 +262,21 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // Anonymous authentication (not supported by Supabase - stubbed for compatibility)
+  bool get isAnonymous => false; // Supabase doesn't support anonymous auth
+
+  Future<bool> signInAnonymously() async {
+    _setError('Anonymous authentication is not supported with Supabase');
+    return false;
+  }
+
+  Future<bool> linkAnonymousToEmail(String email, String password) async {
+    _setError(
+      'Anonymous authentication linking is not supported with Supabase',
+    );
+    return false;
+  }
+
   /// Clear error
   void clearError() {
     _clearError();
