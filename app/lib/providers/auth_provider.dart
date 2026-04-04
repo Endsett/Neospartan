@@ -26,9 +26,11 @@ class AuthProvider extends ChangeNotifier {
   bool get isInitialized => _isInitialized;
   bool get isAuthenticated => _user != null;
   String? get userId => _user?.id;
-  String? get displayName => _user?.userMetadata?['display_name'] ?? _userProfile?.displayName;
+  String? get displayName =>
+      _user?.userMetadata?['display_name'] ?? _userProfile?.displayName;
   String? get email => _user?.email;
-  String? get photoUrl => _user?.userMetadata?['photo_url'] ?? _userProfile?.photoUrl;
+  String? get photoUrl =>
+      _user?.userMetadata?['photo_url'] ?? _userProfile?.photoUrl;
 
   AuthProvider() {
     _init();
@@ -36,25 +38,25 @@ class AuthProvider extends ChangeNotifier {
 
   /// Initialize auth state listener
   void _init() {
-    _authStateSubscription = _authService.authState.listen(
-      (AuthState authState) async {
-        developer.log(
-          'Auth state changed: ${authState.session?.user?.id ?? 'signed out'}',
-          name: 'AuthProvider',
-        );
-        _user = authState.session?.user;
+    _authStateSubscription = _authService.authState.listen((
+      AuthState authState,
+    ) async {
+      developer.log(
+        'Auth state changed: ${authState.session?.user.id ?? 'signed out'}',
+        name: 'AuthProvider',
+      );
+      _user = authState.session?.user;
 
-        if (_user != null) {
-          // Load or create user profile
-          await _loadUserProfile();
-        } else {
-          _userProfile = null;
-        }
+      if (_user != null) {
+        // Load or create user profile
+        await _loadUserProfile();
+      } else {
+        _userProfile = null;
+      }
 
-        _isInitialized = true;
-        notifyListeners();
-      },
-    );
+      _isInitialized = true;
+      notifyListeners();
+    });
   }
 
   /// Load user profile from repository
@@ -183,10 +185,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Update user profile
-  Future<bool> updateProfile({
-    String? displayName,
-    String? photoUrl,
-  }) async {
+  Future<bool> updateProfile({String? displayName, String? photoUrl}) async {
     _setLoading(true);
     _clearError();
 
@@ -203,20 +202,21 @@ class AuthProvider extends ChangeNotifier {
           userId: _userProfile!.userId,
           displayName: displayName ?? _userProfile!.displayName,
           photoUrl: photoUrl ?? _userProfile!.photoUrl,
-          bodyCompression: _userProfile!.bodyCompression,
+          bodyComposition: _userProfile!.bodyComposition,
           fitnessLevel: _userProfile!.fitnessLevel,
+          experienceLevel: _userProfile!.experienceLevel,
           trainingGoal: _userProfile!.trainingGoal,
+          philosophicalBaseline: _userProfile!.philosophicalBaseline,
           trainingDaysPerWeek: _userProfile!.trainingDaysPerWeek,
           preferredWorkoutDuration: _userProfile!.preferredWorkoutDuration,
           injuriesOrLimitations: _userProfile!.injuriesOrLimitations,
-          dateOfService: _userProfile!.dateOfService,
-          hasCompletedOnboarding: _userProfile!.hasCompletedOnboarding,
-          experienceLevel: _userProfile!.experienceLevel,
-          philosophicalBaseline: _userProfile!.philosophicalBaseline,
           dateOfBirth: _userProfile!.dateOfBirth,
+          createdAt: _userProfile!.createdAt,
+          updatedAt: DateTime.now(),
+          hasCompletedOnboarding: _userProfile!.hasCompletedOnboarding,
         );
 
-        await _userRepository.updateUserProfile(updatedProfile);
+        await _userRepository.saveUserProfile(updatedProfile);
         _userProfile = updatedProfile;
       }
 
@@ -258,6 +258,11 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Clear error
+  void clearError() {
+    _clearError();
+  }
+
+  /// Clear error (private)
   void _clearError() {
     _error = null;
     notifyListeners();

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
-import '../providers/auth_provider.dart';
 
 /// Banner to indicate guest mode
 class GuestModeBanner extends StatelessWidget {

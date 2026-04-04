@@ -35,7 +35,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final userId = authProvider.user?.uid ?? '';
+      final userId = authProvider.user?.id ?? '';
       final profile = await _firebase.getUserProfile(userId);
       final workouts = await _firebase.getWorkoutHistory(limit: 100);
 

@@ -47,7 +47,7 @@ void main() async {
     // Initialize services
     await DomRlEngine().initialize();
     await AIPlanService().initialize();
-    
+
     servicesInitialized = true;
     debugPrint('Supabase and AI services initialized successfully');
   } catch (e) {
@@ -55,10 +55,12 @@ void main() async {
     debugPrint('Initialization error: $e');
   }
 
-  runApp(NeospartanApp(
-    servicesInitialized: servicesInitialized,
-    initError: initError,
-  ));
+  runApp(
+    NeospartanApp(
+      servicesInitialized: servicesInitialized,
+      initError: initError,
+    ),
+  );
 }
 
 class NeospartanApp extends StatelessWidget {
@@ -81,7 +83,7 @@ class NeospartanApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'Neospartan',
-        theme: LaconicTheme.darkTheme,
+        theme: LaconicTheme.theme,
         home: servicesInitialized
             ? AuthGate()
             : InitializationErrorScreen(error: initError),
@@ -119,7 +121,7 @@ class AuthGate extends StatelessWidget {
         }
 
         final user = snapshot.data?.session?.user;
-        
+
         if (user != null) {
           // User is authenticated
           return FutureBuilder<Map<String, dynamic>?>(
@@ -130,18 +132,30 @@ class AuthGate extends StatelessWidget {
                   backgroundColor: Color(0xFF1a1a1a),
                   body: Center(
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFd4af37)),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFFd4af37),
+                      ),
                     ),
                   ),
                 );
               }
 
               final profile = profileSnapshot.data;
-              
-              if (profile != null && profile['has_completed_onboarding'] == true) {
+
+              if (profile != null &&
+                  profile['has_completed_onboarding'] == true) {
                 return const MainNavigation();
               } else {
-                return OnboardingScreen(userId: user.id);
+                return OnboardingScreen(
+                  onComplete: () {
+                    // Navigate to main app after onboarding
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (context) => const MainNavigation(),
+                      ),
+                    );
+                  },
+                );
               }
             },
           );
@@ -178,9 +192,7 @@ class _MainNavigationState extends State<MainNavigation> {
       body: Column(
         children: [
           const GuestModeBanner(),
-          Expanded(
-            child: _screens[_currentIndex],
-          ),
+          Expanded(child: _screens[_currentIndex]),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -232,11 +244,7 @@ class InitializationErrorScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.error_outline,
-                color: Colors.red,
-                size: 64,
-              ),
+              const Icon(Icons.error_outline, color: Colors.red, size: 64),
               const SizedBox(height: 16),
               const Text(
                 'Initialization Failed',
@@ -249,10 +257,7 @@ class InitializationErrorScreen extends StatelessWidget {
               const SizedBox(height: 8),
               const Text(
                 'Failed to initialize required services.',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 16,
-                ),
+                style: TextStyle(color: Colors.grey, fontSize: 16),
                 textAlign: TextAlign.center,
               ),
               if (error != null) ...[
@@ -265,10 +270,7 @@ class InitializationErrorScreen extends StatelessWidget {
                   ),
                   child: Text(
                     error!,
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
                   ),
                 ),
               ],
