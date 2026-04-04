@@ -263,7 +263,7 @@ class WorkoutRepository {
 /// Helper class for exercise history tracking
 class ExerciseHistoryEntry {
   final DateTime date;
-  final List<ExerciseSet> sets;
+  final List<SetPerformance> sets;
   final double maxWeight;
   final int totalReps;
   final double avgRpe;

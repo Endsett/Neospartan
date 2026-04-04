@@ -256,7 +256,7 @@ class BiometricsRepository {
 
     return _biometricsCollection(userId)
         .where('type', isEqualTo: type.name)
-        .where('timestamp', isGreaterThanOrEqualTo, start.toIso8601String())
+        .where('timestamp', isGreaterThanOrEqualTo: start.toIso8601String())
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {

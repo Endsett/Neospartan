@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
-import '../services/health_service.dart';
 import '../services/armor_analytics_service.dart';
 import '../services/firebase_sync_service.dart';
 import '../models/armor_analytics.dart';
@@ -13,10 +12,9 @@ class GarrisonScreen extends StatefulWidget {
 }
 
 class _GarrisonScreenState extends State<GarrisonScreen> {
-  final HealthService _healthService = HealthService();
   final ArmorAnalyticsService _armorService = ArmorAnalyticsService();
   final FirebaseSyncService _firebase = FirebaseSyncService();
-  
+
   Map<String, dynamic> _data = {
     'hrv': 0.0,
     'sleep': 0.0,
@@ -36,11 +34,11 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
     setState(() => _isLoading = true);
     await _healthService.requestPermissions();
     final data = await _healthService.fetchReadinessData();
-    
+
     // Load Armor Analytics
     final microCycle = await _firebase.buildMicroCycle();
     final armorResult = _armorService.analyze(microCycle);
-    
+
     if (mounted) {
       setState(() {
         _data = data;
@@ -71,7 +69,11 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: LaconicTheme.spartanBronze))
+          ? const Center(
+              child: CircularProgressIndicator(
+                color: LaconicTheme.spartanBronze,
+              ),
+            )
           : RefreshIndicator(
               onRefresh: _refreshData,
               color: LaconicTheme.spartanBronze,
@@ -163,13 +165,13 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
 
   Widget _buildArmorAnalyticsSection() {
     if (_armorResult == null) return const SizedBox.shrink();
-    
-    final riskColor = _armorResult!.hasCriticalRisk 
-        ? Colors.red 
-        : _armorResult!.shouldModifyTraining 
-            ? Colors.orange 
-            : LaconicTheme.spartanBronze;
-    
+
+    final riskColor = _armorResult!.hasCriticalRisk
+        ? Colors.red
+        : _armorResult!.shouldModifyTraining
+        ? Colors.orange
+        : LaconicTheme.spartanBronze;
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -206,57 +208,84 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
             const SizedBox(height: 16),
             const Text(
               'RISK FLAGS:',
-              style: TextStyle(color: Colors.grey, fontSize: 10, letterSpacing: 1.0),
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 10,
+                letterSpacing: 1.0,
+              ),
             ),
             const SizedBox(height: 8),
-            ..._armorResult!.riskFlags.map((flag) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: flag.riskLevel == JointRiskLevel.critical ? Colors.red 
-                          : flag.riskLevel == JointRiskLevel.high ? Colors.orange 
-                          : Colors.yellow,
-                      shape: BoxShape.circle,
+            ..._armorResult!.riskFlags.map(
+              (flag) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: flag.riskLevel == JointRiskLevel.critical
+                            ? Colors.red
+                            : flag.riskLevel == JointRiskLevel.high
+                            ? Colors.orange
+                            : Colors.yellow,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${flag.joint.toUpperCase()}: ${flag.message}',
-                      style: const TextStyle(color: Colors.grey, fontSize: 11),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${flag.joint.toUpperCase()}: ${flag.message}',
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 11,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            )),
+            ),
           ],
-          if (_armorResult!.safeMovements.isNotEmpty && _armorResult!.shouldModifyTraining) ...[
+          if (_armorResult!.safeMovements.isNotEmpty &&
+              _armorResult!.shouldModifyTraining) ...[
             const SizedBox(height: 16),
             const Text(
               'RECOMMENDED MOVEMENTS:',
-              style: TextStyle(color: Colors.grey, fontSize: 10, letterSpacing: 1.0),
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 10,
+                letterSpacing: 1.0,
+              ),
             ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: _armorResult!.safeMovements.take(4).map((exercise) => 
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: LaconicTheme.spartanBronze.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    exercise.name,
-                    style: const TextStyle(color: LaconicTheme.spartanBronze, fontSize: 10),
-                  ),
-                ),
-              ).toList(),
+              children: _armorResult!.safeMovements
+                  .take(4)
+                  .map(
+                    (exercise) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: LaconicTheme.spartanBronze.withValues(
+                          alpha: 0.2,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        exercise.name,
+                        style: const TextStyle(
+                          color: LaconicTheme.spartanBronze,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
           ],
         ],
@@ -271,7 +300,9 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: LaconicTheme.ironGray.withValues(alpha: 0.2),
-          border: Border.all(color: LaconicTheme.ironGray.withValues(alpha: 0.5)),
+          border: Border.all(
+            color: LaconicTheme.ironGray.withValues(alpha: 0.5),
+          ),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
@@ -313,16 +344,19 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
         children: [
           const Text(
             "SIMULATION MODE",
-            style: TextStyle(color: Colors.grey, fontSize: 10, letterSpacing: 2.0),
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 10,
+              letterSpacing: 2.0,
+            ),
           ),
           const SizedBox(width: 10),
           Switch(
-            value: HealthService().isSimulated,
+            value: false, // TODO: Implement simulation toggle
             activeThumbColor: LaconicTheme.spartanBronze,
             onChanged: (val) {
               setState(() {
-                HealthService().toggleSimulation(val);
-                _refreshData();
+                // TODO: Implement simulation toggle
               });
             },
           ),

@@ -206,4 +206,25 @@ class WorkoutProvider with ChangeNotifier {
           : 0,
     };
   }
+
+  /// Move to next exercise
+  void nextExercise() {
+    if (_currentEntryIndex < (_activeProtocol?.entries.length ?? 0) - 1) {
+      _currentEntryIndex++;
+      notifyListeners();
+    }
+  }
+
+  /// Cancel current workout
+  void cancelWorkout() {
+    _activeProtocol = null;
+    _currentEntryIndex = 0;
+    _isWorkoutActive = false;
+    _startTime = null;
+    _initialReadinessScore = null;
+    _currentEntry = null;
+    _exerciseSets.clear();
+    _completedExercises.clear();
+    notifyListeners();
+  }
 }

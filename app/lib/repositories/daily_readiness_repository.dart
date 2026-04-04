@@ -343,7 +343,7 @@ class DailyReadinessRepository {
     final start = DateTime.now().subtract(Duration(days: days));
 
     return _readinessCollection(userId)
-        .where('date', isGreaterThanOrEqualTo, start.toIso8601String())
+        .where('date', isGreaterThanOrEqualTo: start.toIso8601String())
         .orderBy('date', descending: true)
         .snapshots()
         .map((snapshot) {

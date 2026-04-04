@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
-import '../services/health_service.dart';
 import '../services/agoge_service.dart';
 import '../services/dom_rl_engine.dart';
 import '../services/ephor_scrutiny_service.dart';
@@ -20,7 +19,6 @@ class AgogeScreen extends StatefulWidget {
 }
 
 class _AgogeScreenState extends State<AgogeScreen> {
-  final HealthService _healthService = HealthService();
   final AgogeService _agogeService = AgogeService();
   final DomRlEngine _domRlEngine = DomRlEngine();
   final EphorScrutinyService _ephorService = EphorScrutinyService();
@@ -43,29 +41,29 @@ class _AgogeScreenState extends State<AgogeScreen> {
 
   Future<void> _loadProtocol() async {
     setState(() => _isLoading = true);
-    
+
     // Fetch readiness data
     final data = await _healthService.fetchReadinessData();
     final score = data['score'] as int;
-    
+
     // Build micro-cycle from Firebase
     final microCycle = await _firebase.buildMicroCycle();
-    
+
     // Run Ephor Scrutiny analysis
     final ephorAnalysis = _ephorService.analyzeMicroCycle(microCycle);
-    
+
     // Generate base protocol
     final baseProtocol = _agogeService.generateProtocol(score);
-    
+
     // Apply DOM-RL optimization if enabled
     WorkoutProtocol finalProtocol = baseProtocol;
     DomRlResult? domRlResult;
-    
+
     if (_useDomRl && microCycle.days.length >= 3) {
       domRlResult = _domRlEngine.optimize(microCycle, baseProtocol);
       finalProtocol = domRlResult.optimizedProtocol;
     }
-    
+
     // Check for tactical retreat
     final jointStress = <String, int>{};
     for (final day in microCycle.days) {
@@ -73,17 +71,17 @@ class _AgogeScreenState extends State<AgogeScreen> {
         jointStress[joint] = (jointStress[joint] ?? 0) + fatigue;
       });
     }
-    
+
     final retreatCheck = _tacticalRetreat.checkRetreatStatus(
       currentReadiness: score,
       jointStress: jointStress,
     );
-    
+
     // Override protocol if retreat required
     if (retreatCheck.shouldRetreat && retreatCheck.enforcedProtocol != null) {
       finalProtocol = retreatCheck.enforcedProtocol!;
     }
-    
+
     if (mounted) {
       setState(() {
         _readinessScore = score;
@@ -98,7 +96,10 @@ class _AgogeScreenState extends State<AgogeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final workoutProvider = Provider.of<WorkoutProvider>(context, listen: false);
+    final workoutProvider = Provider.of<WorkoutProvider>(
+      context,
+      listen: false,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -123,7 +124,11 @@ class _AgogeScreenState extends State<AgogeScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: LaconicTheme.spartanBronze))
+          ? const Center(
+              child: CircularProgressIndicator(
+                color: LaconicTheme.spartanBronze,
+              ),
+            )
           : RefreshIndicator(
               onRefresh: _loadProtocol,
               color: LaconicTheme.spartanBronze,
@@ -148,9 +153,14 @@ class _AgogeScreenState extends State<AgogeScreen> {
                         ),
                         if (_domRlResult != null)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: LaconicTheme.spartanBronze.withValues(alpha: 0.2),
+                              color: LaconicTheme.spartanBronze.withValues(
+                                alpha: 0.2,
+                              ),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -165,23 +175,21 @@ class _AgogeScreenState extends State<AgogeScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    
+
                     // Tactical Retreat warning
                     if (_retreatCheck?.shouldRetreat ?? false)
                       _buildRetreatBanner(),
-                    
+
                     // Ephor Analysis
-                    if (_ephorAnalysis != null)
-                      _buildEphorCard(),
-                    
+                    if (_ephorAnalysis != null) _buildEphorCard(),
+
                     const SizedBox(height: 20),
                     _buildAIGard(),
                     const SizedBox(height: 30),
-                    
+
                     // DOM-RL Action display
-                    if (_domRlResult != null)
-                      _buildDomRlActionCard(),
-                    
+                    if (_domRlResult != null) _buildDomRlActionCard(),
+
                     const SizedBox(height: 20),
                     const Text(
                       "DAILY PROTOCOL",
@@ -193,14 +201,16 @@ class _AgogeScreenState extends State<AgogeScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    ...?_protocol?.entries.map((entry) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: _buildWorkoutCard(
-                            entry.exercise.name,
-                            "${entry.sets} SETS × ${entry.reps > 0 ? entry.reps : 'MAX'} REPS",
-                            "RPE ${entry.intensityRpe.toStringAsFixed(1)}",
-                          ),
-                        )),
+                    ...?_protocol?.entries.map(
+                      (entry) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: _buildWorkoutCard(
+                          entry.exercise.name,
+                          "${entry.sets} SETS × ${entry.reps > 0 ? entry.reps : 'MAX'} REPS",
+                          "RPE ${entry.intensityRpe.toStringAsFixed(1)}",
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 40),
                     SizedBox(
                       width: double.infinity,
@@ -210,7 +220,10 @@ class _AgogeScreenState extends State<AgogeScreen> {
                             _showPreBattlePrimer(workoutProvider);
                           }
                         },
-                        child: const Text("INITIALIZE PROTOCOL", style: TextStyle(letterSpacing: 2.0)),
+                        child: const Text(
+                          "INITIALIZE PROTOCOL",
+                          style: TextStyle(letterSpacing: 2.0),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -227,10 +240,12 @@ class _AgogeScreenState extends State<AgogeScreen> {
       MaterialPageRoute(
         builder: (context) => PreBattlePrimerScreen(
           onAcknowledged: () {
-            workoutProvider.startWorkout(_protocol!, readinessScore: _readinessScore);
+            workoutProvider.startWorkout(_protocol!, _readinessScore);
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const WorkoutSessionScreen()),
+              MaterialPageRoute(
+                builder: (context) => const WorkoutSessionScreen(),
+              ),
             );
           },
         ),
@@ -271,10 +286,15 @@ class _AgogeScreenState extends State<AgogeScreen> {
             style: const TextStyle(color: Colors.red, fontSize: 12),
           ),
           const SizedBox(height: 8),
-          ...?_retreatCheck?.recommendations.map((r) => Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text('• $r', style: TextStyle(color: Colors.red.shade300, fontSize: 11)),
-          )),
+          ...?_retreatCheck?.recommendations.map(
+            (r) => Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '• $r',
+                style: TextStyle(color: Colors.red.shade300, fontSize: 11),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -282,18 +302,20 @@ class _AgogeScreenState extends State<AgogeScreen> {
 
   Widget _buildEphorCard() {
     final recommendation = _ephorAnalysis?.recommendation.name ?? 'steadyState';
-    final isPositive = recommendation == 'progressiveOverload' || recommendation == 'steadyState';
-    
+    final isPositive =
+        recommendation == 'progressiveOverload' ||
+        recommendation == 'steadyState';
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isPositive 
+        color: isPositive
             ? LaconicTheme.spartanBronze.withValues(alpha: 0.1)
             : Colors.orange.withValues(alpha: 0.1),
         border: Border.all(
-          color: isPositive 
+          color: isPositive
               ? LaconicTheme.spartanBronze.withValues(alpha: 0.3)
               : Colors.orange.withValues(alpha: 0.3),
         ),
@@ -313,7 +335,9 @@ class _AgogeScreenState extends State<AgogeScreen> {
               Text(
                 'EPHOR SCRUTINY: ${recommendation.toUpperCase()}',
                 style: TextStyle(
-                  color: isPositive ? LaconicTheme.spartanBronze : Colors.orange,
+                  color: isPositive
+                      ? LaconicTheme.spartanBronze
+                      : Colors.orange,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
                   letterSpacing: 1.0,
@@ -327,10 +351,17 @@ class _AgogeScreenState extends State<AgogeScreen> {
             style: const TextStyle(color: Colors.white, fontSize: 12),
           ),
           const SizedBox(height: 12),
-          ...?_ephorAnalysis?.trainingPrinciples.take(2).map((p) => Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text('• $p', style: const TextStyle(color: Colors.grey, fontSize: 11)),
-          )),
+          ...?_ephorAnalysis?.trainingPrinciples
+              .take(2)
+              .map(
+                (p) => Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '• $p',
+                    style: const TextStyle(color: Colors.grey, fontSize: 11),
+                  ),
+                ),
+              ),
         ],
       ),
     );
@@ -339,14 +370,16 @@ class _AgogeScreenState extends State<AgogeScreen> {
   Widget _buildDomRlActionCard() {
     final action = _domRlResult?.action;
     if (action == null) return const SizedBox.shrink();
-    
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: LaconicTheme.ironGray.withValues(alpha: 0.1),
-        border: Border.all(color: LaconicTheme.spartanBronze.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: LaconicTheme.spartanBronze.withValues(alpha: 0.2),
+        ),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -363,17 +396,28 @@ class _AgogeScreenState extends State<AgogeScreen> {
           ),
           const SizedBox(height: 12),
           _buildActionRow('Focus', action.focusArea.name.toUpperCase()),
-          _buildActionRow('Volume', '${(action.volumeAdjustment * 100).toStringAsFixed(0)}%'),
-          _buildActionRow('Intensity', '${(action.intensityAdjustment * 100).toStringAsFixed(0)}%'),
-          _buildActionRow('Rest', '${action.restAdjustment > 0 ? '+' : ''}${action.restAdjustment}s'),
+          _buildActionRow(
+            'Volume',
+            '${(action.volumeAdjustment * 100).toStringAsFixed(0)}%',
+          ),
+          _buildActionRow(
+            'Intensity',
+            '${(action.intensityAdjustment * 100).toStringAsFixed(0)}%',
+          ),
+          _buildActionRow(
+            'Rest',
+            '${action.restAdjustment > 0 ? '+' : ''}${action.restAdjustment}s',
+          ),
           if (action.exerciseSubstitutions.isNotEmpty)
-            ...action.exerciseSubstitutions.map((sub) => Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                '• ${sub.fromExerciseId} → ${sub.toExerciseId}',
-                style: const TextStyle(color: Colors.grey, fontSize: 11),
+            ...action.exerciseSubstitutions.map(
+              (sub) => Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '• ${sub.fromExerciseId} → ${sub.toExerciseId}',
+                  style: const TextStyle(color: Colors.grey, fontSize: 11),
+                ),
               ),
-            )),
+            ),
         ],
       ),
     );
@@ -386,7 +430,14 @@ class _AgogeScreenState extends State<AgogeScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
@@ -397,7 +448,9 @@ class _AgogeScreenState extends State<AgogeScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: LaconicTheme.ironGray.withValues(alpha: 0.2),
-        border: Border.all(color: LaconicTheme.spartanBronze.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: LaconicTheme.spartanBronze.withValues(alpha: 0.3),
+        ),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
