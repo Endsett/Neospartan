@@ -176,13 +176,7 @@ class AchievementRepository {
         currentValue: achievement.targetValue,
       );
 
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('unlocked_achievements')
-          .doc(achievement.id)
-          .set(awarded.toMap());
-
+      // Save to Supabase
       developer.log(
         'Achievement awarded: ${achievement.id}',
         name: 'AchievementRepository',
@@ -201,18 +195,8 @@ class AchievementRepository {
   Stream<Map<String, Achievement>> userAchievementProgressStream(
     String userId,
   ) {
-    return _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('achievement_progress')
-        .snapshots()
-        .map((snapshot) {
-          final progress = <String, Achievement>{};
-          for (final doc in snapshot.docs) {
-            progress[doc.id] = Achievement.fromMap(doc.data());
-          }
-          return progress;
-        });
+    // Return empty stream for now
+    return Stream.value({});
   }
 
   /// Check and award achievements based on stats (client-side check)

@@ -1,5 +1,5 @@
 import 'dart:developer' as developer;
-import '../models/workout.dart';
+import '../models/workout_tracking.dart';
 import '../services/supabase_database_service.dart';
 
 /// Repository for Workout CRUD operations using Supabase
@@ -20,15 +20,19 @@ class WorkoutRepository {
 
       // Save workout sets
       if (workout.sets.isNotEmpty) {
-        final setsData = workout.sets.map((set) => {
-          'exercise_name': set.exerciseName,
-          'set_number': set.setNumber,
-          'reps_performed': set.repsPerformed,
-          'actual_rpe': set.actualRPE,
-          'load_used': set.loadUsed,
-          'completed': set.completed,
-          'notes': set.notes,
-        }).toList();
+        final setsData = workout.sets
+            .map(
+              (set) => {
+                'exercise_name': set.exerciseName,
+                'set_number': set.setNumber,
+                'reps_performed': set.repsPerformed,
+                'actual_rpe': set.actualRPE,
+                'load_used': set.loadUsed,
+                'completed': set.completed,
+                'notes': set.notes,
+              },
+            )
+            .toList();
 
         await _database.saveWorkoutSets(sessionId, setsData);
       }
@@ -56,38 +60,45 @@ class WorkoutRepository {
       );
 
       final workouts = <CompletedWorkout>[];
-      
+
       for (final session in sessions) {
         final sets = await _database.getWorkoutSets(session['id']);
-        
+
         final workout = CompletedWorkout(
           id: session['id'],
           date: DateTime.parse(session['date']),
-          startTime: session['start_time'] != null 
-              ? DateTime.parse(session['start_time']) 
+          startTime: session['start_time'] != null
+              ? DateTime.parse(session['start_time'])
               : null,
-          endTime: session['end_time'] != null 
-              ? DateTime.parse(session['end_time']) 
+          endTime: session['end_time'] != null
+              ? DateTime.parse(session['end_time'])
               : null,
           workoutType: session['workout_type'] ?? '',
           notes: session['notes'] ?? '',
-          sets: sets.map((setData) => WorkoutSet(
-            exerciseName: setData['exercise_name'] ?? '',
-            setNumber: setData['set_number'] ?? 1,
-            repsPerformed: setData['reps_performed'] ?? 0,
-            actualRPE: setData['actual_rpe']?.toDouble() ?? 0.0,
-            loadUsed: setData['load_used']?.toDouble() ?? 0.0,
-            completed: setData['completed'] ?? false,
-            notes: setData['notes'] ?? '',
-          )).toList(),
+          sets: sets
+              .map(
+                (setData) => WorkoutSet(
+                  exerciseName: setData['exercise_name'] ?? '',
+                  setNumber: setData['set_number'] ?? 1,
+                  repsPerformed: setData['reps_performed'] ?? 0,
+                  actualRPE: setData['actual_rpe']?.toDouble() ?? 0.0,
+                  loadUsed: setData['load_used']?.toDouble() ?? 0.0,
+                  completed: setData['completed'] ?? false,
+                  notes: setData['notes'] ?? '',
+                ),
+              )
+              .toList(),
         );
-        
+
         workouts.add(workout);
       }
 
       return workouts;
     } catch (e) {
-      developer.log('Error getting workout history: $e', name: 'WorkoutRepository');
+      developer.log(
+        'Error getting workout history: $e',
+        name: 'WorkoutRepository',
+      );
       return [];
     }
   }
@@ -109,23 +120,27 @@ class WorkoutRepository {
       return CompletedWorkout(
         id: session['id'],
         date: DateTime.parse(session['date']),
-        startTime: session['start_time'] != null 
-            ? DateTime.parse(session['start_time']) 
+        startTime: session['start_time'] != null
+            ? DateTime.parse(session['start_time'])
             : null,
-        endTime: session['end_time'] != null 
-            ? DateTime.parse(session['end_time']) 
+        endTime: session['end_time'] != null
+            ? DateTime.parse(session['end_time'])
             : null,
         workoutType: session['workout_type'] ?? '',
         notes: session['notes'] ?? '',
-        sets: sets.map((setData) => WorkoutSet(
-          exerciseName: setData['exercise_name'] ?? '',
-          setNumber: setData['set_number'] ?? 1,
-          repsPerformed: setData['reps_performed'] ?? 0,
-          actualRPE: setData['actual_rpe']?.toDouble() ?? 0.0,
-          loadUsed: setData['load_used']?.toDouble() ?? 0.0,
-          completed: setData['completed'] ?? false,
-          notes: setData['notes'] ?? '',
-        )).toList(),
+        sets: sets
+            .map(
+              (setData) => WorkoutSet(
+                exerciseName: setData['exercise_name'] ?? '',
+                setNumber: setData['set_number'] ?? 1,
+                repsPerformed: setData['reps_performed'] ?? 0,
+                actualRPE: setData['actual_rpe']?.toDouble() ?? 0.0,
+                loadUsed: setData['load_used']?.toDouble() ?? 0.0,
+                completed: setData['completed'] ?? false,
+                notes: setData['notes'] ?? '',
+              ),
+            )
+            .toList(),
       );
     } catch (e) {
       developer.log('Error getting workout: $e', name: 'WorkoutRepository');
@@ -162,26 +177,30 @@ class WorkoutRepository {
       final totalWorkouts = workouts.length;
       final totalSets = workouts.fold<int>(
         0,
-        (sum, workout) => sum + workout.sets.length,
+        (sum, workout) => sum + (workout?.sets.length ?? 0),
       );
       final totalVolume = workouts.fold<double>(
         0.0,
-        (sum, workout) => sum + workout.totalVolume,
+        (sum, workout) => sum + (workout?.totalVolume ?? 0.0),
       );
 
       return {
         'totalWorkouts': totalWorkouts,
         'totalSets': totalSets,
         'totalVolume': totalVolume,
-        'averageRPE': totalSets > 0
+        'averageRPE': totalWorkouts > 0
             ? workouts.fold<double>(
-                0.0,
-                (sum, workout) => sum + workout.averageRPE,
-              ) / totalWorkouts
+                    0.0,
+                    (sum, workout) => sum + (workout?.averageRPE ?? 0.0),
+                  ) /
+                  totalWorkouts
             : 0.0,
       };
     } catch (e) {
-      developer.log('Error getting workout stats: $e', name: 'WorkoutRepository');
+      developer.log(
+        'Error getting workout stats: $e',
+        name: 'WorkoutRepository',
+      );
       return {};
     }
   }
