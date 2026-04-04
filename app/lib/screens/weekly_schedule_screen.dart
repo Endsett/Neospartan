@@ -630,8 +630,8 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
           ),
           content: Text(
             'Your personalized ${profile.trainingGoalText} plan is ready!\n'
-            'Duration: ${weeklyPlan.dailyWorkouts.length} days\n'
-            'Focus: ${weeklyPlan.intensityRecommendation}',
+            'Duration: ${weeklyPlan?.dailyWorkouts.length ?? 0} days\n'
+            'Focus: ${weeklyPlan?.intensityRecommendation ?? 'N/A'}',
             style: const TextStyle(color: Colors.grey),
           ),
           actions: [

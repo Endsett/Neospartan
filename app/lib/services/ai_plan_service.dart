@@ -82,6 +82,39 @@ extension WorkoutProtocolMap on WorkoutProtocol {
   }
 }
 
+/// Weekly progress data for plan adjustments
+class WeeklyProgress {
+  final double completionPercentage;
+  final double averageRpe;
+  final int totalSessions;
+  final int strengthSessions;
+  final int conditioningSessions;
+  final DateTime weekStart;
+  final DateTime weekEnd;
+
+  const WeeklyProgress({
+    required this.completionPercentage,
+    required this.averageRpe,
+    required this.totalSessions,
+    required this.strengthSessions,
+    required this.conditioningSessions,
+    required this.weekStart,
+    required this.weekEnd,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'completion_percentage': completionPercentage,
+      'average_rpe': averageRpe,
+      'total_sessions': totalSessions,
+      'strength_sessions': strengthSessions,
+      'conditioning_sessions': conditioningSessions,
+      'week_start': weekStart.toIso8601String(),
+      'week_end': weekEnd.toIso8601String(),
+    };
+  }
+}
+
 /// AI Plan Service using Gemini 2.5 Flash for intelligent training plans
 class AIPlanService {
   static final AIPlanService _instance = AIPlanService._internal();
@@ -126,7 +159,7 @@ class AIPlanService {
       // Store user profile in memory
       try {
         await _memoryService.storeMemory(
-          userId: profile.id,
+          userId: profile.userId,
           type: AIMemoryType.userProfile,
           priority: MemoryPriority.high,
           data: profile.toMap(),
@@ -140,7 +173,7 @@ class AIPlanService {
       String prompt;
       try {
         prompt = await _contextService.buildPrompt(
-          userId: profile.id,
+          userId: profile.userId,
           contextType: 'training_plan_generation',
           userProfile: profile,
           maxTokens: 8000,
@@ -159,8 +192,8 @@ class AIPlanService {
         // Store generated plan in memory
         try {
           await _memoryService.storeMemory(
-            userId: profile.id,
-            type: AIMemoryType.trainingPlan,
+            userId: profile.userId,
+            type: AIMemoryType.workoutHistory,
             priority: MemoryPriority.high,
             data: plan.toMap(),
             tags: ['plan', 'initial'],
@@ -232,8 +265,8 @@ Return a JSON object with the following structure:
       // Store progress in memory
       try {
         await _memoryService.storeMemory(
-          userId: profile.id,
-          type: AIMemoryType.weeklyProgress,
+          userId: profile.userId,
+          type: AIMemoryType.workoutHistory,
           priority: MemoryPriority.medium,
           data: progress.toMap(),
           tags: ['progress', 'weekly'],
@@ -246,7 +279,7 @@ Return a JSON object with the following structure:
       String prompt;
       try {
         prompt = await _contextService.buildPrompt(
-          userId: profile.id,
+          userId: profile.userId,
           contextType: 'plan_adjustment',
           userProfile: profile,
           maxTokens: 8000,
@@ -265,8 +298,8 @@ Return a JSON object with the following structure:
         // Store feedback in memory
         try {
           await _memoryService.storeMemory(
-            userId: profile.id,
-            type: AIMemoryType.aiFeedback,
+            userId: profile.userId,
+            type: AIMemoryType.feedback,
             priority: MemoryPriority.low,
             data: {
               'adjustment_reason': 'weekly_progress',
