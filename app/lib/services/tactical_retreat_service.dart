@@ -88,7 +88,7 @@ class TacticalRetreatService {
           ),
           sets: 3,
           reps: 0,
-          intensityRpe: 3,
+          intensityRPE: 3,
           restSeconds: 60,
         ),
         // Thoracic bridge
@@ -99,7 +99,7 @@ class TacticalRetreatService {
           ),
           sets: 3,
           reps: 0,
-          intensityRpe: 3,
+          intensityRPE: 3,
           restSeconds: 60,
         ),
         // Light plank
@@ -107,7 +107,7 @@ class TacticalRetreatService {
           exercise: Exercise.library.firstWhere((e) => e.id == 'ex_005'),
           sets: 2,
           reps: 0,
-          intensityRpe: 4,
+          intensityRPE: 4,
           restSeconds: 90,
         ),
         // Shadow boxing for light movement
@@ -115,7 +115,7 @@ class TacticalRetreatService {
           exercise: Exercise.library.firstWhere((e) => e.id == 'ex_006'),
           sets: 3,
           reps: 0,
-          intensityRpe: 3,
+          intensityRPE: 3,
           restSeconds: 60,
         ),
       ],

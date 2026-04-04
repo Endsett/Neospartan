@@ -129,7 +129,7 @@ class PhalanxIngestionService {
         name: exerciseName,
         matchedExercise: matchedExercise,
         sets: sets,
-        reps: reps,
+        reps: 10,
         rpe: rpe,
         restSeconds: rest,
         confidence: matchedExercise != null ? 0.9 : 0.5,
@@ -195,7 +195,7 @@ class PhalanxIngestionService {
         matchedExercise: matched,
         sets: sets,
         reps: reps,
-        rpe: rpe.clamp(1, 10),
+        rpe: rpe,
         restSeconds: rest,
         confidence: matched != null ? 0.95 : 0.6,
       );
@@ -336,7 +336,7 @@ class PhalanxIngestionService {
         exercise: e.matchedExercise ?? Exercise.library.first,
         sets: e.sets,
         reps: e.reps,
-        intensityRpe: e.rpe,
+        intensityRPE: e.rpe,
         restSeconds: e.restSeconds,
       );
     }).toList();

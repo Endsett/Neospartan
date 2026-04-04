@@ -74,7 +74,7 @@ class DomRlEngine {
 
     // Extract trend data
     final powerOutputTrend = microCycle.days.map((d) => d.readinessScore.toDouble()).toList();
-    final recoveryMetrics = microCycle.days.map((d) => (10 - d.jointFatigue['knees'] ?? 0).toDouble()).toList();
+    final recoveryMetrics = microCycle.days.map((d) => ((10 - d.jointFatigue['knees']!) as num).toDouble()).toList();
 
     // Latest readiness score
     final latestReadiness = microCycle.days.last.readinessScore;
@@ -188,7 +188,7 @@ class DomRlEngine {
       final newSets = (entry.sets * (1 + action.volumeAdjustment)).clamp(1, 10).round();
 
       // Apply intensity adjustment to RPE
-      final newRpe = (entry.intensityRpe + action.intensityAdjustment * 3).clamp(3.0, 10.0);
+      final newRpe = (entry.intensityRPE + action.intensityAdjustment * 3).clamp(3.0, 10.0);
 
       // Apply rest adjustment
       final newRest = (entry.restSeconds + action.restAdjustment).clamp(15, 300);
@@ -197,7 +197,7 @@ class DomRlEngine {
         exercise: newExercise,
         sets: newSets,
         reps: entry.reps,
-        intensityRpe: double.parse(newRpe.toStringAsFixed(1)),
+        intensityRPE: double.parse(newRpe.toStringAsFixed(1)),
         restSeconds: newRest,
       ));
     }

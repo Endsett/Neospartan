@@ -438,7 +438,7 @@ class BackendApiService {
     // Apply adjustments to protocol
     final adjustedEntries = baseProtocol.entries.map((entry) {
       final newSets = (entry.sets * (1 + (action['volume_adjustment'] as double))).clamp(1, 10).round();
-      final newRpe = (entry.intensityRpe + (action['intensity_adjustment'] as double) * 3).clamp(3.0, 10.0);
+      final newRpe = (entry.intensityRPE + (action['intensity_adjustment'] as double) * 3).clamp(3.0, 10.0);
       final newRest = (entry.restSeconds + (action['rest_adjustment'] as int)).clamp(15, 300);
 
       return {
@@ -663,7 +663,7 @@ class BackendApiService {
       'exercise': _exerciseToJson(entry.exercise),
       'sets': entry.sets,
       'reps': entry.reps,
-      'intensity_rpe': entry.intensityRpe,
+      'intensityRPE': entry.intensityRPE,
       'rest_seconds': entry.restSeconds,
     };
   }

@@ -181,7 +181,7 @@ class EphorScrutinyService {
     return NextWeekPlan(
       analysis: analysis,
       plannedDays: days,
-      weekStarting: DateTime.now().add(const Duration(days: 7 - DateTime.now().weekday + 1)),
+      weekStarting: DateTime.now().add(Duration(days: 7 - DateTime.now().weekday + 1)),
     );
   }
 

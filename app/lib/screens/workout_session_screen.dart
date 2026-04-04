@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../providers/workout_provider.dart';
 import '../models/workout_tracking.dart';
+import '../models/workout_protocol.dart';
 import '../models/exercise.dart';
 import '../services/firebase_sync_service.dart';
 import '../services/armor_analytics_service.dart';
