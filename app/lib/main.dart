@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'theme.dart';
 import 'screens/stadion_screen.dart';
@@ -14,33 +15,60 @@ import 'services/firebase_sync_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  bool firebaseInitialized = false;
+  String? initError;
+  
   try {
     await Firebase.initializeApp();
+    
+    // Enable offline persistence for Firestore
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+    
     FirebaseSyncService().initialize();
     await DomRlEngine().initialize();
+    firebaseInitialized = true;
+    debugPrint('Firebase initialized successfully');
   } catch (e) {
-    debugPrint("Initialization failed: $e");
+    initError = e.toString();
+    debugPrint('Firebase initialization failed: $e');
   }
+  
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => WorkoutProvider()),
         ChangeNotifierProvider(create: (_) => IngestionProvider()),
       ],
-      child: const NeospartanApp(),
+      child: NeospartanApp(
+        firebaseInitialized: firebaseInitialized,
+        initError: initError,
+      ),
     ),
   );
 }
 
 class NeospartanApp extends StatelessWidget {
-  const NeospartanApp({super.key});
+  final bool firebaseInitialized;
+  final String? initError;
+  
+  const NeospartanApp({
+    super.key,
+    required this.firebaseInitialized,
+    this.initError,
+  });
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Neospartan',
       theme: LaconicTheme.theme,
-      home: const NeospartanShell(),
+      home: firebaseInitialized 
+          ? const NeospartanShell()
+          : FirebaseInitErrorScreen(error: initError),
       debugShowCheckedModeBanner: false,
     );
   }
@@ -178,6 +206,85 @@ class ModulePlaceholder extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Error screen shown when Firebase fails to initialize
+class FirebaseInitErrorScreen extends StatelessWidget {
+  final String? error;
+  
+  const FirebaseInitErrorScreen({super.key, this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: LaconicTheme.deepBlack,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.cloud_off,
+                color: Colors.red,
+                size: 64,
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'FIREBASE CONNECTION FAILED',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2.0,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                error ?? 'Unable to connect to Firebase.\nCheck your configuration and try again.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: () {
+                  // Retry initialization
+                  main();
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('RETRY'),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () {
+                  // Continue in offline mode
+                  runApp(
+                    MultiProvider(
+                      providers: [
+                        ChangeNotifierProvider(create: (_) => WorkoutProvider()),
+                        ChangeNotifierProvider(create: (_) => IngestionProvider()),
+                      ],
+                      child: const NeospartanApp(
+                        firebaseInitialized: true, // Pretend it's working
+                        initError: null,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text(
+                  'CONTINUE OFFLINE',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
