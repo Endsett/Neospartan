@@ -116,57 +116,106 @@ class AIPlanService {
   bool get isInitialized => _initialized;
 
   /// Generate initial training plan based on user profile using Gemini AI with memory context
-  Future<WeeklyPlan> generateInitialTrainingPlan(UserProfile profile) async {
-    if (!_initialized) {
-      debugPrint('AI not initialized, using fallback plan generation');
-      return _generateFallbackPlan(profile);
+  Future<WeeklyPlan?> generateInitialTrainingPlan(UserProfile profile) async {
+    if (!isInitialized) {
+      debugPrint('AI Plan Service not initialized');
+      return null;
     }
 
     try {
-      // Store user profile in memory first
-      await _memoryService.storeMemory(
-        userId: profile.userId,
-        type: AIMemoryType.userProfile,
-        priority: MemoryPriority.critical,
-        data: profile.toMap(),
-        summary:
-            '${profile.displayName}: ${profile.fitnessLevel} athlete training for ${profile.trainingGoal}',
-      );
+      // Store user profile in memory
+      try {
+        await _memoryService.storeMemory(
+          userId: profile.id,
+          type: AIMemoryType.userProfile,
+          priority: MemoryPriority.high,
+          data: profile.toMap(),
+          tags: ['profile', 'initial'],
+        );
+      } catch (e) {
+        debugPrint('Memory storage failed, continuing without memory: $e');
+      }
 
-      // Build intelligent prompt with context ingestion
-      final prompt = await _contextService.buildPrompt(
-        userId: profile.userId,
-        contextType: 'training_plan',
-        userProfile: profile,
-      );
+      // Build context-aware prompt
+      String prompt;
+      try {
+        prompt = await _contextService.buildPrompt(
+          userId: profile.id,
+          contextType: 'training_plan_generation',
+          userProfile: profile,
+          maxTokens: 8000,
+        );
+      } catch (e) {
+        debugPrint('Context building failed, using basic prompt: $e');
+        prompt = _buildBasicPrompt(profile);
+      }
 
       final response = await _model.generateContent([Content.text(prompt)]);
-
       final planText = response.text;
-      debugPrint('Gemini Response with memory context: $planText');
 
-      // Store the generated plan in memory
-      await _memoryService.storeMemory(
-        userId: profile.userId,
-        type: AIMemoryType.conversation,
-        priority: MemoryPriority.high,
-        data: {
-          'type': 'generated_plan',
-          'timestamp': DateTime.now().toIso8601String(),
-          'planPreview': planText?.substring(
-            0,
-            planText.length > 200 ? 200 : planText.length,
-          ),
-        },
-        tags: ['plan', 'generated'],
-      );
+      if (planText != null) {
+        final plan = _parseAIResponseToPlan(planText, profile);
 
-      // Parse the AI response into a WeeklyPlan
-      return _parseAIResponseToPlan(planText!, profile);
+        // Store generated plan in memory
+        try {
+          await _memoryService.storeMemory(
+            userId: profile.id,
+            type: AIMemoryType.trainingPlan,
+            priority: MemoryPriority.high,
+            data: plan.toMap(),
+            tags: ['plan', 'initial'],
+          );
+        } catch (e) {
+          debugPrint('Failed to store plan in memory: $e');
+        }
+
+        return plan;
+      }
     } catch (e) {
-      debugPrint('Error generating AI plan with memory: $e');
-      return _generateFallbackPlan(profile);
+      debugPrint('Error generating AI plan: $e');
     }
+
+    return _generateFallbackPlan(profile);
+  }
+
+  /// Build basic prompt when memory system fails
+  String _buildBasicPrompt(UserProfile profile) {
+    return '''
+You are an elite combat sports conditioning coach. Create a detailed weekly training plan for a ${profile.fitnessLevelText} level athlete training for ${profile.trainingGoalText}.
+
+ATHLETE PROFILE:
+- Name: ${profile.displayName ?? 'Athlete'}
+- Age: ${profile.bodyComposition.age}
+- Weight: ${profile.bodyComposition.weight}kg
+- Height: ${profile.bodyComposition.height}cm
+- Level: ${profile.fitnessLevelText}
+- Goal: ${profile.trainingGoalText}
+- Days per week: ${profile.trainingDaysPerWeek}
+- Session duration: ${profile.preferredWorkoutDuration} minutes
+
+RESPONSE FORMAT:
+Return a JSON object with the following structure:
+{
+  "week_plan": [
+    {
+      "day": "Monday",
+      "workout_type": "Strength/Power",
+      "focus": "Lower Body Explosiveness",
+      "exercises": [
+        {
+          "name": "Back Squat",
+          "sets": 4,
+          "reps": "5",
+          "rpe": 8,
+          "rest_seconds": 180
+        }
+      ]
+    }
+  ],
+  "weekly_notes": "Overall progression strategy",
+  "intensity_recommendation": "Based on athlete level"
+}
+''';
   }
 
   /// Adjust training plan based on weekly progress using memory context
@@ -180,62 +229,63 @@ class AIPlanService {
     }
 
     try {
-      // Store progress data in memory
-      await _memoryService.storeMemory(
-        userId: profile.userId,
-        type: AIMemoryType.workoutHistory,
-        priority: MemoryPriority.high,
-        data: progress.toMap(),
-        summary: 'Weekly progress data stored',
-        tags: ['progress', 'weekly'],
-      );
-
-      // Store feedback if provided
-      if (progress.userFeedback != null && progress.userFeedback!.isNotEmpty) {
+      // Store progress in memory
+      try {
         await _memoryService.storeMemory(
-          userId: profile.userId,
-          type: AIMemoryType.feedback,
+          userId: profile.id,
+          type: AIMemoryType.weeklyProgress,
           priority: MemoryPriority.medium,
-          data: {
-            'feedback': progress.userFeedback,
-            'timestamp': DateTime.now().toIso8601String(),
-          },
-          summary: 'User feedback: ${progress.userFeedback}',
-          tags: ['feedback'],
+          data: progress.toMap(),
+          tags: ['progress', 'weekly'],
         );
+      } catch (e) {
+        debugPrint('Failed to store progress in memory: $e');
       }
 
-      // Build prompt with adjustment context
-      final prompt = await _contextService.buildPrompt(
-        userId: profile.userId,
-        contextType: 'plan_adjustment',
-        userProfile: profile,
-        additionalContext: {
-          'currentPlan': currentPlan.toMap(),
-          'progress': progress.toMap(),
-        },
-      );
+      // Build context-aware prompt
+      String prompt;
+      try {
+        prompt = await _contextService.buildPrompt(
+          userId: profile.id,
+          contextType: 'plan_adjustment',
+          userProfile: profile,
+          maxTokens: 8000,
+        );
+      } catch (e) {
+        debugPrint('Context building failed, using basic prompt: $e');
+        prompt = _buildAdjustmentPrompt(profile, currentPlan, progress);
+      }
 
       final response = await _model.generateContent([Content.text(prompt)]);
       final planText = response.text;
 
-      // Store adjustment in memory
-      await _memoryService.storeMemory(
-        userId: profile.userId,
-        type: AIMemoryType.conversation,
-        priority: MemoryPriority.medium,
-        data: {
-          'type': 'plan_adjustment',
-          'timestamp': DateTime.now().toIso8601String(),
-        },
-        tags: ['adjustment'],
-      );
+      if (planText != null) {
+        final adjustedPlan = _parseAIResponseToPlan(planText, profile);
 
-      return _parseAIResponseToPlan(planText!, profile);
+        // Store feedback in memory
+        try {
+          await _memoryService.storeMemory(
+            userId: profile.id,
+            type: AIMemoryType.aiFeedback,
+            priority: MemoryPriority.low,
+            data: {
+              'adjustment_reason': 'weekly_progress',
+              'previous_plan': currentPlan.toMap(),
+              'progress_data': progress.toMap(),
+            },
+            tags: ['feedback', 'adjustment'],
+          );
+        } catch (e) {
+          debugPrint('Failed to store feedback in memory: $e');
+        }
+
+        return adjustedPlan;
+      }
     } catch (e) {
-      debugPrint('Error adjusting AI plan with memory: $e');
-      return _generateFallbackAdjustment(profile, currentPlan, progress);
+      debugPrint('Error adjusting AI plan: $e');
     }
+
+    return _generateFallbackAdjustment(profile, currentPlan, progress);
   }
 
   /// Get AI recommendations for specific workout adjustments
@@ -273,6 +323,52 @@ Provide 2-3 specific recommendations for the next workout. Be concise and action
       debugPrint('Error getting recommendations: $e');
       return 'Continue with current plan based on your readiness score.';
     }
+  }
+
+  /// Build adjustment prompt when memory system fails
+  String _buildAdjustmentPrompt(
+    UserProfile profile,
+    WeeklyPlan currentPlan,
+    WeeklyProgress progress,
+  ) {
+    return '''
+You are an elite combat sports conditioning coach. Based on the athlete's weekly progress, adjust their training plan for the upcoming week.
+
+ATHLETE PROFILE:
+- Level: ${profile.fitnessLevelText}
+- Goal: ${profile.trainingGoalText}
+
+WEEKLY PROGRESS:
+- Completion Rate: ${progress.completionPercentage}%
+- Average RPE: ${progress.averageRpe}/10
+- Total Sessions: ${progress.totalSessions}
+- Strength Sessions: ${progress.strengthSessions}
+- Conditioning Sessions: ${progress.conditioningSessions}
+
+CURRENT PLAN:
+${currentPlan.dailyWorkouts.map((d) => '- ${d.day}: ${d.workoutType} - ${d.focus}').join('\n')}
+
+INSTRUCTIONS:
+1. Adjust the intensity and volume based on performance
+2. Modify exercises if needed to address weaknesses
+3. Ensure proper recovery between intense sessions
+4. Keep the same structure (days per week)
+
+RESPONSE FORMAT:
+Return a JSON object with the same structure as before:
+{
+  "week_plan": [
+    {
+      "day": "Monday",
+      "workout_type": "Strength/Power",
+      "focus": "Updated focus",
+      "exercises": [...]
+    }
+  ],
+  "weekly_notes": "Adjustment rationale",
+  "intensity_recommendation": "Updated intensity guidance"
+}
+''';
   }
 
   /// Parse Gemini AI response into WeeklyPlan

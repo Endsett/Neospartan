@@ -67,10 +67,19 @@ class AIMemoryService {
     );
 
     try {
-      if (_isGuest) {
-        await _storeLocally(entry);
-      } else {
-        await _storeInFirestore(entry);
+      // Always use local storage first to avoid permission issues
+      await _storeLocally(entry);
+
+      // Try Firestore if not guest, but don't fail if it doesn't work
+      if (!_isGuest) {
+        try {
+          await _storeInFirestore(entry);
+        } catch (e) {
+          developer.log(
+            'Firestore storage failed, using local only: $e',
+            name: 'AIMemoryService',
+          );
+        }
       }
 
       developer.log(
@@ -142,10 +151,26 @@ class AIMemoryService {
     try {
       List<AIMemoryEntry> memories;
 
-      if (_isGuest) {
-        memories = await _getLocalMemories(userId);
-      } else {
-        memories = await _queryFirestore(userId, options);
+      // Always use local storage first
+      memories = await _getLocalMemories(userId);
+
+      // Try to sync from Firestore if not guest, but don't fail
+      if (!_isGuest) {
+        try {
+          final firestoreMemories = await _queryFirestore(userId, options);
+          // Merge local and Firestore memories, avoiding duplicates
+          final existingIds = memories.map((m) => m.id).toSet();
+          for (final memory in firestoreMemories) {
+            if (!existingIds.contains(memory.id)) {
+              memories.add(memory);
+            }
+          }
+        } catch (e) {
+          developer.log(
+            'Firestore query failed, using local only: $e',
+            name: 'AIMemoryService',
+          );
+        }
       }
 
       // Apply filters
@@ -262,18 +287,27 @@ class AIMemoryService {
   /// Update memory access count
   Future<void> recordAccess(String userId, String memoryId) async {
     try {
-      if (_isGuest) {
-        await _updateLocalAccess(userId, memoryId);
-      } else {
-        await _firestore
-            .collection('users')
-            .doc(userId)
-            .collection('ai_memories')
-            .doc(memoryId)
-            .update({
-              'accessCount': FieldValue.increment(1),
-              'lastAccessed': DateTime.now().toIso8601String(),
-            });
+      // Always update local storage first
+      await _updateLocalAccess(userId, memoryId);
+
+      // Try to update Firestore if not guest, but don't fail
+      if (!_isGuest) {
+        try {
+          await _firestore
+              .collection('users')
+              .doc(userId)
+              .collection('ai_memories')
+              .doc(memoryId)
+              .update({
+                'accessCount': FieldValue.increment(1),
+                'lastAccessed': DateTime.now().toIso8601String(),
+              });
+        } catch (e) {
+          developer.log(
+            'Firestore access update failed, local updated: $e',
+            name: 'AIMemoryService',
+          );
+        }
       }
     } catch (e) {
       developer.log('Error recording access: $e', name: 'AIMemoryService');
@@ -300,11 +334,23 @@ class AIMemoryService {
   /// Delete expired memories
   Future<int> cleanupExpiredMemories(String userId) async {
     try {
-      if (_isGuest) {
-        return await _cleanupLocalExpired(userId);
-      } else {
-        return await _cleanupFirestoreExpired(userId);
+      // Always cleanup local storage
+      final localRemoved = await _cleanupLocalExpired(userId);
+
+      // Try to cleanup Firestore if not guest, but don't fail
+      var firestoreRemoved = 0;
+      if (!_isGuest) {
+        try {
+          firestoreRemoved = await _cleanupFirestoreExpired(userId);
+        } catch (e) {
+          developer.log(
+            'Firestore cleanup failed, local cleanup completed: $e',
+            name: 'AIMemoryService',
+          );
+        }
       }
+
+      return localRemoved + firestoreRemoved;
     } catch (e) {
       developer.log('Error cleaning up memories: $e', name: 'AIMemoryService');
       return 0;
