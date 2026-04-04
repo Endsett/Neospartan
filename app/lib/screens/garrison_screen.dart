@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../services/armor_analytics_service.dart';
 import '../models/armor_analytics.dart';
+import '../models/workout_tracking.dart';
 
 class GarrisonScreen extends StatefulWidget {
   const GarrisonScreen({super.key});
@@ -40,7 +41,15 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
 
     // Load Armor Analytics
     // final microCycle = await _firebase.buildMicroCycle(); // TODO: Implement with Supabase
-    final microCycle = <Map<String, dynamic>>[]; // Placeholder
+    final microCycle = MicroCycle(
+      id: '',
+      userId: '',
+      startDate: DateTime.now(),
+      endDate: DateTime.now().add(const Duration(days: 7)),
+      days: [],
+      goals: [],
+      notes: '',
+    );
     final armorResult = _armorService.analyze(microCycle);
 
     if (mounted) {

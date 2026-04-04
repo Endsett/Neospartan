@@ -5,6 +5,7 @@ import '../providers/ingestion_provider.dart';
 import '../providers/workout_provider.dart';
 import '../models/fuel_log.dart';
 import '../models/workout_protocol.dart';
+import '../models/workout_tracking.dart';
 import '../services/phalanx_ingestion_service.dart';
 import '../services/dom_rl_engine.dart';
 
@@ -91,7 +92,16 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
 
     if (useAutopilot) {
       // final microCycle = await _firebase.buildMicroCycle(); // TODO: Implement with Supabase
-      final microCycle = <Map<String, dynamic>>[]; // Placeholder
+      // Create empty MicroCycle for now
+      final microCycle = MicroCycle(
+        id: '',
+        userId: '',
+        startDate: DateTime.now(),
+        endDate: DateTime.now().add(const Duration(days: 7)),
+        days: [],
+        goals: [],
+        notes: '',
+      );
       final result = _domRlEngine.optimize(microCycle, protocol);
       finalProtocol = result.optimizedProtocol;
     }
