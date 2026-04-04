@@ -1,6 +1,5 @@
 import 'dart:developer' as developer;
 import '../models/achievement.dart';
-import '../repositories/achievement_repository.dart';
 
 /// Achievement Service
 /// Handles checking, awarding, and tracking achievements
