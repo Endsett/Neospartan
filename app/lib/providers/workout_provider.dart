@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import '../models/workout_protocol.dart';
 import '../models/workout_tracking.dart';
+import '../services/state_persistence_service.dart';
+import '../services/supabase_database_service.dart';
 
 class WorkoutProvider with ChangeNotifier {
+  final StatePersistenceService _persistence = StatePersistenceService();
+  final SupabaseDatabaseService _database = SupabaseDatabaseService();
+
   WorkoutProtocol? _activeProtocol;
   int _currentEntryIndex = 0;
   bool _isWorkoutActive = false;
   DateTime? _startTime;
   int? _initialReadinessScore;
+  String? _currentSessionId;
 
   // Set tracking data
   final Map<String, List<SetPerformance>> _exerciseSets = {};
@@ -29,7 +35,10 @@ class WorkoutProvider with ChangeNotifier {
   }
 
   /// Start a workout protocol
-  void startWorkout(WorkoutProtocol protocol, int readinessScore) {
+  Future<void> startWorkout(
+    WorkoutProtocol protocol,
+    int readinessScore,
+  ) async {
     _activeProtocol = protocol;
     _currentEntryIndex = 0;
     _isWorkoutActive = true;
@@ -37,25 +46,82 @@ class WorkoutProvider with ChangeNotifier {
     _initialReadinessScore = readinessScore;
     _exerciseSets.clear();
     _completedExercises.clear();
+
+    // Persist workout state
+    await _persistence.saveWorkoutState(
+      protocol: protocol,
+      currentEntryIndex: _currentEntryIndex,
+      startTime: _startTime!,
+      readinessScore: readinessScore,
+    );
+
+    // Create session in Supabase
+    try {
+      final sessionData = await _database.saveWorkoutSession({
+        'protocol_title': protocol.title,
+        'protocol_tier': protocol.tier.toString(),
+        'estimated_duration': protocol.estimatedDurationMinutes,
+        'readiness_score': readinessScore,
+        'status': 'in_progress',
+      });
+      _currentSessionId = sessionData['id'];
+    } catch (e) {
+      debugPrint('Error creating workout session: $e');
+    }
+
     notifyListeners();
   }
 
   /// Complete current exercise and move to next
-  void completeExercise(List<SetPerformance> sets) {
+  Future<void> completeExercise(List<SetPerformance> sets) async {
     if (currentEntry == null) return;
 
     final exerciseName = currentEntry!.exercise.name;
     _exerciseSets[exerciseName] = sets;
 
-    _completedExercises.add(
-      CompletedExerciseEntry(
-        exercise: currentEntry!.exercise,
-        sets: sets,
-        completedAt: DateTime.now(),
-      ),
+    final completedEntry = CompletedExerciseEntry(
+      exercise: currentEntry!.exercise,
+      sets: sets,
+      completedAt: DateTime.now(),
     );
 
+    _completedExercises.add(completedEntry);
+
+    // Save sets to Supabase in real-time
+    if (_currentSessionId != null) {
+      for (final set in sets) {
+        try {
+          await _database.saveWorkoutSet({
+            'session_id': _currentSessionId,
+            'exercise_name': exerciseName,
+            'set_number': set.setNumber,
+            'reps_performed': set.repsPerformed,
+            'load_used': set.loadUsed,
+            'actual_rpe': set.actualRPE,
+            'completed': set.completed,
+            'notes': set.notes,
+            'logged_at': DateTime.now().toIso8601String(),
+          });
+        } catch (e) {
+          debugPrint('Error saving set to Supabase: $e');
+        }
+      }
+    }
+
     _currentEntryIndex++;
+
+    // Update persisted state
+    if (_activeProtocol != null &&
+        _startTime != null &&
+        _initialReadinessScore != null) {
+      await _persistence.saveWorkoutState(
+        protocol: _activeProtocol!,
+        currentEntryIndex: _currentEntryIndex,
+        startTime: _startTime!,
+        readinessScore: _initialReadinessScore!,
+      );
+    }
+
     notifyListeners();
   }
 
@@ -68,7 +134,7 @@ class WorkoutProvider with ChangeNotifier {
   }
 
   /// Finish workout
-  CompletedWorkout? finishWorkout() {
+  Future<CompletedWorkout?> finishWorkout() async {
     if (!_isWorkoutActive || _activeProtocol == null || _startTime == null) {
       return null;
     }
@@ -86,12 +152,34 @@ class WorkoutProvider with ChangeNotifier {
       readinessScoreAtStart: _initialReadinessScore ?? 70,
     );
 
+    // Update session status in Supabase
+    if (_currentSessionId != null) {
+      try {
+        await _database.saveWorkoutSession({
+          'id': _currentSessionId,
+          'protocol_title': _activeProtocol!.title,
+          'protocol_tier': _activeProtocol!.tier.toString(),
+          'estimated_duration': _activeProtocol!.estimatedDurationMinutes,
+          'readiness_score': _initialReadinessScore ?? 70,
+          'status': 'completed',
+          'actual_duration': duration,
+          'completed_at': endTime.toIso8601String(),
+        });
+      } catch (e) {
+        debugPrint('Error updating workout session: $e');
+      }
+    }
+
     // Reset state
     _isWorkoutActive = false;
     _activeProtocol = null;
     _currentEntryIndex = 0;
     _startTime = null;
     _initialReadinessScore = null;
+    _currentSessionId = null;
+
+    // Clear persisted state
+    await _persistence.clearWorkoutState();
 
     notifyListeners();
     return workout;

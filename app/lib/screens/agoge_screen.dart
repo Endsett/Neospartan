@@ -5,6 +5,7 @@ import '../services/agoge_service.dart';
 import '../services/dom_rl_engine.dart';
 import '../services/ephor_scrutiny_service.dart';
 import '../services/tactical_retreat_service.dart';
+import '../services/state_persistence_service.dart';
 import '../models/workout_protocol.dart';
 import '../providers/workout_provider.dart';
 import 'workout_session_screen.dart';
@@ -22,6 +23,7 @@ class _AgogeScreenState extends State<AgogeScreen> {
   final DomRlEngine _domRlEngine = DomRlEngine();
   final EphorScrutinyService _ephorService = EphorScrutinyService();
   final TacticalRetreatService _tacticalRetreat = TacticalRetreatService();
+  final StatePersistenceService _persistence = StatePersistenceService();
 
   WorkoutProtocol? _protocol;
   int _readinessScore = 0;
@@ -40,14 +42,41 @@ class _AgogeScreenState extends State<AgogeScreen> {
   Future<void> _loadProtocol() async {
     setState(() => _isLoading = true);
 
-    // Fetch readiness data
-    // TODO: Implement readiness data fetching
-    // final data = await _healthService.fetchReadinessData();
-    final score = 80; // Default readiness score
+    // First, check if we already have a protocol for today
+    final savedProtocol = _persistence.loadDailyProtocol();
+    if (savedProtocol != null && !_isNewDay()) {
+      // Use saved protocol - don't regenerate
+      if (mounted) {
+        setState(() {
+          _protocol = savedProtocol;
+          _readinessScore = _persistence.getPreference(
+            'last_readiness_score',
+            80,
+          );
+          _isLoading = false;
+        });
+      }
+      return;
+    }
 
-    // TODO: Build micro-cycle (requires MicroCycle model)
-    // final microCycle = <WorkoutProtocol>[];
-    // final ephorAnalysis = _ephorService.analyzeMicroCycle(microCycle);
+    // No saved protocol or new day - generate new one
+    await _generateNewProtocol();
+  }
+
+  bool _isNewDay() {
+    final lastProtocolDate = _persistence.getPreference(
+      'last_protocol_date',
+      '',
+    );
+    final today =
+        '${DateTime.now().year}-${DateTime.now().month}-${DateTime.now().day}';
+    return lastProtocolDate != today;
+  }
+
+  Future<void> _generateNewProtocol() async {
+    // Fetch readiness data
+    final score = 80; // Default readiness score - TODO: get from actual source
+    _readinessScore = score;
 
     // Generate base protocol
     final baseProtocol = _agogeService.generateProtocol(score);
@@ -57,14 +86,10 @@ class _AgogeScreenState extends State<AgogeScreen> {
     DomRlResult? domRlResult;
     if (_useDomRl) {
       // TODO: Implement DOM-RL with proper MicroCycle
-      // domRlResult = _domRlEngine.optimize(baseProtocol, microCycle.days);
-      // finalProtocol = domRlResult.optimizedProtocol;
     }
 
     // Check for tactical retreat
     final jointStress = <String, int>{};
-    // TODO: Implement tactical retreat with proper MicroCycle
-    // final retreatCheck = _tacticalRetreat.shouldRetreat(microCycle.days);
     final retreatCheck = _tacticalRetreat.checkRetreatStatus(
       currentReadiness: score,
       jointStress: jointStress,
@@ -75,16 +100,28 @@ class _AgogeScreenState extends State<AgogeScreen> {
       finalProtocol = retreatCheck.enforcedProtocol!;
     }
 
+    // Save the new protocol
+    await _persistence.saveDailyProtocol(finalProtocol);
+    await _persistence.setPreference('last_readiness_score', score);
+    await _persistence.setPreference(
+      'last_protocol_date',
+      '${DateTime.now().year}-${DateTime.now().month}-${DateTime.now().day}',
+    );
+
     if (mounted) {
       setState(() {
         _protocol = finalProtocol;
-        _readinessScore = score;
         _domRlResult = domRlResult;
-        _ephorAnalysis = null; // TODO: Implement when MicroCycle is available
         _retreatCheck = retreatCheck;
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _refreshProtocol() async {
+    // Clear saved protocol and generate new one
+    await _persistence.clearDailyProtocol();
+    await _generateNewProtocol();
   }
 
   @override
@@ -112,7 +149,8 @@ class _AgogeScreenState extends State<AgogeScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.refresh, color: LaconicTheme.spartanBronze),
-            onPressed: _loadProtocol,
+            onPressed: _refreshProtocol,
+            tooltip: 'Generate New Protocol',
           ),
         ],
       ),

@@ -30,6 +30,50 @@ class Exercise {
     this.jointStress = const {},
   });
 
+  /// Serialize to Map for storage
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'category': category.index,
+      'youtubeId': youtubeId,
+      'targetMetaphor': targetMetaphor,
+      'instructions': instructions,
+      'intensityLevel': intensityLevel,
+      'primaryMuscles': primaryMuscles,
+      'jointStress': jointStress,
+    };
+  }
+
+  /// Deserialize from Map
+  factory Exercise.fromMap(Map<String, dynamic> map) {
+    return Exercise(
+      id: map['id'] as String,
+      name: map['name'] as String,
+      category: ExerciseCategory.values[map['category'] as int],
+      youtubeId: map['youtubeId'] as String,
+      targetMetaphor: map['targetMetaphor'] as String,
+      instructions: map['instructions'] as String,
+      intensityLevel: map['intensityLevel'] as int? ?? 5,
+      primaryMuscles:
+          (map['primaryMuscles'] as List<dynamic>?)?.cast<String>() ?? const [],
+      jointStress:
+          (map['jointStress'] as Map<String, dynamic>?)?.map(
+            (k, v) => MapEntry(k, v as int),
+          ) ??
+          const {},
+    );
+  }
+
+  /// Find exercise by ID from library
+  static Exercise? findById(String id) {
+    try {
+      return library.firstWhere((e) => e.id == id);
+    } catch (e) {
+      return null;
+    }
+  }
+
   static const List<Exercise> library = [
     // PLYOMETRIC - Explosive Power
     Exercise(
@@ -38,7 +82,8 @@ class Exercise {
       category: ExerciseCategory.strength,
       youtubeId: "QOVaHwknd2w",
       targetMetaphor: "The Shield of Archidamus",
-      instructions: "Weighted lunges with a vertical posture. Keep your core tight like a phalanx.",
+      instructions:
+          "Weighted lunges with a vertical posture. Keep your core tight like a phalanx.",
       intensityLevel: 7,
       primaryMuscles: ["quads", "glutes", "hamstrings"],
       jointStress: {"knees": 6, "hips": 5},
@@ -60,7 +105,8 @@ class Exercise {
       category: ExerciseCategory.isometric,
       youtubeId: "pSHjTRCQxIw",
       targetMetaphor: "The Pillars of Hercules",
-      instructions: "Low plank held with absolute stillness. Focus on the breath.",
+      instructions:
+          "Low plank held with absolute stillness. Focus on the breath.",
       intensityLevel: 6,
       primaryMuscles: ["core", "shoulders"],
       jointStress: {"shoulders": 4, "lower_back": 5},
@@ -71,7 +117,8 @@ class Exercise {
       category: ExerciseCategory.sprint,
       youtubeId: "m_Z9yKkU2N8",
       targetMetaphor: "Swift as Hermes",
-      instructions: "30-second max effort sprints followed by 60-second recovery.",
+      instructions:
+          "30-second max effort sprints followed by 60-second recovery.",
       intensityLevel: 10,
       primaryMuscles: ["legs", "core"],
       jointStress: {"knees": 7, "ankles": 6, "hips": 5},
@@ -82,7 +129,8 @@ class Exercise {
       category: ExerciseCategory.strength,
       youtubeId: "ytGaGIn6SjE",
       targetMetaphor: "The Weight of the World",
-      instructions: "Conventional deadlifts focusing on posterior chain engagement.",
+      instructions:
+          "Conventional deadlifts focusing on posterior chain engagement.",
       intensityLevel: 9,
       primaryMuscles: ["hamstrings", "glutes", "back", "traps"],
       jointStress: {"lower_back": 8, "knees": 5},
@@ -127,7 +175,8 @@ class Exercise {
       category: ExerciseCategory.isometric,
       youtubeId: "WpYm78WJ2U0",
       targetMetaphor: "Unmoving Spear",
-      instructions: "Hold boxing guard position with light weights. Isometric shoulder endurance.",
+      instructions:
+          "Hold boxing guard position with light weights. Isometric shoulder endurance.",
       intensityLevel: 7,
       primaryMuscles: ["shoulders", "traps", "core"],
       jointStress: {"shoulders": 6, "wrists": 4},
@@ -161,7 +210,8 @@ class Exercise {
       category: ExerciseCategory.combat,
       youtubeId: "XJzBLNE_1Q0",
       targetMetaphor: "The Spear Throw",
-      instructions: "Explosive rotational med ball slams. Hip drive through core.",
+      instructions:
+          "Explosive rotational med ball slams. Hip drive through core.",
       intensityLevel: 9,
       primaryMuscles: ["core", "obliques", "shoulders"],
       jointStress: {"spine": 6, "shoulders": 6},

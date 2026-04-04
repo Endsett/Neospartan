@@ -21,6 +21,7 @@ import 'services/dom_rl_engine.dart';
 import 'services/ai_plan_service.dart';
 import 'services/supabase_auth_service.dart';
 import 'services/supabase_database_service.dart';
+import 'services/state_persistence_service.dart';
 import 'config/supabase_config.dart';
 import 'widgets/guest_mode_banner.dart';
 import 'widgets/warrior_animations.dart';
@@ -48,9 +49,10 @@ void main() async {
     // Initialize services
     await DomRlEngine().initialize();
     await AIPlanService().initialize();
+    await StatePersistenceService().initialize();
 
     servicesInitialized = true;
-    debugPrint('Supabase and AI services initialized successfully');
+    debugPrint('All services initialized successfully');
   } catch (e) {
     initError = e.toString();
     debugPrint('Initialization error: $e');
