@@ -80,7 +80,13 @@ class SupabaseAuthService {
       );
 
       debugPrint('Google sign in initiated');
-      return response;
+      // signInWithOAuth might return bool or AuthResponse depending on version
+      if (response is AuthResponse) {
+        return response;
+      } else {
+        // Return a default response if boolean is returned
+        throw Exception('OAuth sign-in requires redirect completion');
+      }
     } catch (e) {
       debugPrint('Google sign in error: $e');
       rethrow;

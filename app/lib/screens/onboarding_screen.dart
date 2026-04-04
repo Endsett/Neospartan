@@ -77,7 +77,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       );
 
       // Save profile to Firebase
-      await _firebase.saveUserProfile(profile);
+      // await _firebase.saveUserProfile(profile); // TODO: Implement with Supabase
 
       // Generate AI training plan
       await _aiService.generateInitialTrainingPlan(profile);

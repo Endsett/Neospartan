@@ -92,7 +92,7 @@ class SupabaseDatabaseService {
     try {
       debugPrint('Getting workout sessions');
 
-      var query = _supabase.client
+      var query = _supabase
           .from('workout_sessions')
           .select()
           .eq('user_id', currentUserId!);
@@ -281,7 +281,7 @@ class SupabaseDatabaseService {
     int? limit,
   }) async {
     try {
-      var query = _supabase.from(tableName).select(select.join(', '));
+      dynamic query = _supabase.from(tableName).select(select.join(', '));
 
       if (eq != null) {
         for (final entry in eq.entries) {
