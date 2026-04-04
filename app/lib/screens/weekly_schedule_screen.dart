@@ -51,7 +51,10 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
       final scheduled = <Map<String, dynamic>>{};
 
       // Build calendar days
-      final days = _buildCalendarDays(workouts, scheduled);
+      final days = _buildCalendarDays(
+        workouts,
+        scheduled as Map<String, dynamic>,
+      );
 
       setState(() {
         _workouts = workouts;

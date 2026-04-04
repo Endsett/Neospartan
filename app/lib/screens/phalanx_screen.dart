@@ -62,10 +62,12 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
   void _confirmImport(WorkoutProtocol protocol) async {
     final planId = 'plan_${DateTime.now().millisecondsSinceEpoch}';
     // await _firebase.saveImportedPlan(planId, { // TODO: Implement with Supabase
+    final planData = {
       'id': planId,
       'protocol': protocol,
       'autopilot': _autopilotMode,
-    });
+    };
+    // });
 
     setState(() => _pendingVerification = null);
     await _loadImportedPlans();

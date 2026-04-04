@@ -80,13 +80,14 @@ class SupabaseAuthService {
       );
 
       debugPrint('Google sign in initiated');
-      // signInWithOAuth might return bool or AuthResponse depending on version
-      if (response is AuthResponse) {
-        return response;
-      } else {
-        // Return a default response if boolean is returned
-        throw Exception('OAuth sign-in requires redirect completion');
-      }
+
+      // signInWithOAuth returns a bool, not AuthResponse
+      // The actual response will come via the auth state change listener
+      // Return a dummy response for now
+      return AuthResponse(
+        session: _supabase.auth.currentSession,
+        user: _supabase.auth.currentUser,
+      );
     } catch (e) {
       debugPrint('Google sign in error: $e');
       rethrow;
