@@ -1,4 +1,5 @@
 // No unused analytics import here
+import 'exercise.dart';
 
 /// Joint stress tracking for Armor Analytics
 class JointStressEntry {
@@ -51,78 +52,53 @@ class SetPerformance {
   }
 }
 
-/// Completed exercise entry with full tracking
+/// Completed exercise entry in a workout
 class CompletedExerciseEntry {
-  final String exerciseId;
-  final String exerciseName;
+  final Exercise exercise;
   final List<SetPerformance> sets;
-  final DateTime startTime;
-  final DateTime? endTime;
-  final int targetSets;
-  final int targetReps;
-  final double targetRPE;
+  final DateTime completedAt;
 
   const CompletedExerciseEntry({
-    required this.exerciseId,
-    required this.exerciseName,
+    required this.exercise,
     required this.sets,
-    required this.startTime,
-    this.endTime,
-    required this.targetSets,
-    required this.targetReps,
-    required this.targetRPE,
+    required this.completedAt,
   });
-
-  double get completionRate => sets.where((s) => s.completed).length / targetSets;
-  double get averageRPE => sets.where((s) => s.actualRPE != null).map((s) => s.actualRPE!).reduce((a, b) => a + b) / sets.where((s) => s.actualRPE != null).length;
 
   Map<String, dynamic> toMap() {
     return {
-      'exercise_id': exerciseId,
-      'exercise_name': exerciseName,
+      'exercise_name': exercise.name,
       'sets': sets.map((s) => s.toMap()).toList(),
-      'start_time': startTime.toIso8601String(),
-      'end_time': endTime?.toIso8601String(),
-      'target_sets': targetSets,
-      'target_reps': targetReps,
-      'target_rpe': targetRPE,
+      'completed_at': completedAt.toIso8601String(),
     };
+  }
+
+  // Compatibility getters for existing code
+  String get exerciseName => exercise.name;
+
+  double get completionRate {
+    if (sets.isEmpty) return 0.0;
+    final completedSets = sets.where((s) => s.completed).length;
+    return completedSets / sets.length;
+  }
+
+  int get targetSets => sets.length;
+
+  String get exerciseId => exercise.id;
+
+  double get targetRPE {
+    if (sets.isEmpty) return 7.0;
+    // Return the most common target RPE from the sets
+    final rpeCounts = <double, int>{};
+    for (final set in sets) {
+      final rpe = set.actualRPE ?? 7.0;
+      rpeCounts[rpe] = (rpeCounts[rpe] ?? 0) + 1;
+    }
+    if (rpeCounts.isEmpty) return 7.0;
+    return rpeCounts.entries.reduce((a, b) => a.value > b.value ? a : b).key;
   }
 }
 
-/// Post-workout flow state assessment
-class FlowStateAssessment {
-  final int mentalEngagement; // 1-10
-  final int focusClarity; // 1-10 (fewer intrusions = higher)
-  final int formDiscipline; // 1-10
-  final int overallFlow; // 1-10
-  final String? notes;
-  final DateTime timestamp;
-
-  const FlowStateAssessment({
-    required this.mentalEngagement,
-    required this.focusClarity,
-    required this.formDiscipline,
-    required this.overallFlow,
-    this.notes,
-    required this.timestamp,
-  });
-
-  double get averageScore => (mentalEngagement + focusClarity + formDiscipline + overallFlow) / 4;
-
-  Map<String, dynamic> toMap() {
-    return {
-      'mental_engagement': mentalEngagement,
-      'focus_clarity': focusClarity,
-      'form_discipline': formDiscipline,
-      'overall_flow': overallFlow,
-      'notes': notes,
-      'timestamp': timestamp.toIso8601String(),
-    };
-  }
-}
-
-/// Complete workout log with all tracking data
+/// Completed workout session
 class CompletedWorkout {
   final String id;
   final String protocolTitle;
@@ -131,8 +107,6 @@ class CompletedWorkout {
   final DateTime endTime;
   final int totalDurationMinutes;
   final int readinessScoreAtStart;
-  final FlowStateAssessment? flowAssessment;
-  final List<JointStressEntry> jointStressEntries;
 
   const CompletedWorkout({
     required this.id,
@@ -142,12 +116,7 @@ class CompletedWorkout {
     required this.endTime,
     required this.totalDurationMinutes,
     required this.readinessScoreAtStart,
-    this.flowAssessment,
-    this.jointStressEntries = const [],
   });
-
-  double get averageCompletionRate => exercises.map((e) => e.completionRate).reduce((a, b) => a + b) / exercises.length;
-  double get averageRPE => exercises.map((e) => e.averageRPE).reduce((a, b) => a + b) / exercises.length;
 
   Map<String, dynamic> toMap() {
     return {
@@ -158,32 +127,105 @@ class CompletedWorkout {
       'end_time': endTime.toIso8601String(),
       'total_duration_minutes': totalDurationMinutes,
       'readiness_score_at_start': readinessScoreAtStart,
-      'flow_assessment': flowAssessment?.toMap(),
-      'joint_stress_entries': jointStressEntries.map((j) => j.toMap()).toList(),
     };
   }
+
+  double get averageRPE {
+    if (exercises.isEmpty) return 0.0;
+
+    final allRPEs = exercises
+        .expand((e) => e.sets)
+        .where((s) => s.actualRPE != null)
+        .map((s) => s.actualRPE!)
+        .toList();
+
+    if (allRPEs.isEmpty) return 0.0;
+    return allRPEs.reduce((a, b) => a + b) / allRPEs.length;
+  }
+
+  int get totalSets {
+    return exercises.fold(0, (sum, e) => sum + e.sets.length);
+  }
+
+  int get totalReps {
+    return exercises.fold(
+      0,
+      (sum, e) =>
+          sum + e.sets.fold(0, (setSum, s) => setSum + (s.repsPerformed ?? 0)),
+    );
+  }
+
+  factory CompletedWorkout.fromMap(Map<String, dynamic> map) {
+    return CompletedWorkout(
+      id: map['id'] ?? '',
+      protocolTitle: map['protocol_title'] ?? '',
+      exercises:
+          (map['exercises'] as List<dynamic>?)
+              ?.map(
+                (e) => CompletedExerciseEntry(
+                  exercise: Exercise.library.firstWhere(
+                    (ex) => ex.name == e['exercise_name'],
+                    orElse: () => Exercise.library.first,
+                  ),
+                  sets: (e['sets'] as List<dynamic>)
+                      .map(
+                        (s) => SetPerformance(
+                          setNumber: s['set_number'],
+                          repsPerformed: s['reps_performed'],
+                          actualRPE: s['actual_rpe']?.toDouble(),
+                          loadUsed: s['load_used']?.toDouble(),
+                          completed: s['completed'] ?? false,
+                          notes: s['notes'],
+                        ),
+                      )
+                      .toList(),
+                  completedAt: DateTime.parse(e['completed_at']),
+                ),
+              )
+              .toList() ??
+          [],
+      startTime: DateTime.parse(
+        map['start_time'] ?? DateTime.now().toIso8601String(),
+      ),
+      endTime: DateTime.parse(
+        map['end_time'] ?? DateTime.now().toIso8601String(),
+      ),
+      totalDurationMinutes: map['total_duration_minutes'] ?? 0,
+      readinessScoreAtStart: map['readiness_score_at_start'] ?? 70,
+    );
+  }
+
+  double get totalVolume {
+    return exercises.fold(0.0, (sum, exercise) {
+      return sum +
+          exercise.sets.fold(0.0, (setSum, set) {
+            return setSum + (set.loadUsed ?? 0.0) * (set.repsPerformed ?? 0);
+          });
+    });
+  }
+
+  // Compatibility getter for existing code
+  List<JointStressEntry> get jointStressEntries => [];
 }
 
-/// Daily workout and recovery log
+/// Daily log for micro-cycle tracking
 class DailyLog {
   final DateTime date;
-  final List<double> rpeEntries;
-  final int sleepQuality; // 1-10
-  final int sleepHours;
-  final Map<String, int> jointFatigue; // joint -> fatigue 1-10
-  final int flowState; // 1-10
-  final int readinessScore;
-  final CompletedWorkout? workout;
+  final List<double> rpeEntries; // RPE for each workout/exercise
+  final int sleepQuality; // 1-10 scale
+  final double sleepHours;
+  final Map<String, int> jointFatigue; // Joint -> fatigue level (1-10)
+  final int flowState; // 1-10 scale
+  final int readinessScore; // Overall readiness (1-100)
 
   const DailyLog({
     required this.date,
-    this.rpeEntries = const [],
-    this.sleepQuality = 5,
-    this.sleepHours = 7,
-    this.jointFatigue = const {},
-    this.flowState = 5,
-    this.readinessScore = 70,
-    this.workout,
+    required this.rpeEntries,
+    required this.sleepQuality,
+    required this.sleepHours,
+    required this.jointFatigue,
+    required this.flowState,
+    required this.readinessScore,
   });
 
   Map<String, dynamic> toMap() {
@@ -197,9 +239,14 @@ class DailyLog {
       'readiness_score': readinessScore,
     };
   }
+
+  double get averageRPE {
+    if (rpeEntries.isEmpty) return 0.0;
+    return rpeEntries.reduce((a, b) => a + b) / rpeEntries.length;
+  }
 }
 
-/// 7-day micro-cycle for Ephor Scrutiny
+/// Micro-cycle (7-day training block)
 class MicroCycle {
   final List<DailyLog> days;
   final DateTime startDate;
@@ -211,15 +258,38 @@ class MicroCycle {
     required this.endDate,
   });
 
-  double get averageReadiness => days.isEmpty ? 70 : days.map((d) => d.readinessScore).reduce((a, b) => a + b) / days.length;
-  double get averageSleepQuality => days.isEmpty ? 7 : days.map((d) => d.sleepQuality).reduce((a, b) => a + b) / days.length;
+  double get averageReadiness {
+    if (days.isEmpty) return 0.0;
+    return days.fold(0.0, (sum, d) => sum + d.readinessScore) / days.length;
+  }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'days': days.map((d) => d.toMap()).toList(),
-      'start_date': startDate.toIso8601String(),
-      'end_date': endDate.toIso8601String(),
-    };
+  double get averageSleepQuality {
+    if (days.isEmpty) return 0.0;
+    return days.fold(0.0, (sum, d) => sum + d.sleepQuality) / days.length;
+  }
+
+  Map<String, double> get averageJointFatigue {
+    final allJoints = <String>{};
+    for (final day in days) {
+      allJoints.addAll(day.jointFatigue.keys);
+    }
+
+    final averages = <String, double>{};
+    for (final joint in allJoints) {
+      final values = days
+          .map((d) => d.jointFatigue[joint] ?? 0)
+          .where((v) => v > 0)
+          .toList();
+
+      if (values.isNotEmpty) {
+        averages[joint] = values.reduce((a, b) => a + b) / values.length;
+      }
+    }
+
+    return averages;
+  }
+
+  List<double> get rpeTrend {
+    return days.expand((d) => d.rpeEntries).toList();
   }
 }
-

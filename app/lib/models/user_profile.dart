@@ -1,9 +1,8 @@
 /// User Fitness Level
-enum FitnessLevel {
-  beginner,
-  intermediate,
-  advanced,
-}
+enum FitnessLevel { beginner, intermediate, advanced }
+
+/// Experience Level for training progression
+enum ExperienceLevel { novice, hoplite, spartan, legend }
 
 /// Training Goal Types
 enum TrainingGoal {
@@ -65,12 +64,16 @@ class BodyComposition {
 class UserProfile {
   final String userId;
   final String? displayName;
+  final String? photoUrl;
   final BodyComposition bodyComposition;
   final FitnessLevel fitnessLevel;
+  final ExperienceLevel? experienceLevel;
   final TrainingGoal trainingGoal;
+  final String? philosophicalBaseline;
   final int trainingDaysPerWeek;
   final int? preferredWorkoutDuration; // minutes
   final List<String>? injuriesOrLimitations;
+  final DateTime? dateOfBirth;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final bool hasCompletedOnboarding;
@@ -78,12 +81,16 @@ class UserProfile {
   const UserProfile({
     required this.userId,
     this.displayName,
+    this.photoUrl,
     required this.bodyComposition,
     required this.fitnessLevel,
+    this.experienceLevel,
     required this.trainingGoal,
+    this.philosophicalBaseline,
     this.trainingDaysPerWeek = 3,
     this.preferredWorkoutDuration,
     this.injuriesOrLimitations,
+    this.dateOfBirth,
     required this.createdAt,
     this.updatedAt,
     this.hasCompletedOnboarding = false,
@@ -125,12 +132,16 @@ class UserProfile {
     return {
       'user_id': userId,
       'display_name': displayName,
+      'photo_url': photoUrl,
       'body_composition': bodyComposition.toMap(),
       'fitness_level': fitnessLevel.index,
+      'experience_level': experienceLevel?.index,
       'training_goal': trainingGoal.index,
+      'philosophical_baseline': philosophicalBaseline,
       'training_days_per_week': trainingDaysPerWeek,
       'preferred_workout_duration': preferredWorkoutDuration,
       'injuries_or_limitations': injuriesOrLimitations,
+      'date_of_birth': dateOfBirth?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'has_completed_onboarding': hasCompletedOnboarding,
@@ -141,14 +152,27 @@ class UserProfile {
     return UserProfile(
       userId: map['user_id'] ?? '',
       displayName: map['display_name'],
+      photoUrl: map['photo_url'],
       bodyComposition: BodyComposition.fromMap(map['body_composition'] ?? {}),
       fitnessLevel: FitnessLevel.values[map['fitness_level'] ?? 0],
+      experienceLevel: map['experience_level'] != null
+          ? ExperienceLevel.values[map['experience_level']]
+          : null,
       trainingGoal: TrainingGoal.values[map['training_goal'] ?? 0],
+      philosophicalBaseline: map['philosophical_baseline'],
       trainingDaysPerWeek: map['training_days_per_week'] ?? 3,
       preferredWorkoutDuration: map['preferred_workout_duration'],
-      injuriesOrLimitations: (map['injuries_or_limitations'] as List<dynamic>?)?.cast<String>(),
-      createdAt: DateTime.parse(map['created_at'] ?? DateTime.now().toIso8601String()),
-      updatedAt: map['updated_at'] != null ? DateTime.parse(map['updated_at']) : null,
+      injuriesOrLimitations: (map['injuries_or_limitations'] as List<dynamic>?)
+          ?.cast<String>(),
+      dateOfBirth: map['date_of_birth'] != null
+          ? DateTime.parse(map['date_of_birth'])
+          : null,
+      createdAt: DateTime.parse(
+        map['created_at'] ?? DateTime.now().toIso8601String(),
+      ),
+      updatedAt: map['updated_at'] != null
+          ? DateTime.parse(map['updated_at'])
+          : null,
       hasCompletedOnboarding: map['has_completed_onboarding'] ?? false,
     );
   }
@@ -156,12 +180,16 @@ class UserProfile {
   UserProfile copyWith({
     String? userId,
     String? displayName,
+    String? photoUrl,
     BodyComposition? bodyComposition,
     FitnessLevel? fitnessLevel,
+    ExperienceLevel? experienceLevel,
     TrainingGoal? trainingGoal,
+    String? philosophicalBaseline,
     int? trainingDaysPerWeek,
     int? preferredWorkoutDuration,
     List<String>? injuriesOrLimitations,
+    DateTime? dateOfBirth,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? hasCompletedOnboarding,
@@ -169,15 +197,23 @@ class UserProfile {
     return UserProfile(
       userId: userId ?? this.userId,
       displayName: displayName ?? this.displayName,
+      photoUrl: photoUrl ?? this.photoUrl,
       bodyComposition: bodyComposition ?? this.bodyComposition,
       fitnessLevel: fitnessLevel ?? this.fitnessLevel,
+      experienceLevel: experienceLevel ?? this.experienceLevel,
       trainingGoal: trainingGoal ?? this.trainingGoal,
+      philosophicalBaseline:
+          philosophicalBaseline ?? this.philosophicalBaseline,
       trainingDaysPerWeek: trainingDaysPerWeek ?? this.trainingDaysPerWeek,
-      preferredWorkoutDuration: preferredWorkoutDuration ?? this.preferredWorkoutDuration,
-      injuriesOrLimitations: injuriesOrLimitations ?? this.injuriesOrLimitations,
+      preferredWorkoutDuration:
+          preferredWorkoutDuration ?? this.preferredWorkoutDuration,
+      injuriesOrLimitations:
+          injuriesOrLimitations ?? this.injuriesOrLimitations,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? DateTime.now(),
-      hasCompletedOnboarding: hasCompletedOnboarding ?? this.hasCompletedOnboarding,
+      updatedAt: updatedAt ?? this.updatedAt,
+      hasCompletedOnboarding:
+          hasCompletedOnboarding ?? this.hasCompletedOnboarding,
     );
   }
 }
@@ -206,14 +242,14 @@ class WeeklyProgress {
     this.dailyReadinessScores,
   });
 
-  double get completionRate => 
-    totalPlannedWorkouts > 0 ? workoutsCompleted / totalPlannedWorkouts : 0;
+  double get completionRate =>
+      totalPlannedWorkouts > 0 ? workoutsCompleted / totalPlannedWorkouts : 0;
 
-  bool get shouldIncreaseDifficulty => 
-    completionRate >= 0.8 && averageReadiness >= 70 && averageRPE <= 8;
+  bool get shouldIncreaseDifficulty =>
+      completionRate >= 0.8 && averageReadiness >= 70 && averageRPE <= 8;
 
-  bool get shouldDecreaseDifficulty => 
-    completionRate < 0.5 || averageReadiness < 50;
+  bool get shouldDecreaseDifficulty =>
+      completionRate < 0.5 || averageReadiness < 50;
 
   Map<String, dynamic> toMap() {
     return {

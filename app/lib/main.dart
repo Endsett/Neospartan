@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'theme.dart';
 import 'screens/stadion_screen.dart';
@@ -11,9 +10,14 @@ import 'screens/phalanx_screen.dart';
 import 'screens/weekly_schedule_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/analytics_dashboard.dart';
+import 'screens/auth/login_screen.dart';
 import 'providers/workout_provider.dart';
 import 'providers/ingestion_provider.dart';
+import 'providers/auth_provider.dart';
 import 'services/dom_rl_engine.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
+import 'services/firestore_service.dart';
 import 'services/firebase_sync_service.dart';
 
 void main() async {
@@ -25,15 +29,17 @@ void main() async {
   try {
     await Firebase.initializeApp();
 
+    // Enable Crashlytics for error tracking
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+
     // Enable offline persistence for Firestore
-    FirebaseFirestore.instance.settings = const Settings(
-      persistenceEnabled: true,
-      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-    );
+    await FirestoreService.enableOfflinePersistence();
 
     FirebaseSyncService().initialize();
-    await FirebaseSyncService()
-        .ensureAuthenticated(); // Ensure user can store data
     await DomRlEngine().initialize();
     firebaseInitialized = true;
     debugPrint('Firebase initialized successfully');
@@ -45,6 +51,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => WorkoutProvider()),
         ChangeNotifierProvider(create: (_) => IngestionProvider()),
       ],
@@ -56,7 +63,7 @@ void main() async {
   );
 }
 
-class NeospartanApp extends StatefulWidget {
+class NeospartanApp extends StatelessWidget {
   final bool firebaseInitialized;
   final String? initError;
 
@@ -67,69 +74,91 @@ class NeospartanApp extends StatefulWidget {
   });
 
   @override
-  State<NeospartanApp> createState() => _NeospartanAppState();
-}
-
-class _NeospartanAppState extends State<NeospartanApp> {
-  bool _hasCompletedOnboarding = true; // Default to true while checking
-  bool _isCheckingOnboarding = true;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.firebaseInitialized) {
-      _checkOnboardingStatus();
-    }
-  }
-
-  Future<void> _checkOnboardingStatus() async {
-    try {
-      final firebase = FirebaseSyncService();
-      final hasCompleted = await firebase.hasCompletedOnboarding();
-      setState(() {
-        _hasCompletedOnboarding = hasCompleted;
-        _isCheckingOnboarding = false;
-      });
-    } catch (e) {
-      debugPrint('Error checking onboarding status: $e');
-      setState(() {
-        _hasCompletedOnboarding = false; // Show onboarding if error
-        _isCheckingOnboarding = false;
-      });
-    }
-  }
-
-  void _onOnboardingComplete() {
-    setState(() {
-      _hasCompletedOnboarding = true;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    Widget home;
-
-    if (!widget.firebaseInitialized) {
-      home = FirebaseInitErrorScreen(error: widget.initError);
-    } else if (_isCheckingOnboarding) {
-      home = const Scaffold(
-        backgroundColor: LaconicTheme.deepBlack,
-        body: Center(
-          child: CircularProgressIndicator(color: LaconicTheme.spartanBronze),
-        ),
+    if (!firebaseInitialized) {
+      return MaterialApp(
+        title: 'Neospartan',
+        theme: LaconicTheme.theme,
+        debugShowCheckedModeBanner: false,
+        home: FirebaseInitErrorScreen(error: initError),
       );
-    } else if (!_hasCompletedOnboarding) {
-      home = OnboardingScreen(onComplete: _onOnboardingComplete);
-    } else {
-      home = const NeospartanShell();
     }
 
     return MaterialApp(
       title: 'Neospartan',
       theme: LaconicTheme.theme,
-      home: home,
       debugShowCheckedModeBanner: false,
+      home: const AuthGate(),
     );
+  }
+}
+
+/// Auth Gate - Handles routing between auth screens and main app
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+
+    // Show loading while initializing
+    if (!authProvider.isInitialized) {
+      return const Scaffold(
+        backgroundColor: LaconicTheme.deepBlack,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.shield_outlined,
+                size: 64,
+                color: LaconicTheme.spartanBronze,
+              ),
+              SizedBox(height: 24),
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  LaconicTheme.spartanBronze,
+                ),
+                strokeWidth: 2,
+              ),
+              SizedBox(height: 16),
+              Text(
+                'INITIALIZING...',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12,
+                  letterSpacing: 2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Not authenticated - show login
+    if (!authProvider.isAuthenticated) {
+      return const LoginScreen();
+    }
+
+    // Check if onboarding is needed
+    final profile = authProvider.userProfile;
+    final needsOnboarding =
+        profile == null ||
+        profile.experienceLevel == null ||
+        profile.philosophicalBaseline == null ||
+        !profile.hasCompletedOnboarding;
+
+    if (needsOnboarding) {
+      return OnboardingScreen(
+        onComplete: () {
+          // Onboarding complete - will rebuild and show main app
+        },
+      );
+    }
+
+    // Authenticated and onboarded - show main app
+    return const NeospartanShell();
   }
 }
 
@@ -210,6 +239,8 @@ class _NeospartanShellState extends State<NeospartanShell> {
           _drawerItem(5, "MINDSET", Icons.psychology, "Mental Conditioning"),
           _drawerItem(6, "IMPORT", Icons.document_scanner, "Plan Ingestion"),
           const Spacer(),
+          // User section with sign out
+          _buildUserSection(),
           Padding(
             padding: const EdgeInsets.all(20.0),
             child: Text(
@@ -261,6 +292,102 @@ class _NeospartanShellState extends State<NeospartanShell> {
           _selectedIndex = index;
         });
         Navigator.pop(context);
+      },
+    );
+  }
+
+  Widget _buildUserSection() {
+    return Consumer<AuthProvider>(
+      builder: (context, auth, child) {
+        if (!auth.isAuthenticated) return const SizedBox.shrink();
+
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey[900],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: LaconicTheme.spartanBronze.withValues(
+                      alpha: 0.2,
+                    ),
+                    child: Text(
+                      (auth.displayName ?? 'S').substring(0, 1).toUpperCase(),
+                      style: const TextStyle(
+                        color: LaconicTheme.spartanBronze,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          auth.displayName ?? 'Spartan',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (auth.isAnonymous)
+                          Text(
+                            'Preview Mode',
+                            style: TextStyle(
+                              color: LaconicTheme.spartanBronze,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (auth.isAnonymous)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
+                      );
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: LaconicTheme.spartanBronze),
+                    ),
+                    child: const Text(
+                      'SAVE PROGRESS',
+                      style: TextStyle(color: LaconicTheme.spartanBronze),
+                    ),
+                  ),
+                ),
+              TextButton.icon(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await auth.signOut();
+                },
+                icon: const Icon(Icons.logout, size: 16, color: Colors.grey),
+                label: const Text(
+                  'Sign Out',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        );
       },
     );
   }
@@ -355,6 +482,7 @@ class FirebaseInitErrorScreen extends StatelessWidget {
                   runApp(
                     MultiProvider(
                       providers: [
+                        ChangeNotifierProvider(create: (_) => AuthProvider()),
                         ChangeNotifierProvider(
                           create: (_) => WorkoutProvider(),
                         ),

@@ -1,0 +1,139 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidUserProfile() {
+      return request.resource.data.keys().hasAll(['id', 'createdAt']) &&
+             request.resource.data.id is string &&
+             request.resource.data.createdAt is timestamp;
+    }
+    
+    function isValidWorkout() {
+      return request.resource.data.keys().hasAll(['userId', 'date', 'createdAt']) &&
+             request.resource.data.userId is string &&
+             request.resource.data.date is timestamp;
+    }
+    
+    function isValidBiometric() {
+      return request.resource.data.keys().hasAll(['userId', 'type', 'value', 'timestamp']) &&
+             request.resource.data.userId is string &&
+             request.resource.data.type is string &&
+             request.resource.data.value is number;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Allow read if owner or profile is public (future feature)
+      allow read: if isOwner(userId);
+      
+      // Allow create if owner and valid data
+      allow create: if isOwner(userId) && isValidUserProfile();
+      
+      // Allow update if owner and not changing the id
+      allow update: if isOwner(userId) && 
+        request.resource.data.id == resource.data.id;
+      
+      // Allow delete if owner
+      allow delete: if isOwner(userId);
+      
+      // User profile subcollection
+      match /profile/{profileId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Workouts subcollection
+      match /workouts/{workoutId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidWorkout();
+        allow update: if isOwner(userId) && 
+          request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId);
+      }
+      
+      // Daily logs subcollection
+      match /daily_logs/{logId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Settings/preferences subcollection
+      match /settings/{settingId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Imported plans subcollection
+      match /imported_plans/{planId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // AI training plans subcollection
+      match /ai_training_plans/{planId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Weekly progress subcollection
+      match /weekly_progress/{progressId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Achievements subcollection
+      match /unlocked_achievements/{achievementId} {
+        allow read: if isOwner(userId);
+        // Only cloud functions can write achievements
+        allow write: if false;
+      }
+    }
+    
+    // Global achievements collection (read-only for users)
+    match /achievements/{achievementId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only admin/cloud functions
+    }
+    
+    // Biometrics collection (flat structure for queries)
+    match /biometrics/{biometricId} {
+      allow read: if isAuthenticated() && 
+        (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid &&
+        isValidBiometric();
+      allow update: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == resource.data.userId;
+      allow delete: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // Daily readiness collection (flat structure for queries)
+    match /daily_readiness/{readinessId} {
+      allow read: if isAuthenticated() && 
+        (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == resource.data.userId;
+      allow delete: if isAuthenticated() && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // Exercise library (global read-only)
+    match /exercises/{exerciseId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only admin
+    }
+    
+    // Stoic quotes (global read-only)
+    match /stoic_quotes/{quoteId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only admin
+    }
+  }
+}

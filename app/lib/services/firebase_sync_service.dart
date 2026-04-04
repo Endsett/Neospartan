@@ -360,14 +360,12 @@ class FirebaseSyncService {
     }
   }
 
-  /// Get user profile from Firestore
-  Future<UserProfile?> getUserProfile() async {
-    if (!isAuthenticated) return null;
-
+  /// Get user profile by ID (for AuthProvider)
+  Future<UserProfile?> getUserProfile(String userId) async {
     try {
       final doc = await _firestore
           .collection('users')
-          .doc(_userId)
+          .doc(userId)
           .collection('profile')
           .doc('main')
           .get();
@@ -377,14 +375,20 @@ class FirebaseSyncService {
       }
       return null;
     } catch (e) {
-      debugPrint('Error fetching user profile: $e');
+      debugPrint('Error fetching user profile for $userId: $e');
       return null;
     }
   }
 
+  /// Get current user profile (legacy method)
+  Future<UserProfile?> getCurrentUserProfile() async {
+    if (!isAuthenticated) return null;
+    return getUserProfile(_userId!);
+  }
+
   /// Check if user has completed onboarding
   Future<bool> hasCompletedOnboarding() async {
-    final profile = await getUserProfile();
+    final profile = await getCurrentUserProfile();
     return profile?.hasCompletedOnboarding ?? false;
   }
 
