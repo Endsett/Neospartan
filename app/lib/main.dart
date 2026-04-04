@@ -95,7 +95,6 @@ class NeospartanApp extends StatelessWidget {
           '/stoic': (context) => const StoicScreen(),
           '/phalanx': (context) => const PhalanxScreen(),
           '/weekly_schedule': (context) => const WeeklyScheduleScreen(),
-          '/onboarding': (context) => const OnboardingScreen(),
           '/analytics': (context) => const AnalyticsDashboard(),
         },
       ),

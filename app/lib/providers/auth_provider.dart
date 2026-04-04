@@ -184,6 +184,11 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Send password reset email (alias for resetPassword)
+  Future<bool> sendPasswordResetEmail(String email) async {
+    return resetPassword(email);
+  }
+
   /// Update user profile
   Future<bool> updateProfile({String? displayName, String? photoUrl}) async {
     _setLoading(true);
