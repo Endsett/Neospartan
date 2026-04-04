@@ -11,30 +11,33 @@ class WorkoutRepository {
     try {
       // Save workout session
       final sessionId = await _database.saveWorkoutSession({
-        'date': workout.date.toIso8601String(),
-        'start_time': workout.startTime?.toIso8601String(),
-        'end_time': workout.endTime?.toIso8601String(),
-        'workout_type': workout.workoutType,
-        'notes': workout.notes,
+        'date': workout.startTime.toIso8601String(),
+        'start_time': workout.startTime.toIso8601String(),
+        'end_time': workout.endTime.toIso8601String(),
+        'protocol_title': workout.protocolTitle,
+        'total_duration_minutes': workout.totalDurationMinutes,
+        'readiness_score_at_start': workout.readinessScoreAtStart,
       });
 
       // Save workout sets
-      if (workout.sets.isNotEmpty) {
-        final setsData = workout.sets
-            .map(
-              (set) => {
-                'exercise_name': set.exerciseName,
-                'set_number': set.setNumber,
-                'reps_performed': set.repsPerformed,
-                'actual_rpe': set.actualRPE,
-                'load_used': set.loadUsed,
-                'completed': set.completed,
-                'notes': set.notes,
-              },
-            )
-            .toList();
-
-        await _database.saveWorkoutSets(sessionId, setsData);
+      if (workout.exercises.isNotEmpty) {
+        final allSets = <Map<String, dynamic>>[];
+        
+        for (final exercise in workout.exercises) {
+          for (final set in exercise.sets) {
+            allSets.add({
+              'exercise_name': exercise.exerciseName,
+              'set_number': set.setNumber,
+              'reps_performed': set.repsPerformed,
+              'actual_rpe': set.actualRPE,
+              'load_used': set.loadUsed,
+              'completed': set.completed,
+              'notes': set.notes,
+            });
+          }
+        }
+        
+        await _database.saveWorkoutSets(sessionId, allSets);
       }
 
       developer.log('Workout saved successfully', name: 'WorkoutRepository');
@@ -60,45 +63,51 @@ class WorkoutRepository {
       );
 
       final workouts = <CompletedWorkout>[];
-
+      
       for (final session in sessions) {
         final sets = await _database.getWorkoutSets(session['id']);
-
+        
+        // Group sets by exercise
+        final exerciseMap = <String, List<Map<String, dynamic>>>{};
+        for (final set in sets) {
+          final exerciseName = set['exercise_name'] ?? '';
+          if (!exerciseMap.containsKey(exerciseName)) {
+            exerciseMap[exerciseName] = [];
+          }
+          exerciseMap[exerciseName]!.add(set);
+        }
+        
+        // Create CompletedExerciseEntry objects
+        final exercises = exerciseMap.entries.map((entry) {
+          return CompletedExerciseEntry(
+            exerciseName: entry.key,
+            sets: entry.value.map((setData) => SetPerformance(
+              setNumber: setData['set_number'] ?? 1,
+              repsPerformed: setData['reps_performed'] ?? 0,
+              actualRPE: setData['actual_rpe']?.toDouble(),
+              loadUsed: setData['load_used']?.toDouble(),
+              completed: setData['completed'] ?? false,
+              notes: setData['notes'] ?? '',
+            )).toList(),
+          );
+        }).toList();
+        
         final workout = CompletedWorkout(
           id: session['id'],
-          date: DateTime.parse(session['date']),
-          startTime: session['start_time'] != null
-              ? DateTime.parse(session['start_time'])
-              : null,
-          endTime: session['end_time'] != null
-              ? DateTime.parse(session['end_time'])
-              : null,
-          workoutType: session['workout_type'] ?? '',
-          notes: session['notes'] ?? '',
-          sets: sets
-              .map(
-                (setData) => WorkoutSet(
-                  exerciseName: setData['exercise_name'] ?? '',
-                  setNumber: setData['set_number'] ?? 1,
-                  repsPerformed: setData['reps_performed'] ?? 0,
-                  actualRPE: setData['actual_rpe']?.toDouble() ?? 0.0,
-                  loadUsed: setData['load_used']?.toDouble() ?? 0.0,
-                  completed: setData['completed'] ?? false,
-                  notes: setData['notes'] ?? '',
-                ),
-              )
-              .toList(),
+          protocolTitle: session['protocol_title'] ?? '',
+          exercises: exercises,
+          startTime: DateTime.parse(session['start_time']),
+          endTime: DateTime.parse(session['end_time']),
+          totalDurationMinutes: session['total_duration_minutes'] ?? 0,
+          readinessScoreAtStart: session['readiness_score_at_start'] ?? 0,
         );
-
+        
         workouts.add(workout);
       }
 
       return workouts;
     } catch (e) {
-      developer.log(
-        'Error getting workout history: $e',
-        name: 'WorkoutRepository',
-      );
+      developer.log('Error getting workout history: $e', name: 'WorkoutRepository');
       return [];
     }
   }
@@ -117,30 +126,39 @@ class WorkoutRepository {
       final session = sessions.first;
       final sets = await _database.getWorkoutSets(session['id']);
 
+      // Group sets by exercise
+      final exerciseMap = <String, List<Map<String, dynamic>>>{};
+      for (final set in sets) {
+        final exerciseName = set['exercise_name'] ?? '';
+        if (!exerciseMap.containsKey(exerciseName)) {
+          exerciseMap[exerciseName] = [];
+        }
+        exerciseMap[exerciseName]!.add(set);
+      }
+      
+      // Create CompletedExerciseEntry objects
+      final exercises = exerciseMap.entries.map((entry) {
+        return CompletedExerciseEntry(
+          exerciseName: entry.key,
+          sets: entry.value.map((setData) => SetPerformance(
+            setNumber: setData['set_number'] ?? 1,
+            repsPerformed: setData['reps_performed'] ?? 0,
+            actualRPE: setData['actual_rpe']?.toDouble(),
+            loadUsed: setData['load_used']?.toDouble(),
+            completed: setData['completed'] ?? false,
+            notes: setData['notes'] ?? '',
+          )).toList(),
+        );
+      }).toList();
+
       return CompletedWorkout(
         id: session['id'],
-        date: DateTime.parse(session['date']),
-        startTime: session['start_time'] != null
-            ? DateTime.parse(session['start_time'])
-            : null,
-        endTime: session['end_time'] != null
-            ? DateTime.parse(session['end_time'])
-            : null,
-        workoutType: session['workout_type'] ?? '',
-        notes: session['notes'] ?? '',
-        sets: sets
-            .map(
-              (setData) => WorkoutSet(
-                exerciseName: setData['exercise_name'] ?? '',
-                setNumber: setData['set_number'] ?? 1,
-                repsPerformed: setData['reps_performed'] ?? 0,
-                actualRPE: setData['actual_rpe']?.toDouble() ?? 0.0,
-                loadUsed: setData['load_used']?.toDouble() ?? 0.0,
-                completed: setData['completed'] ?? false,
-                notes: setData['notes'] ?? '',
-              ),
-            )
-            .toList(),
+        protocolTitle: session['protocol_title'] ?? '',
+        exercises: exercises,
+        startTime: DateTime.parse(session['start_time']),
+        endTime: DateTime.parse(session['end_time']),
+        totalDurationMinutes: session['total_duration_minutes'] ?? 0,
+        readinessScoreAtStart: session['readiness_score_at_start'] ?? 0,
       );
     } catch (e) {
       developer.log('Error getting workout: $e', name: 'WorkoutRepository');
@@ -177,11 +195,14 @@ class WorkoutRepository {
       final totalWorkouts = workouts.length;
       final totalSets = workouts.fold<int>(
         0,
-        (sum, workout) => sum + (workout?.sets.length ?? 0),
+        (sum, workout) => sum + workout.exercises.fold(
+          0,
+          (exerciseSum, exercise) => exerciseSum + exercise.sets.length,
+        ),
       );
       final totalVolume = workouts.fold<double>(
         0.0,
-        (sum, workout) => sum + (workout?.totalVolume ?? 0.0),
+        (sum, workout) => sum + workout.totalVolume,
       );
 
       return {
@@ -190,17 +211,13 @@ class WorkoutRepository {
         'totalVolume': totalVolume,
         'averageRPE': totalWorkouts > 0
             ? workouts.fold<double>(
-                    0.0,
-                    (sum, workout) => sum + (workout?.averageRPE ?? 0.0),
-                  ) /
-                  totalWorkouts
+                0.0,
+                (sum, workout) => sum + workout.averageRPE,
+              ) / totalWorkouts
             : 0.0,
       };
     } catch (e) {
-      developer.log(
-        'Error getting workout stats: $e',
-        name: 'WorkoutRepository',
-      );
+      developer.log('Error getting workout stats: $e', name: 'WorkoutRepository');
       return {};
     }
   }

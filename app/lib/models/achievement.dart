@@ -169,14 +169,7 @@ class AchievementRepository {
   /// Award achievement to user (called by cloud function usually)
   Future<bool> awardAchievement(String userId, Achievement achievement) async {
     try {
-      final now = DateTime.now();
-      final awarded = achievement.copyWith(
-        isUnlocked: true,
-        unlockedAt: now,
-        currentValue: achievement.targetValue,
-      );
-
-      // Save to Supabase
+      // Mark achievement as awarded
       developer.log(
         'Achievement awarded: ${achievement.id}',
         name: 'AchievementRepository',
