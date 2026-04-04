@@ -9,10 +9,7 @@ import 'signup_screen.dart';
 class LoginScreen extends StatefulWidget {
   final VoidCallback? onAnonymousSignIn;
 
-  const LoginScreen({
-    super.key,
-    this.onAnonymousSignIn,
-  });
+  const LoginScreen({super.key, this.onAnonymousSignIn});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -82,8 +79,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 16),
 
                   // Anonymous preview
-                  if (widget.onAnonymousSignIn != null)
+                  if (widget.onAnonymousSignIn != null) ...[
                     _buildAnonymousButton(authProvider),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No account required - your data is stored locally only',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
 
                   const SizedBox(height: 32),
 
@@ -346,26 +350,36 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildAnonymousButton(AuthProvider authProvider) {
-    return TextButton(
-      onPressed: authProvider.isLoading || _isAnonymousLoading
-          ? null
-          : _handleAnonymousSignIn,
-      child: _isAnonymousLoading
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+    return Container(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: authProvider.isLoading || _isAnonymousLoading
+            ? null
+            : _handleAnonymousSignIn,
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: LaconicTheme.spartanBronze),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+        child: _isAnonymousLoading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    LaconicTheme.spartanBronze,
+                  ),
+                ),
+              )
+            : const Text(
+                'Continue as Guest',
+                style: TextStyle(
+                  color: LaconicTheme.spartanBronze,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            )
-          : Text(
-              'Try without account',
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 14,
-              ),
-            ),
+      ),
     );
   }
 
@@ -381,9 +395,7 @@ class _LoginScreenState extends State<LoginScreen> {
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const SignupScreen(),
-              ),
+              MaterialPageRoute(builder: (context) => const SignupScreen()),
             );
           },
           child: Text(

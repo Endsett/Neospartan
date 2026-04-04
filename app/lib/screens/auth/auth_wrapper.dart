@@ -87,7 +87,9 @@ class _AuthWrapperState extends State<AuthWrapper>
             ),
             const SizedBox(height: 24),
             const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(LaconicTheme.spartanBronze),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                LaconicTheme.spartanBronze,
+              ),
               strokeWidth: 2,
             ),
             const SizedBox(height: 16),
@@ -126,13 +128,22 @@ class AuthGate extends StatelessWidget {
     }
 
     if (!authProvider.isAuthenticated) {
-      return LoginScreen();
+      return LoginScreen(
+        onAnonymousSignIn: () {
+          // Anonymous sign-in will trigger auth state change
+          developer.log(
+            'Anonymous sign-in triggered in AuthGate',
+            name: 'AuthGate',
+          );
+        },
+      );
     }
 
     // Check if user has completed onboarding by looking at their profile
     // If they're new, the profile will have default values
     final profile = authProvider.userProfile;
-    final needsOnboarding = profile == null ||
+    final needsOnboarding =
+        profile == null ||
         profile.experienceLevel == null ||
         profile.philosophicalBaseline == null;
 
@@ -157,7 +168,9 @@ class AuthGate extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(LaconicTheme.spartanBronze),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                LaconicTheme.spartanBronze,
+              ),
               strokeWidth: 2,
             ),
             const SizedBox(height: 16),
