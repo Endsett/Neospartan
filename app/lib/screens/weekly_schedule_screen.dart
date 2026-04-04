@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../theme.dart';
-import '../models/workout_protocol.dart';
 import '../models/workout_tracking.dart';
 import '../services/firebase_sync_service.dart';
-import '../providers/workout_provider.dart';
 import '../widgets/weekly_calendar.dart';
-import 'workout_session_screen.dart';
 
 /// Weekly Schedule Screen - Shows workout history and allows scheduling
 class WeeklyScheduleScreen extends StatefulWidget {
@@ -21,7 +17,6 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
   DateTime _currentWeekStart = _getWeekStart(DateTime.now());
   List<CalendarDay> _weekDays = [];
   List<CompletedWorkout> _workouts = [];
-  Map<String, dynamic> _scheduledWorkouts = {};
   bool _isLoading = true;
   String? _error;
 
@@ -46,19 +41,23 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
     try {
       // Calculate week range
       final weekEnd = _currentWeekStart.add(const Duration(days: 6));
-      
+
       // Load workouts for the week
-      final workouts = await _firebase.getWorkoutsForDateRange(_currentWeekStart, weekEnd);
-      
+      final workouts = await _firebase.getWorkoutsForDateRange(
+        _currentWeekStart,
+        weekEnd,
+      );
+
       // Load scheduled workouts
-      final scheduled = await _firebase.getScheduledWorkoutsForWeek(_currentWeekStart);
-      
+      final scheduled = await _firebase.getScheduledWorkoutsForWeek(
+        _currentWeekStart,
+      );
+
       // Build calendar days
       final days = _buildCalendarDays(workouts, scheduled);
 
       setState(() {
         _workouts = workouts;
-        _scheduledWorkouts = scheduled;
         _weekDays = days;
         _isLoading = false;
       });
@@ -75,11 +74,12 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
     Map<String, dynamic> scheduled,
   ) {
     final days = <CalendarDay>[];
-    
+
     for (int i = 0; i < 7; i++) {
       final date = _currentWeekStart.add(Duration(days: i));
-      final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-      
+      final dateKey =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
       // Check for completed workout
       final workout = workouts.firstWhere(
         (w) => _isSameDay(w.startTime, date),
@@ -93,26 +93,27 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
           readinessScoreAtStart: 0,
         ),
       );
-      
+
       // Check for scheduled workout
       final scheduledData = scheduled[dateKey];
-      
+
       DayStatus status;
       String? workoutName;
       Duration? duration;
       double? volume;
-      
+
       if (workout.id.isNotEmpty) {
         // Completed workout
-        status = workout.exercises.every((e) => e.completionRate >= 1.0) 
-            ? DayStatus.completed 
+        status = workout.exercises.every((e) => e.completionRate >= 1.0)
+            ? DayStatus.completed
             : DayStatus.partial;
         workoutName = workout.protocolTitle;
         duration = Duration(minutes: workout.totalDurationMinutes);
         volume = workout.exercises.fold<double>(0, (sum, e) {
-          return sum + e.sets.fold<double>(0, (setSum, s) {
-            return setSum + ((s.loadUsed ?? 0) * (s.repsPerformed ?? 0));
-          });
+          return sum +
+              e.sets.fold<double>(0, (setSum, s) {
+                return setSum + ((s.loadUsed ?? 0) * (s.repsPerformed ?? 0));
+              });
         });
       } else if (scheduledData != null) {
         // Scheduled for future
@@ -130,15 +131,17 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
         status = DayStatus.empty;
       }
 
-      days.add(CalendarDay(
-        date: date,
-        status: status,
-        workoutName: workoutName,
-        duration: duration,
-        totalVolume: volume,
-      ));
+      days.add(
+        CalendarDay(
+          date: date,
+          status: status,
+          workoutName: workoutName,
+          duration: duration,
+          totalVolume: volume,
+        ),
+      );
     }
-    
+
     return days;
   }
 
@@ -165,7 +168,8 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
       _showWorkoutDetails(day);
     } else if (day.status == DayStatus.scheduled) {
       _showScheduledWorkoutOptions(day);
-    } else if (day.date.isAfter(DateTime.now()) || _isSameDay(day.date, DateTime.now())) {
+    } else if (day.date.isAfter(DateTime.now()) ||
+        _isSameDay(day.date, DateTime.now())) {
       _showScheduleOptions(day);
     }
   }
@@ -175,8 +179,10 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
   }
 
   void _showWorkoutDetails(CalendarDay day) {
-    final workout = _workouts.firstWhere((w) => _isSameDay(w.startTime, day.date));
-    
+    final workout = _workouts.firstWhere(
+      (w) => _isSameDay(w.startTime, day.date),
+    );
+
     showModalBottomSheet(
       context: context,
       backgroundColor: LaconicTheme.deepBlack,
@@ -215,11 +221,20 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
             const SizedBox(height: 24),
             Row(
               children: [
-                _buildDetailChip(Icons.timer, '${day.duration?.inMinutes ?? 0} min'),
+                _buildDetailChip(
+                  Icons.timer,
+                  '${day.duration?.inMinutes ?? 0} min',
+                ),
                 const SizedBox(width: 12),
-                _buildDetailChip(Icons.scale, '${day.totalVolume?.toStringAsFixed(0) ?? 0} kg'),
+                _buildDetailChip(
+                  Icons.scale,
+                  '${day.totalVolume?.toStringAsFixed(0) ?? 0} kg',
+                ),
                 const SizedBox(width: 12),
-                _buildDetailChip(Icons.fitness_center, '${workout.exercises.length} exercises'),
+                _buildDetailChip(
+                  Icons.fitness_center,
+                  '${workout.exercises.length} exercises',
+                ),
               ],
             ),
             const SizedBox(height: 24),
@@ -232,28 +247,34 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            ...workout.exercises.map((exercise) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    exercise.completionRate >= 1.0 ? Icons.check_circle : Icons.timelapse,
-                    color: exercise.completionRate >= 1.0 ? Colors.green : Colors.orange,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    exercise.exerciseName,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${exercise.sets.where((s) => s.completed).length}/${exercise.targetSets} sets',
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
+            ...workout.exercises.map(
+              (exercise) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      exercise.completionRate >= 1.0
+                          ? Icons.check_circle
+                          : Icons.timelapse,
+                      color: exercise.completionRate >= 1.0
+                          ? Colors.green
+                          : Colors.orange,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      exercise.exerciseName,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${exercise.sets.where((s) => s.completed).length}/${exercise.targetSets} sets',
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
+                ),
               ),
-            )),
+            ),
           ],
         ),
       ),
@@ -315,7 +336,10 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                   _cancelScheduledWorkout(day);
                 },
                 icon: const Icon(Icons.cancel, color: Colors.red),
-                label: const Text('CANCEL', style: TextStyle(color: Colors.red)),
+                label: const Text(
+                  'CANCEL',
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
             ),
           ],
@@ -380,9 +404,7 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
   }
 
   void _startScheduledWorkout(CalendarDay day) {
-    // Navigate to workout session
-    final workoutProvider = Provider.of<WorkoutProvider>(context, listen: false);
-    // Load the scheduled protocol and start
+    // Navigate to workout session - TODO: Load scheduled protocol and start
   }
 
   void _scheduleWorkout(CalendarDay day) {
@@ -413,17 +435,27 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
         children: [
           Icon(icon, size: 14, color: LaconicTheme.spartanBronze),
           const SizedBox(width: 4),
-          Text(
-            text,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
-          ),
+          Text(text, style: const TextStyle(color: Colors.white, fontSize: 12)),
         ],
       ),
     );
   }
 
   String _getMonthName(int month) {
-    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
+    ];
     return months[month - 1];
   }
 
@@ -477,11 +509,17 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                     Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.chevron_left, color: Colors.white),
+                          icon: const Icon(
+                            Icons.chevron_left,
+                            color: Colors.white,
+                          ),
                           onPressed: _previousWeek,
                         ),
                         IconButton(
-                          icon: const Icon(Icons.chevron_right, color: Colors.white),
+                          icon: const Icon(
+                            Icons.chevron_right,
+                            color: Colors.white,
+                          ),
                           onPressed: _nextWeek,
                         ),
                       ],
@@ -489,7 +527,7 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Error state
                 if (_error != null)
                   Container(
@@ -516,7 +554,7 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                       ],
                     ),
                   ),
-                
+
                 // Calendar
                 WeeklyCalendar(
                   days: _weekDays,
@@ -525,21 +563,29 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                   isLoading: _isLoading,
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Weekly stats
                 if (!_isLoading && _error == null)
                   WeeklyStatsSummary(
-                    workoutsCompleted: _weekDays.where((d) => d.status == DayStatus.completed).length,
-                    workoutsScheduled: _weekDays.where((d) => 
-                      d.status == DayStatus.completed || 
-                      d.status == DayStatus.scheduled ||
-                      d.status == DayStatus.partial
-                    ).length,
-                    totalVolume: _weekDays.fold<double>(0, (sum, d) => sum + (d.totalVolume ?? 0)),
+                    workoutsCompleted: _weekDays
+                        .where((d) => d.status == DayStatus.completed)
+                        .length,
+                    workoutsScheduled: _weekDays
+                        .where(
+                          (d) =>
+                              d.status == DayStatus.completed ||
+                              d.status == DayStatus.scheduled ||
+                              d.status == DayStatus.partial,
+                        )
+                        .length,
+                    totalVolume: _weekDays.fold<double>(
+                      0,
+                      (sum, d) => sum + (d.totalVolume ?? 0),
+                    ),
                     currentStreak: _calculateStreak(),
                   ),
                 const SizedBox(height: 24),
-                
+
                 // Legend
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -565,7 +611,10 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                         children: [
                           _buildLegendItem(Colors.green, 'Completed'),
                           _buildLegendItem(Colors.orange, 'Partial'),
-                          _buildLegendItem(LaconicTheme.spartanBronze, 'Scheduled'),
+                          _buildLegendItem(
+                            LaconicTheme.spartanBronze,
+                            'Scheduled',
+                          ),
                           _buildLegendItem(Colors.blue, 'Rest'),
                           _buildLegendItem(Colors.red, 'Missed'),
                         ],
@@ -574,12 +623,14 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Instructions
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    border: Border.all(color: LaconicTheme.ironGray.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: LaconicTheme.ironGray.withValues(alpha: 0.3),
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Column(
@@ -630,10 +681,7 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
           ),
         ),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.grey, fontSize: 11),
-        ),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
       ],
     );
   }
@@ -644,7 +692,8 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
     for (final day in _weekDays.reversed) {
       if (day.status == DayStatus.completed) {
         streak++;
-      } else if (day.status != DayStatus.rest && day.date.isBefore(DateTime.now())) {
+      } else if (day.status != DayStatus.rest &&
+          day.date.isBefore(DateTime.now())) {
         break;
       }
     }
@@ -654,7 +703,9 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
 
 // Extension methods for FirebaseSyncService
 extension WeeklyScheduleExtension on FirebaseSyncService {
-  Future<Map<String, dynamic>> getScheduledWorkoutsForWeek(DateTime weekStart) async {
+  Future<Map<String, dynamic>> getScheduledWorkoutsForWeek(
+    DateTime weekStart,
+  ) async {
     // This would be implemented in the actual FirebaseSyncService
     // For now, return empty map
     return {};

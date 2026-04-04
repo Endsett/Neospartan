@@ -1,13 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../providers/workout_provider.dart';
 import '../models/workout_protocol.dart';
 import '../models/workout_tracking.dart';
 import '../widgets/set_tracker_card.dart';
-import '../services/firebase_sync_service.dart';
 
 class WorkoutSessionScreen extends StatefulWidget {
   const WorkoutSessionScreen({super.key});
@@ -23,8 +21,7 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
   bool _isResting = false;
   int _currentSet = 1;
   final List<SetPerformance> _completedSets = [];
-  final _firebase = FirebaseSyncService();
-  
+
   @override
   void initState() {
     super.initState();
@@ -52,7 +49,12 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
 
     if (protocol == null || entry == null) {
       return const Scaffold(
-        body: Center(child: Text("No Active Protocol", style: TextStyle(color: Colors.white))),
+        body: Center(
+          child: Text(
+            "No Active Protocol",
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
       );
     }
 
@@ -63,18 +65,19 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
           children: [
             _buildHeader(context, provider, protocol),
             const Divider(color: LaconicTheme.ironGray, height: 1),
-            if (_isResting)
-              _buildRestTimer(entry.restSeconds),
-            Expanded(
-              child: _buildExerciseView(entry, provider, protocol),
-            ),
+            if (_isResting) _buildRestTimer(entry.restSeconds),
+            Expanded(child: _buildExerciseView(entry, provider, protocol)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context, WorkoutProvider provider, WorkoutProtocol protocol) {
+  Widget _buildHeader(
+    BuildContext context,
+    WorkoutProvider provider,
+    WorkoutProtocol protocol,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
@@ -94,7 +97,10 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
               ),
               const SizedBox(height: 4),
               StreamBuilder<int>(
-                stream: Stream.periodic(const Duration(seconds: 1), (_) => _workoutStopwatch.elapsed.inSeconds),
+                stream: Stream.periodic(
+                  const Duration(seconds: 1),
+                  (_) => _workoutStopwatch.elapsed.inSeconds,
+                ),
                 builder: (context, snapshot) {
                   return Text(
                     _formatTime(snapshot.data ?? 0),
@@ -125,16 +131,31 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
       color: LaconicTheme.spartanBronze.withValues(alpha: 0.2),
       child: Column(
         children: [
-          const Text('RECOVERY', style: TextStyle(color: LaconicTheme.spartanBronze, fontSize: 12, letterSpacing: 4.0)),
+          const Text(
+            'RECOVERY',
+            style: TextStyle(
+              color: LaconicTheme.spartanBronze,
+              fontSize: 12,
+              letterSpacing: 4.0,
+            ),
+          ),
           const SizedBox(height: 12),
           Text(
             _formatTime(_restSecondsRemaining),
-            style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.w900, fontFamily: "Courier"),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 48,
+              fontWeight: FontWeight.w900,
+              fontFamily: "Courier",
+            ),
           ),
           const SizedBox(height: 12),
           TextButton(
             onPressed: _skipRest,
-            child: const Text('SKIP REST', style: TextStyle(color: Colors.grey)),
+            child: const Text(
+              'SKIP REST',
+              style: TextStyle(color: Colors.grey),
+            ),
           ),
         ],
       ),
@@ -163,42 +184,62 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
     setState(() => _isResting = false);
   }
 
-  Widget _buildExerciseView(ProtocolEntry entry, WorkoutProvider provider, WorkoutProtocol protocol) {
+  Widget _buildExerciseView(
+    ProtocolEntry entry,
+    WorkoutProvider provider,
+    WorkoutProtocol protocol,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         children: [
           Text(
             "EXERCISE ${provider.currentEntryIndex + 1}/${protocol.entries.length}",
-            style: TextStyle(color: Colors.grey.withValues(alpha: 0.5), fontSize: 10, letterSpacing: 4.0),
+            style: TextStyle(
+              color: Colors.grey.withValues(alpha: 0.5),
+              fontSize: 10,
+              letterSpacing: 4.0,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
             entry.exercise.name,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 1.0),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.0,
+            ),
           ),
           const SizedBox(height: 24),
           Text(
             "GOAL: ${entry.sets} SETS × ${entry.reps > 0 ? entry.reps : 'MAX'} REPS",
-            style: const TextStyle(color: LaconicTheme.spartanBronze, fontSize: 16, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: LaconicTheme.spartanBronze,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 8),
-          Text("TARGET RPE: ${entry.intensityRpe}", style: const TextStyle(color: Colors.grey)),
+          Text(
+            "TARGET RPE: ${entry.intensityRpe}",
+            style: const TextStyle(color: Colors.grey),
+          ),
           const SizedBox(height: 40),
-          
+
           // Set tracking cards with detailed logging
           ...List.generate(entry.sets, (index) {
             final setNumber = index + 1;
             final isCompleted = setNumber < _currentSet;
             final isCurrent = setNumber == _currentSet;
-            
+
             // Find previous performance for this set if completed
             SetPerformance? previousPerformance;
             if (isCompleted && index < _completedSets.length) {
               previousPerformance = _completedSets[index];
             }
-            
+
             return SetTrackerCard(
               setNumber: setNumber,
               targetReps: entry.reps,
@@ -210,24 +251,29 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
               onEdit: isCompleted ? () => _editSet(index) : null,
             );
           }),
-          
+
           const SizedBox(height: 40),
           ElevatedButton(
-            onPressed: (_currentSet > entry.sets) ? () {
-              if (provider.currentEntryIndex < protocol.entries.length - 1) {
-                setState(() => _currentSet = 1);
-                provider.nextExercise();
-              } else {
-                _finishWorkout(context, provider);
-              }
-            } : null,
+            onPressed: (_currentSet > entry.sets)
+                ? () {
+                    if (provider.currentEntryIndex <
+                        protocol.entries.length - 1) {
+                      setState(() => _currentSet = 1);
+                      provider.nextExercise();
+                    } else {
+                      _finishWorkout(context, provider);
+                    }
+                  }
+                : null,
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(200, 60),
               shape: const BeveledRectangleBorder(),
               disabledBackgroundColor: Colors.grey.shade800,
             ),
             child: Text(
-              provider.currentEntryIndex < protocol.entries.length - 1 ? "NEXT EXERCISE" : "FINISH PROTOCOL",
+              provider.currentEntryIndex < protocol.entries.length - 1
+                  ? "NEXT EXERCISE"
+                  : "FINISH PROTOCOL",
               style: const TextStyle(letterSpacing: 2.0),
             ),
           ),
@@ -241,19 +287,32 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
       _completedSets.add(performance);
       _currentSet++;
     });
-    
+
     // Auto-save to Firebase after each set
     _saveSetToFirebase(performance);
-    
-    if (_currentSet <= (Provider.of<WorkoutProvider>(context, listen: false).currentEntry?.sets ?? 0)) {
-      _startRest(Provider.of<WorkoutProvider>(context, listen: false).currentEntry?.restSeconds ?? 60);
+
+    if (_currentSet <=
+        (Provider.of<WorkoutProvider>(
+              context,
+              listen: false,
+            ).currentEntry?.sets ??
+            0)) {
+      _startRest(
+        Provider.of<WorkoutProvider>(
+              context,
+              listen: false,
+            ).currentEntry?.restSeconds ??
+            60,
+      );
     }
   }
 
   Future<void> _saveSetToFirebase(SetPerformance performance) async {
     try {
       // Save individual set data - would be part of the workout log
-      debugPrint('Set ${performance.setNumber} logged: ${performance.repsPerformed} reps @ RPE ${performance.actualRPE}');
+      debugPrint(
+        'Set ${performance.setNumber} logged: ${performance.repsPerformed} reps @ RPE ${performance.actualRPE}',
+      );
     } catch (e) {
       debugPrint('Error saving set: $e');
     }
@@ -266,11 +325,16 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: LaconicTheme.deepBlack,
         title: const Text('EDIT SET', style: TextStyle(color: Colors.white)),
-        content: const Text('Edit functionality would allow modifying set data'),
+        content: const Text(
+          'Edit functionality would allow modifying set data',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('CLOSE', style: TextStyle(color: LaconicTheme.spartanBronze)),
+            child: const Text(
+              'CLOSE',
+              style: TextStyle(color: LaconicTheme.spartanBronze),
+            ),
           ),
         ],
       ),
@@ -293,12 +357,20 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: LaconicTheme.deepBlack,
-        title: const Text("ABANDON MISSION?", style: TextStyle(color: Colors.white)),
-        content: const Text("The Spartan does not yield lightly. Are you sure?"),
+        title: const Text(
+          "ABANDON MISSION?",
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          "The Spartan does not yield lightly. Are you sure?",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("RESUME", style: TextStyle(color: LaconicTheme.spartanBronze)),
+            child: const Text(
+              "RESUME",
+              style: TextStyle(color: LaconicTheme.spartanBronze),
+            ),
           ),
           TextButton(
             onPressed: () {

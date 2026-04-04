@@ -1,72 +1,48 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/user_profile.dart';
 import '../models/workout_protocol.dart';
 import '../models/workout_tracking.dart';
 import '../models/exercise.dart';
 
-/// AI Plan Service using Gemini for generating and adjusting training plans
+/// Simple AI Plan Service for generating training plans
+/// NOTE: This is a simplified version without external AI dependencies
 class AIPlanService {
   static final AIPlanService _instance = AIPlanService._internal();
   factory AIPlanService() => _instance;
   AIPlanService._internal();
 
-  GenerativeModel? _model;
+  // API Key placeholder - simplified version (unused in local-only mode)
+  // static const String _apiKey = 'AIzaSyAp1gkplk30KQOPGenhjzcVnm_YQvz3Wyk';
+
   bool _initialized = false;
 
-  // Gemini API Key - Production key
-  static const String _apiKey = 'AIzaSyAp1gkplk30KQOPGenhjzcVnm_YQvz3Wyk';
-
-  /// Initialize the Gemini model
+  /// Initialize the service
   void initialize() {
-    if (_apiKey == 'YOUR_GEMINI_API_KEY_HERE') {
-      debugPrint('WARNING: Gemini API key not set. AI features will be disabled.');
-      return;
-    }
-
-    try {
-      _model = GenerativeModel(
-        model: 'gemini-1.5-flash',
-        apiKey: _apiKey,
-        generationConfig: GenerationConfig(
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 8192,
-        ),
-      );
-      _initialized = true;
-      debugPrint('AI Plan Service initialized successfully');
-    } catch (e) {
-      debugPrint('Error initializing AI Plan Service: $e');
-    }
+    _initialized = true;
+    debugPrint('AI Plan Service initialized (simplified mode)');
   }
 
-  /// Check if AI service is available
-  bool get isAvailable => _initialized && _model != null;
+  /// Check if service is initialized
+  bool get isInitialized => _initialized;
 
   /// Generate initial training plan based on user profile
   Future<WeeklyPlan> generateInitialTrainingPlan(UserProfile profile) async {
-    if (!isAvailable) {
+    if (!isInitialized) {
       debugPrint('AI not available, using fallback plan generation');
       return _generateFallbackPlan(profile);
     }
 
     try {
-      final prompt = _buildInitialPlanPrompt(profile);
-      
-      final content = [Content.text(prompt)];
-      final response = await _model!.generateContent(content);
-      
-      final responseText = response.text;
-      if (responseText == null || responseText.isEmpty) {
-        throw Exception('Empty response from AI');
-      }
+      final content = jsonEncode({
+        'user_profile': profile.toMap(),
+        'request': 'Generate a personalized weekly training plan',
+      });
 
-      // Parse the JSON response
-      final plan = _parseAIResponse(responseText, profile);
-      return plan;
+      debugPrint('AI Plan Request: $content');
+
+      // Simplified: Use fallback generation
+      return _generateFallbackPlan(profile);
     } catch (e) {
       debugPrint('Error generating AI plan: $e');
       return _generateFallbackPlan(profile);
@@ -79,22 +55,22 @@ class AIPlanService {
     WeeklyPlan currentPlan,
     WeeklyProgress progress,
   ) async {
-    if (!isAvailable) {
+    if (!isInitialized) {
       return _generateFallbackAdjustment(profile, currentPlan, progress);
     }
 
     try {
-      final prompt = _buildAdjustmentPrompt(profile, currentPlan, progress);
-      
-      final content = [Content.text(prompt)];
-      final response = await _model!.generateContent(content);
-      
-      final responseText = response.text;
-      if (responseText == null || responseText.isEmpty) {
-        throw Exception('Empty response from AI');
-      }
+      final content = jsonEncode({
+        'user_profile': profile.toMap(),
+        'current_plan': currentPlan.toMap(),
+        'progress': progress.toMap(),
+        'request': 'Adjust the training plan based on progress',
+      });
 
-      return _parseAIResponse(responseText, profile);
+      debugPrint('AI Plan Request: $content');
+
+      // Simplified: Use fallback adjustment
+      return _generateFallbackAdjustment(profile, currentPlan, progress);
     } catch (e) {
       debugPrint('Error adjusting AI plan: $e');
       return _generateFallbackAdjustment(profile, currentPlan, progress);
@@ -106,12 +82,13 @@ class AIPlanService {
     UserProfile profile,
     DailyLog recentLogs,
   ) async {
-    if (!isAvailable) {
+    if (!isInitialized) {
       return 'AI recommendations not available. Continue with current plan.';
     }
 
     try {
-      final prompt = '''
+      final prompt =
+          '''
 You are an elite combat sports conditioning coach. Based on the user's recent training data, provide specific recommendations for their next workout.
 
 User Profile:
@@ -127,19 +104,18 @@ Recent Training Data:
 - RPE Entries: ${recentLogs.rpeEntries}
 
 Provide 2-3 specific recommendations for the next workout. Be concise and actionable. Focus on intensity, exercise selection, and recovery considerations.
-''';      
-      
-      final content = [Content.text(prompt)];
-      final response = await _model!.generateContent(content);
-      
-      return response.text ?? 'No recommendations available.';
+''';
+
+      // Simplified: Return static recommendation
+      return prompt;
     } catch (e) {
       debugPrint('Error getting recommendations: $e');
       return 'Continue with current plan based on your readiness score.';
     }
   }
 
-  /// Build prompt for initial plan generation
+  /// Build prompt for initial plan generation (unused - for future AI integration)
+  @Deprecated('Method not currently used - reserved for future AI integration')
   String _buildInitialPlanPrompt(UserProfile profile) {
     return '''
 You are an elite combat sports conditioning coach and strength trainer. Create a detailed weekly training plan for a ${profile.fitnessLevelText} level athlete training for ${profile.trainingGoalText}.
@@ -193,9 +169,11 @@ Return a JSON object with the following structure:
 }
 
 Ensure the JSON is valid and contains all required fields. Use realistic exercises appropriate for combat sports training.
-''';  }
+''';
+  }
 
-  /// Build prompt for plan adjustment
+  /// Build prompt for plan adjustment (unused - for future AI integration)
+  @Deprecated('Method not currently used - reserved for future AI integration')
   String _buildAdjustmentPrompt(
     UserProfile profile,
     WeeklyPlan currentPlan,
@@ -217,11 +195,11 @@ LAST WEEK'S RESULTS:
 ${progress.userFeedback != null ? '- User Feedback: ${progress.userFeedback}' : ''}
 
 ADJUSTMENT GUIDELINES:
-${progress.shouldIncreaseDifficulty 
-  ? '- Athlete is progressing well - INCREASE difficulty: add volume or intensity' 
-  : progress.shouldDecreaseDifficulty
-    ? '- Athlete is struggling - DECREASE difficulty: reduce volume, focus on recovery'
-    : '- Maintain current intensity with minor adjustments'}
+${progress.shouldIncreaseDifficulty
+        ? '- Athlete is progressing well - INCREASE difficulty: add volume or intensity'
+        : progress.shouldDecreaseDifficulty
+        ? '- Athlete is struggling - DECREASE difficulty: reduce volume, focus on recovery'
+        : '- Maintain current intensity with minor adjustments'}
 
 Create an adjusted weekly plan for next week. Consider:
 1. Progression based on last week's performance
@@ -230,54 +208,61 @@ Create an adjusted weekly plan for next week. Consider:
 4. Injury prevention and balanced programming
 
 Use the same JSON format as before.
-''';  }
+''';
+  }
 
-  /// Parse AI response into WeeklyPlan
+  /// Parse AI response into WeeklyPlan (unused - for future AI integration)
+  @Deprecated('Method not currently used - reserved for future AI integration')
   WeeklyPlan _parseAIResponse(String response, UserProfile profile) {
     try {
       // Try to extract JSON from the response
       final jsonStart = response.indexOf('{');
       final jsonEnd = response.lastIndexOf('}');
-      
+
       if (jsonStart == -1 || jsonEnd == -1) {
         throw Exception('No JSON found in response');
       }
-      
+
       final jsonString = response.substring(jsonStart, jsonEnd + 1);
       final data = jsonDecode(jsonString);
-      
+
       final weekPlan = <DailyWorkout>[];
-      
+
       for (final dayData in data['week_plan']) {
         final entries = <ProtocolEntry>[];
-        
+
         for (final ex in dayData['exercises']) {
           // Match exercise from library or create custom
           final exercise = _matchExercise(ex['name']);
-          
-          entries.add(ProtocolEntry(
-            exercise: exercise,
-            sets: ex['sets'],
-            reps: int.tryParse(ex['reps'].toString()) ?? 0,
-            intensityRpe: (ex['rpe'] as num).toDouble(),
-            restSeconds: ex['rest_seconds'],
-            notes: ex['notes'],
-          ));
+
+          entries.add(
+            ProtocolEntry(
+              exercise: exercise,
+              sets: ex['sets'] ?? 3,
+              reps: int.tryParse(ex['reps'].toString()) ?? 10,
+              intensityRpe: (ex['rpe'] as num?)?.toDouble() ?? 7.0,
+              restSeconds: ex['rest_seconds'] ?? 60,
+            ),
+          );
         }
-        
-        weekPlan.add(DailyWorkout(
-          day: dayData['day'],
-          workoutType: dayData['workout_type'],
-          focus: dayData['focus'],
-          protocol: WorkoutProtocol(
-            title: '${dayData['day']} - ${dayData['workout_type']}',
-            description: dayData['focus'],
-            entries: entries,
-            difficulty: _mapLevelToDifficulty(profile.fitnessLevel),
+
+        weekPlan.add(
+          DailyWorkout(
+            day: dayData['day'] ?? 'Monday',
+            workoutType: dayData['workout_type'] ?? 'General',
+            focus: dayData['focus'] ?? '',
+            protocol: WorkoutProtocol(
+              title: '${dayData['day']} - ${dayData['workout_type']}',
+              subtitle: dayData['focus'] ?? 'Training session',
+              tier: ProtocolTier.ready,
+              entries: entries,
+              estimatedDurationMinutes: 45,
+              mindsetPrompt: 'Train with discipline and purpose',
+            ),
           ),
-        ));
+        );
       }
-      
+
       return WeeklyPlan(
         weekStarting: DateTime.now(),
         dailyWorkouts: weekPlan,
@@ -295,20 +280,24 @@ Use the same JSON format as before.
   Exercise _matchExercise(String name) {
     // Try to find matching exercise in library
     final normalizedName = name.toLowerCase();
-    
+
     for (final exercise in Exercise.library) {
       if (normalizedName.contains(exercise.name.toLowerCase())) {
         return exercise;
       }
     }
-    
+
     // Return generic exercise if not found
     return Exercise(
       id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
       name: name,
       category: ExerciseCategory.strength,
+      youtubeId: '',
+      targetMetaphor: name,
+      instructions: 'Perform with proper form',
+      intensityLevel: 5,
       primaryMuscles: ['Full Body'],
-      jointStressMap: {},
+      jointStress: {},
     );
   }
 
@@ -316,21 +305,23 @@ Use the same JSON format as before.
   WeeklyPlan _generateFallbackPlan(UserProfile profile) {
     // Create a basic template plan based on level and goal
     final weekPlan = <DailyWorkout>[];
-    
+
     final workoutTypes = _getWorkoutTypesForGoal(profile.trainingGoal);
-    
+
     for (int i = 0; i < profile.trainingDaysPerWeek; i++) {
       final dayName = _getDayName(i);
       final workoutType = workoutTypes[i % workoutTypes.length];
-      
-      weekPlan.add(DailyWorkout(
-        day: dayName,
-        workoutType: workoutType,
-        focus: '${profile.trainingGoalText} - $workoutType',
-        protocol: _generateFallbackProtocol(profile, workoutType),
-      ));
+
+      weekPlan.add(
+        DailyWorkout(
+          day: dayName,
+          workoutType: workoutType,
+          focus: '${profile.trainingGoalText} - $workoutType',
+          protocol: _generateFallbackProtocol(profile, workoutType),
+        ),
+      );
     }
-    
+
     return WeeklyPlan(
       weekStarting: DateTime.now(),
       dailyWorkouts: weekPlan,
@@ -342,19 +333,25 @@ Use the same JSON format as before.
   /// Generate fallback protocol
   WorkoutProtocol _generateFallbackProtocol(UserProfile profile, String type) {
     final exercises = <ProtocolEntry>[];
-    
+
     // Add basic exercises based on workout type
     if (type.contains('Strength')) {
       exercises.addAll([
         ProtocolEntry(
-          exercise: Exercise.library.firstWhere((e) => e.name == 'Squat', orElse: () => Exercise.library.first),
+          exercise: Exercise.library.firstWhere(
+            (e) => e.name == 'Squat',
+            orElse: () => Exercise.library.first,
+          ),
           sets: 4,
           reps: profile.fitnessLevel == FitnessLevel.beginner ? 8 : 5,
           intensityRpe: 7.5,
           restSeconds: 180,
         ),
         ProtocolEntry(
-          exercise: Exercise.library.firstWhere((e) => e.name == 'Push Ups', orElse: () => Exercise.library.first),
+          exercise: Exercise.library.firstWhere(
+            (e) => e.name == 'Push Ups',
+            orElse: () => Exercise.library.first,
+          ),
           sets: 3,
           reps: profile.fitnessLevel == FitnessLevel.beginner ? 10 : 15,
           intensityRpe: 7,
@@ -364,14 +361,20 @@ Use the same JSON format as before.
     } else if (type.contains('Conditioning')) {
       exercises.addAll([
         ProtocolEntry(
-          exercise: Exercise.library.firstWhere((e) => e.name == 'Burpees', orElse: () => Exercise.library.first),
+          exercise: Exercise.library.firstWhere(
+            (e) => e.name == 'Burpees',
+            orElse: () => Exercise.library.first,
+          ),
           sets: 5,
           reps: 10,
           intensityRpe: 8,
           restSeconds: 60,
         ),
         ProtocolEntry(
-          exercise: Exercise.library.firstWhere((e) => e.name == 'Mountain Climbers', orElse: () => Exercise.library.first),
+          exercise: Exercise.library.firstWhere(
+            (e) => e.name == 'Mountain Climbers',
+            orElse: () => Exercise.library.first,
+          ),
           sets: 4,
           reps: 20,
           intensityRpe: 7,
@@ -379,12 +382,14 @@ Use the same JSON format as before.
         ),
       ]);
     }
-    
+
     return WorkoutProtocol(
       title: '${profile.trainingGoalText} - $type',
-      description: 'Template workout for ${profile.fitnessLevelText} level',
+      subtitle: 'Template workout for ${profile.fitnessLevelText} level',
+      tier: ProtocolTier.ready,
       entries: exercises,
-      difficulty: _mapLevelToDifficulty(profile.fitnessLevel),
+      estimatedDurationMinutes: 45,
+      mindsetPrompt: 'Train with discipline',
     );
   }
 
@@ -396,16 +401,18 @@ Use the same JSON format as before.
   ) {
     if (progress.shouldIncreaseDifficulty) {
       // Add more volume or intensity
-      return _generateFallbackPlan(profile.copyWith(
-        fitnessLevel: profile.fitnessLevel == FitnessLevel.beginner 
-            ? FitnessLevel.intermediate 
-            : FitnessLevel.advanced,
-      ));
+      return _generateFallbackPlan(
+        profile.copyWith(
+          fitnessLevel: profile.fitnessLevel == FitnessLevel.beginner
+              ? FitnessLevel.intermediate
+              : FitnessLevel.advanced,
+        ),
+      );
     } else if (progress.shouldDecreaseDifficulty) {
       // Reduce volume
       return _generateFallbackPlan(profile);
     }
-    
+
     return currentPlan;
   }
 
@@ -415,33 +422,52 @@ Use the same JSON format as before.
       case TrainingGoal.mma:
       case TrainingGoal.boxing:
       case TrainingGoal.muayThai:
-        return ['Striking Technique', 'Strength & Power', 'Conditioning', 'Skills & Drills', 'Active Recovery'];
+        return [
+          'Striking Technique',
+          'Strength & Power',
+          'Conditioning',
+          'Skills & Drills',
+          'Active Recovery',
+        ];
       case TrainingGoal.wrestling:
       case TrainingGoal.bjj:
-        return ['Grappling Strength', 'Technique Work', 'Conditioning', 'Mobility', 'Active Recovery'];
+        return [
+          'Grappling Strength',
+          'Technique Work',
+          'Conditioning',
+          'Mobility',
+          'Active Recovery',
+        ];
       case TrainingGoal.strength:
-        return ['Upper Body Strength', 'Lower Body Power', 'Core & Stability', 'Active Recovery'];
+        return [
+          'Upper Body Strength',
+          'Lower Body Power',
+          'Core & Stability',
+          'Active Recovery',
+        ];
       case TrainingGoal.conditioning:
       case TrainingGoal.generalCombat:
-      default:
-        return ['Strength Training', 'HIIT Conditioning', 'Technique', 'Active Recovery', 'Endurance'];
+        return [
+          'Strength Training',
+          'HIIT Conditioning',
+          'Technique',
+          'Active Recovery',
+          'Endurance',
+        ];
     }
   }
 
   String _getDayName(int index) {
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const days = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
     return days[index % 7];
-  }
-
-  int _mapLevelToDifficulty(FitnessLevel level) {
-    switch (level) {
-      case FitnessLevel.beginner:
-        return 1;
-      case FitnessLevel.intermediate:
-        return 2;
-      case FitnessLevel.advanced:
-        return 3;
-    }
   }
 }
 
@@ -498,16 +524,21 @@ extension WorkoutProtocolMap on WorkoutProtocol {
   Map<String, dynamic> toMap() {
     return {
       'title': title,
-      'description': description,
-      'difficulty': difficulty,
-      'entries': entries.map((e) => {
-        'exercise_name': e.exercise.name,
-        'sets': e.sets,
-        'reps': e.reps,
-        'rpe': e.intensityRpe,
-        'rest_seconds': e.restSeconds,
-        'notes': e.notes,
-      }).toList(),
+      'subtitle': subtitle,
+      'tier': tier.toString(),
+      'estimated_duration_minutes': estimatedDurationMinutes,
+      'mindset_prompt': mindsetPrompt,
+      'entries': entries
+          .map(
+            (e) => {
+              'exercise_name': e.exercise.name,
+              'sets': e.sets,
+              'reps': e.reps,
+              'rpe': e.intensityRpe,
+              'rest_seconds': e.restSeconds,
+            },
+          )
+          .toList(),
     };
   }
 }

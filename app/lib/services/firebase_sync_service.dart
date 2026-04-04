@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/workout_tracking.dart';
+import '../models/workout_protocol.dart';
 import '../models/user_profile.dart';
+import '../models/exercise.dart';
 import '../services/ai_plan_service.dart';
 
 /// Firebase Sync Service
@@ -63,7 +65,7 @@ class FirebaseSyncService {
           .collection('workouts')
           .doc(workout.id)
           .set(workout.toMap());
-      
+
       debugPrint('Workout saved: ${workout.id}');
     } catch (e) {
       debugPrint('Error saving workout: $e');
@@ -128,7 +130,7 @@ class FirebaseSyncService {
           .collection('daily_logs')
           .doc(docId)
           .set(log.toMap());
-      
+
       debugPrint('Daily log saved: $docId');
     } catch (e) {
       debugPrint('Error saving daily log: $e');
@@ -162,15 +164,11 @@ class FirebaseSyncService {
   /// Build micro-cycle from Firestore data
   Future<MicroCycle> buildMicroCycle() async {
     final logs = await getDailyLogsForMicroCycle();
-    
+
     final end = DateTime.now();
     final start = end.subtract(const Duration(days: 7));
 
-    return MicroCycle(
-      days: logs,
-      startDate: start,
-      endDate: end,
-    );
+    return MicroCycle(days: logs, startDate: start, endDate: end);
   }
 
   // ============ USER PREFERENCES ============
@@ -213,7 +211,10 @@ class FirebaseSyncService {
   // ============ PHALANX IMPORTED PLANS ============
 
   /// Save imported workout plan
-  Future<void> saveImportedPlan(String planId, Map<String, dynamic> plan) async {
+  Future<void> saveImportedPlan(
+    String planId,
+    Map<String, dynamic> plan,
+  ) async {
     if (!isAuthenticated) return;
 
     try {
@@ -222,10 +223,7 @@ class FirebaseSyncService {
           .doc(_userId)
           .collection('imported_plans')
           .doc(planId)
-          .set({
-            ...plan,
-            'imported_at': DateTime.now().toIso8601String(),
-          });
+          .set({...plan, 'imported_at': DateTime.now().toIso8601String()});
     } catch (e) {
       debugPrint('Error saving imported plan: $e');
     }
@@ -281,8 +279,10 @@ class FirebaseSyncService {
         .orderBy('start_time', descending: true)
         .limit(limit)
         .snapshots()
-        .map((snapshot) => 
-            snapshot.docs.map((doc) => _workoutFromMap(doc.data())).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => _workoutFromMap(doc.data())).toList(),
+        );
   }
 
   /// Stream of latest daily log
@@ -298,10 +298,11 @@ class FirebaseSyncService {
         .orderBy('date', descending: true)
         .limit(1)
         .snapshots()
-        .map((snapshot) => 
-            snapshot.docs.isNotEmpty 
-                ? _dailyLogFromMap(snapshot.docs.first.data())
-                : null);
+        .map(
+          (snapshot) => snapshot.docs.isNotEmpty
+              ? _dailyLogFromMap(snapshot.docs.first.data())
+              : null,
+        );
   }
 
   // ============ PARSING HELPERS ============
@@ -312,8 +313,12 @@ class FirebaseSyncService {
       id: map['id'] ?? '',
       protocolTitle: map['protocol_title'] ?? '',
       exercises: [], // Parse from map['exercises']
-      startTime: DateTime.parse(map['start_time'] ?? DateTime.now().toIso8601String()),
-      endTime: DateTime.parse(map['end_time'] ?? DateTime.now().toIso8601String()),
+      startTime: DateTime.parse(
+        map['start_time'] ?? DateTime.now().toIso8601String(),
+      ),
+      endTime: DateTime.parse(
+        map['end_time'] ?? DateTime.now().toIso8601String(),
+      ),
       totalDurationMinutes: map['total_duration_minutes'] ?? 0,
       readinessScoreAtStart: map['readiness_score_at_start'] ?? 70,
     );
@@ -325,7 +330,8 @@ class FirebaseSyncService {
       rpeEntries: (map['rpe_entries'] as List<dynamic>? ?? []).cast<double>(),
       sleepQuality: map['sleep_quality'] ?? 5,
       sleepHours: map['sleep_hours'] ?? 7,
-      jointFatigue: (map['joint_fatigue'] as Map<String, dynamic>? ?? {}).cast<String, int>(),
+      jointFatigue: (map['joint_fatigue'] as Map<String, dynamic>? ?? {})
+          .cast<String, int>(),
       flowState: map['flow_state'] ?? 5,
       readinessScore: map['readiness_score'] ?? 70,
     );
@@ -347,7 +353,7 @@ class FirebaseSyncService {
           .collection('profile')
           .doc('main')
           .set(profile.toMap());
-      
+
       debugPrint('User profile saved');
     } catch (e) {
       debugPrint('Error saving user profile: $e');
@@ -389,15 +395,16 @@ class FirebaseSyncService {
     if (!isAuthenticated) return;
 
     try {
-      final weekId = '${plan.weekStarting.year}-${plan.weekStarting.month.toString().padLeft(2, '0')}-${plan.weekStarting.day.toString().padLeft(2, '0')}';
-      
+      final weekId =
+          '${plan.weekStarting.year}-${plan.weekStarting.month.toString().padLeft(2, '0')}-${plan.weekStarting.day.toString().padLeft(2, '0')}';
+
       await _firestore
           .collection('users')
           .doc(_userId)
           .collection('ai_training_plans')
           .doc(weekId)
           .set(plan.toMap());
-      
+
       debugPrint('Weekly AI plan saved: $weekId');
     } catch (e) {
       debugPrint('Error saving weekly plan: $e');
@@ -409,8 +416,9 @@ class FirebaseSyncService {
     if (!isAuthenticated) return null;
 
     try {
-      final weekId = '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-${weekStart.day.toString().padLeft(2, '0')}';
-      
+      final weekId =
+          '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-${weekStart.day.toString().padLeft(2, '0')}';
+
       final doc = await _firestore
           .collection('users')
           .doc(_userId)
@@ -444,7 +452,9 @@ class FirebaseSyncService {
   }
 
   /// Get scheduled workouts for a specific week
-  Future<Map<String, dynamic>> getScheduledWorkoutsForWeek(DateTime weekStart) async {
+  Future<Map<String, dynamic>> getScheduledWorkoutsForWeek(
+    DateTime weekStart,
+  ) async {
     if (!isAuthenticated) return {};
 
     try {
@@ -453,7 +463,8 @@ class FirebaseSyncService {
 
       final scheduled = <String, dynamic>{};
       for (final workout in plan.dailyWorkouts) {
-        final dateKey = '${workout.day.toLowerCase()}_${weekStart.month}_${weekStart.day}';
+        final dateKey =
+            '${workout.day.toLowerCase()}_${weekStart.month}_${weekStart.day}';
         scheduled[dateKey] = {
           'workout_name': workout.protocol.title,
           'workout_type': workout.workoutType,
@@ -474,15 +485,16 @@ class FirebaseSyncService {
     if (!isAuthenticated) return;
 
     try {
-      final weekId = '${progress.weekStarting.year}-${progress.weekStarting.month.toString().padLeft(2, '0')}-${progress.weekStarting.day.toString().padLeft(2, '0')}';
-      
+      final weekId =
+          '${progress.weekStarting.year}-${progress.weekStarting.month.toString().padLeft(2, '0')}-${progress.weekStarting.day.toString().padLeft(2, '0')}';
+
       await _firestore
           .collection('users')
           .doc(_userId)
           .collection('weekly_progress')
           .doc(weekId)
           .set(progress.toMap());
-      
+
       debugPrint('Weekly progress saved: $weekId');
     } catch (e) {
       debugPrint('Error saving weekly progress: $e');
@@ -494,8 +506,9 @@ class FirebaseSyncService {
     if (!isAuthenticated) return null;
 
     try {
-      final weekId = '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-${weekStart.day.toString().padLeft(2, '0')}';
-      
+      final weekId =
+          '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-${weekStart.day.toString().padLeft(2, '0')}';
+
       final doc = await _firestore
           .collection('users')
           .doc(_userId)
@@ -538,26 +551,31 @@ class FirebaseSyncService {
     final entries = (map['entries'] as List<dynamic>? ?? [])
         .map((e) => _protocolEntryFromMap(e as Map<String, dynamic>))
         .toList();
-    
+
     return WorkoutProtocol(
       title: map['title'] ?? 'Workout',
-      description: map['description'] ?? '',
-      difficulty: map['difficulty'] ?? 1,
+      subtitle: map['subtitle'] ?? 'Training session',
+      tier: ProtocolTier.values.firstWhere(
+        (t) => t.toString() == 'ProtocolTier.${map['tier'] ?? 'ready'}',
+        orElse: () => ProtocolTier.ready,
+      ),
       entries: entries,
+      estimatedDurationMinutes: map['estimated_duration_minutes'] ?? 45,
+      mindsetPrompt: map['mindset_prompt'] ?? 'Train with discipline',
     );
   }
 
   ProtocolEntry _protocolEntryFromMap(Map<String, dynamic> map) {
     return ProtocolEntry(
       exercise: Exercise.library.firstWhere(
-        (e) => e.name.toLowerCase() == (map['exercise_name'] ?? '').toLowerCase(),
+        (e) =>
+            e.name.toLowerCase() == (map['exercise_name'] ?? '').toLowerCase(),
         orElse: () => Exercise.library.first,
       ),
       sets: map['sets'] ?? 3,
       reps: map['reps'] ?? 10,
       intensityRpe: map['rpe']?.toDouble() ?? 7.0,
       restSeconds: map['rest_seconds'] ?? 60,
-      notes: map['notes'],
     );
   }
 }

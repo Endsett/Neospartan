@@ -55,13 +55,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     try {
       // Create user profile
       final profile = UserProfile(
-        userId: _firebase.currentUserId ?? 'anonymous',
-        displayName: _nameController.text.isNotEmpty ? _nameController.text : null,
+        userId: 'anonymous',
+        displayName: _nameController.text.isNotEmpty
+            ? _nameController.text
+            : null,
         bodyComposition: BodyComposition(
           weight: double.parse(_weightController.text),
           height: double.parse(_heightController.text),
-          bodyFatPercentage: _bodyFatController.text.isNotEmpty 
-              ? double.parse(_bodyFatController.text) 
+          bodyFatPercentage: _bodyFatController.text.isNotEmpty
+              ? double.parse(_bodyFatController.text)
               : null,
           age: int.parse(_ageController.text),
           gender: _selectedGender,
@@ -115,7 +117,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           _showError('Please enter your name');
           return false;
         }
-        if (_ageController.text.isEmpty || int.tryParse(_ageController.text) == null) {
+        if (_ageController.text.isEmpty ||
+            int.tryParse(_ageController.text) == null) {
           _showError('Please enter a valid age');
           return false;
         }
@@ -125,11 +128,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         }
         return true;
       case 1:
-        if (_weightController.text.isEmpty || double.tryParse(_weightController.text) == null) {
+        if (_weightController.text.isEmpty ||
+            double.tryParse(_weightController.text) == null) {
           _showError('Please enter a valid weight');
           return false;
         }
-        if (_heightController.text.isEmpty || double.tryParse(_heightController.text) == null) {
+        if (_heightController.text.isEmpty ||
+            double.tryParse(_heightController.text) == null) {
           _showError('Please enter a valid height');
           return false;
         }
@@ -155,10 +160,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
 
@@ -178,7 +180,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 color: LaconicTheme.spartanBronze,
               ),
               const SizedBox(height: 24),
-              
+
               // Step counter
               Text(
                 'STEP ${_currentStep + 1} OF 5',
@@ -190,7 +192,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-              
+
               // Step title
               Text(
                 _getStepTitle(),
@@ -205,21 +207,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const SizedBox(height: 8),
               Text(
                 _getStepSubtitle(),
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
-              
+
               // Step content
               Expanded(
-                child: SingleChildScrollView(
-                  child: _buildStepContent(),
-                ),
+                child: SingleChildScrollView(child: _buildStepContent()),
               ),
-              
+
               // Error message
               if (_error != null)
                 Container(
@@ -236,12 +233,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     textAlign: TextAlign.center,
                   ),
                 ),
-              
+
               // Loading indicator
               if (_isLoading)
                 const Column(
                   children: [
-                    CircularProgressIndicator(color: LaconicTheme.spartanBronze),
+                    CircularProgressIndicator(
+                      color: LaconicTheme.spartanBronze,
+                    ),
                     SizedBox(height: 16),
                     Text(
                       'GENERATING YOUR CUSTOM TRAINING PLAN...',
@@ -265,8 +264,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           child: const Text('BACK'),
                         ),
                       ),
-                    if (_currentStep > 0)
-                      const SizedBox(width: 16),
+                    if (_currentStep > 0) const SizedBox(width: 16),
                     Expanded(
                       flex: 2,
                       child: ElevatedButton(
@@ -350,7 +348,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       children: [
         _buildTextInput('YOUR NAME', _nameController, hint: 'Enter your name'),
         const SizedBox(height: 20),
-        _buildTextInput('AGE', _ageController, hint: '25', keyboardType: TextInputType.number),
+        _buildTextInput(
+          'AGE',
+          _ageController,
+          hint: '25',
+          keyboardType: TextInputType.number,
+        ),
         const SizedBox(height: 20),
         _buildGenderSelector(),
       ],
@@ -360,11 +363,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _buildBodyCompositionStep() {
     return Column(
       children: [
-        _buildTextInput('WEIGHT (kg)', _weightController, hint: '75', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+        _buildTextInput(
+          'WEIGHT (kg)',
+          _weightController,
+          hint: '75',
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        ),
         const SizedBox(height: 20),
-        _buildTextInput('HEIGHT (cm)', _heightController, hint: '175', keyboardType: TextInputType.number),
+        _buildTextInput(
+          'HEIGHT (cm)',
+          _heightController,
+          hint: '175',
+          keyboardType: TextInputType.number,
+        ),
         const SizedBox(height: 20),
-        _buildTextInput('BODY FAT % (optional)', _bodyFatController, hint: '15', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+        _buildTextInput(
+          'BODY FAT % (optional)',
+          _bodyFatController,
+          hint: '15',
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        ),
       ],
     );
   }
@@ -405,15 +423,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         const SizedBox(height: 10),
         _buildGoalCard(TrainingGoal.muayThai, 'MUAY THAI', '8-Point Striking'),
         const SizedBox(height: 10),
-        _buildGoalCard(TrainingGoal.wrestling, 'WRESTLING', 'Grappling & Takedowns'),
+        _buildGoalCard(
+          TrainingGoal.wrestling,
+          'WRESTLING',
+          'Grappling & Takedowns',
+        ),
         const SizedBox(height: 10),
         _buildGoalCard(TrainingGoal.bjj, 'BJJ', 'Brazilian Jiu-Jitsu'),
         const SizedBox(height: 10),
-        _buildGoalCard(TrainingGoal.generalCombat, 'COMBAT SPORTS', 'General Conditioning'),
+        _buildGoalCard(
+          TrainingGoal.generalCombat,
+          'COMBAT SPORTS',
+          'General Conditioning',
+        ),
         const SizedBox(height: 10),
         _buildGoalCard(TrainingGoal.strength, 'STRENGTH', 'Raw Power Building'),
         const SizedBox(height: 10),
-        _buildGoalCard(TrainingGoal.conditioning, 'CONDITIONING', 'Endurance & Stamina'),
+        _buildGoalCard(
+          TrainingGoal.conditioning,
+          'CONDITIONING',
+          'Endurance & Stamina',
+        ),
       ],
     );
   }
@@ -449,8 +479,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildTextInput(String label, TextEditingController controller, 
-      {String? hint, TextInputType keyboardType = TextInputType.text}) {
+  Widget _buildTextInput(
+    String label,
+    TextEditingController controller, {
+    String? hint,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -476,7 +510,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide.none,
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
           ),
         ),
       ],
@@ -498,13 +535,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(
-              child: _buildGenderOption('Male', Icons.male),
-            ),
+            Expanded(child: _buildGenderOption('Male', Icons.male)),
             const SizedBox(width: 12),
-            Expanded(
-              child: _buildGenderOption('Female', Icons.female),
-            ),
+            Expanded(child: _buildGenderOption('Female', Icons.female)),
           ],
         ),
       ],
@@ -518,7 +551,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: isSelected 
+          color: isSelected
               ? LaconicTheme.spartanBronze.withValues(alpha: 0.2)
               : LaconicTheme.ironGray.withValues(alpha: 0.2),
           border: Border.all(
@@ -546,18 +579,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildLevelCard(FitnessLevel level, String title, String description, IconData icon) {
+  Widget _buildLevelCard(
+    FitnessLevel level,
+    String title,
+    String description,
+    IconData icon,
+  ) {
     final isSelected = _selectedLevel == level;
     return GestureDetector(
       onTap: () => setState(() => _selectedLevel = level),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected 
+          color: isSelected
               ? LaconicTheme.spartanBronze.withValues(alpha: 0.15)
               : LaconicTheme.ironGray.withValues(alpha: 0.1),
           border: Border.all(
-            color: isSelected ? LaconicTheme.spartanBronze : LaconicTheme.ironGray.withValues(alpha: 0.3),
+            color: isSelected
+                ? LaconicTheme.spartanBronze
+                : LaconicTheme.ironGray.withValues(alpha: 0.3),
             width: isSelected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(8),
@@ -568,7 +608,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: isSelected 
+                color: isSelected
                     ? LaconicTheme.spartanBronze.withValues(alpha: 0.3)
                     : LaconicTheme.ironGray.withValues(alpha: 0.3),
                 shape: BoxShape.circle,
@@ -586,7 +626,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   Text(
                     title,
                     style: TextStyle(
-                      color: isSelected ? LaconicTheme.spartanBronze : Colors.white,
+                      color: isSelected
+                          ? LaconicTheme.spartanBronze
+                          : Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.0,
@@ -595,10 +637,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   const SizedBox(height: 4),
                   Text(
                     description,
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                 ],
               ),
@@ -618,11 +657,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected 
+          color: isSelected
               ? LaconicTheme.spartanBronze.withValues(alpha: 0.15)
               : LaconicTheme.ironGray.withValues(alpha: 0.1),
           border: Border.all(
-            color: isSelected ? LaconicTheme.spartanBronze : LaconicTheme.ironGray.withValues(alpha: 0.3),
+            color: isSelected
+                ? LaconicTheme.spartanBronze
+                : LaconicTheme.ironGray.withValues(alpha: 0.3),
             width: isSelected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(8),
@@ -636,7 +677,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   Text(
                     title,
                     style: TextStyle(
-                      color: isSelected ? LaconicTheme.spartanBronze : Colors.white,
+                      color: isSelected
+                          ? LaconicTheme.spartanBronze
+                          : Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.0,
@@ -644,10 +687,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                 ],
               ),
@@ -695,7 +735,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           activeColor: LaconicTheme.spartanBronze,
           inactiveColor: LaconicTheme.ironGray,
           label: '$_workoutDuration min',
-          onChanged: (value) => setState(() => _workoutDuration = value.round()),
+          onChanged: (value) =>
+              setState(() => _workoutDuration = value.round()),
         ),
         Text(
           '$_workoutDuration MINUTES PER SESSION',

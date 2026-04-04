@@ -15,25 +15,25 @@ import 'providers/workout_provider.dart';
 import 'providers/ingestion_provider.dart';
 import 'services/dom_rl_engine.dart';
 import 'services/firebase_sync_service.dart';
-import 'services/ai_plan_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   bool firebaseInitialized = false;
   String? initError;
-  
+
   try {
     await Firebase.initializeApp();
-    
+
     // Enable offline persistence for Firestore
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: true,
       cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
     );
-    
+
     FirebaseSyncService().initialize();
-    await FirebaseSyncService().ensureAuthenticated(); // Ensure user can store data
+    await FirebaseSyncService()
+        .ensureAuthenticated(); // Ensure user can store data
     await DomRlEngine().initialize();
     firebaseInitialized = true;
     debugPrint('Firebase initialized successfully');
@@ -41,7 +41,7 @@ void main() async {
     initError = e.toString();
     debugPrint('Firebase initialization failed: $e');
   }
-  
+
   runApp(
     MultiProvider(
       providers: [
@@ -59,7 +59,7 @@ void main() async {
 class NeospartanApp extends StatefulWidget {
   final bool firebaseInitialized;
   final String? initError;
-  
+
   const NeospartanApp({
     super.key,
     required this.firebaseInitialized,
@@ -108,7 +108,7 @@ class _NeospartanAppState extends State<NeospartanApp> {
   @override
   Widget build(BuildContext context) {
     Widget home;
-    
+
     if (!widget.firebaseInitialized) {
       home = FirebaseInitErrorScreen(error: widget.initError);
     } else if (_isCheckingOnboarding) {
@@ -145,13 +145,13 @@ class _NeospartanShellState extends State<NeospartanShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final List<Widget> _screens = [
-    const AgogeScreen(),      // Training - Combat Conditioning
+    const AgogeScreen(), // Training - Combat Conditioning
     const WeeklyScheduleScreen(), // Schedule - Weekly Plan
     const AnalyticsDashboard(), // Analytics - Progress & Insights
-    const GarrisonScreen(),   // Recovery - Readiness & Armor
-    const StadionScreen(),    // Exercises - Movement Library
-    const StoicScreen(),      // Mindset - Mental Conditioning
-    const PhalanxScreen(),    // Import - Plan Ingestion
+    const GarrisonScreen(), // Recovery - Readiness & Armor
+    const StadionScreen(), // Exercises - Movement Library
+    const StoicScreen(), // Mindset - Mental Conditioning
+    const PhalanxScreen(), // Import - Plan Ingestion
   ];
 
   @override
@@ -167,7 +167,11 @@ class _NeospartanShellState extends State<NeospartanShell> {
             top: 40,
             left: 20,
             child: IconButton(
-              icon: const Icon(Icons.menu, color: LaconicTheme.spartanBronze, size: 30),
+              icon: const Icon(
+                Icons.menu,
+                color: LaconicTheme.spartanBronze,
+                size: 30,
+              ),
               onPressed: () => _scaffoldKey.currentState?.openDrawer(),
             ),
           ),
@@ -196,7 +200,12 @@ class _NeospartanShellState extends State<NeospartanShell> {
           _drawerItem(0, "TRAINING", Icons.auto_awesome, "Combat Conditioning"),
           _drawerItem(1, "SCHEDULE", Icons.calendar_today, "Weekly Plan"),
           _drawerItem(2, "ANALYTICS", Icons.show_chart, "Progress & Insights"),
-          _drawerItem(3, "RECOVERY", Icons.shield_outlined, "Readiness & Armor"),
+          _drawerItem(
+            3,
+            "RECOVERY",
+            Icons.shield_outlined,
+            "Readiness & Armor",
+          ),
           _drawerItem(4, "EXERCISES", Icons.directions_run, "Movement Library"),
           _drawerItem(5, "MINDSET", Icons.psychology, "Mental Conditioning"),
           _drawerItem(6, "IMPORT", Icons.document_scanner, "Plan Ingestion"),
@@ -220,7 +229,10 @@ class _NeospartanShellState extends State<NeospartanShell> {
   Widget _drawerItem(int index, String title, IconData icon, String subtitle) {
     bool isSelected = _selectedIndex == index;
     return ListTile(
-      leading: Icon(icon, color: isSelected ? LaconicTheme.spartanBronze : Colors.grey),
+      leading: Icon(
+        icon,
+        color: isSelected ? LaconicTheme.spartanBronze : Colors.grey,
+      ),
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -235,7 +247,9 @@ class _NeospartanShellState extends State<NeospartanShell> {
           Text(
             subtitle,
             style: TextStyle(
-              color: isSelected ? LaconicTheme.spartanBronze : Colors.grey.withValues(alpha: 0.5),
+              color: isSelected
+                  ? LaconicTheme.spartanBronze
+                  : Colors.grey.withValues(alpha: 0.5),
               fontSize: 10,
               letterSpacing: 1.0,
             ),
@@ -255,7 +269,11 @@ class _NeospartanShellState extends State<NeospartanShell> {
 class ModulePlaceholder extends StatelessWidget {
   final String title;
   final String subtitle;
-  const ModulePlaceholder({super.key, required this.title, required this.subtitle});
+  const ModulePlaceholder({
+    super.key,
+    required this.title,
+    required this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -290,7 +308,7 @@ class ModulePlaceholder extends StatelessWidget {
 /// Error screen shown when Firebase fails to initialize
 class FirebaseInitErrorScreen extends StatelessWidget {
   final String? error;
-  
+
   const FirebaseInitErrorScreen({super.key, this.error});
 
   @override
@@ -303,11 +321,7 @@ class FirebaseInitErrorScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.cloud_off,
-                color: Colors.red,
-                size: 64,
-              ),
+              const Icon(Icons.cloud_off, color: Colors.red, size: 64),
               const SizedBox(height: 24),
               const Text(
                 'FIREBASE CONNECTION FAILED',
@@ -320,12 +334,10 @@ class FirebaseInitErrorScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                error ?? 'Unable to connect to Firebase.\nCheck your configuration and try again.',
+                error ??
+                    'Unable to connect to Firebase.\nCheck your configuration and try again.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
               ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
@@ -343,8 +355,12 @@ class FirebaseInitErrorScreen extends StatelessWidget {
                   runApp(
                     MultiProvider(
                       providers: [
-                        ChangeNotifierProvider(create: (_) => WorkoutProvider()),
-                        ChangeNotifierProvider(create: (_) => IngestionProvider()),
+                        ChangeNotifierProvider(
+                          create: (_) => WorkoutProvider(),
+                        ),
+                        ChangeNotifierProvider(
+                          create: (_) => IngestionProvider(),
+                        ),
                       ],
                       child: const NeospartanApp(
                         firebaseInitialized: true, // Pretend it's working

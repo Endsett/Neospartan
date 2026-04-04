@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../models/workout_tracking.dart';
 import '../models/user_profile.dart';
 import '../services/firebase_sync_service.dart';
-import '../services/ai_plan_service.dart';
 
 /// Analytics Dashboard - Shows workout progress and AI insights
 class AnalyticsDashboard extends StatefulWidget {
@@ -18,7 +16,6 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   final _firebase = FirebaseSyncService();
   UserProfile? _profile;
   List<CompletedWorkout> _workouts = [];
-  List<WeeklyProgress> _progressHistory = [];
   bool _isLoading = true;
   String? _error;
 
@@ -37,7 +34,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     try {
       final profile = await _firebase.getUserProfile();
       final workouts = await _firebase.getWorkoutHistory(limit: 100);
-      
+
       setState(() {
         _profile = profile;
         _workouts = workouts;
@@ -70,7 +67,9 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                 const SizedBox(height: 24),
                 if (_isLoading)
                   const Center(
-                    child: CircularProgressIndicator(color: LaconicTheme.spartanBronze),
+                    child: CircularProgressIndicator(
+                      color: LaconicTheme.spartanBronze,
+                    ),
                   )
                 else if (_error != null)
                   _buildErrorState()
@@ -152,13 +151,18 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
     final totalWorkouts = _workouts.length;
     final totalVolume = _workouts.fold<double>(
       0,
-      (sum, w) => sum + w.exercises.fold<double>(
-        0,
-        (eSum, e) => eSum + e.sets.fold<double>(
-          0,
-          (sSum, s) => sSum + ((s.loadUsed ?? 0) * (s.repsPerformed ?? 0)),
-        ),
-      ),
+      (sum, w) =>
+          sum +
+          w.exercises.fold<double>(
+            0,
+            (eSum, e) =>
+                eSum +
+                e.sets.fold<double>(
+                  0,
+                  (sSum, s) =>
+                      sSum + ((s.loadUsed ?? 0) * (s.repsPerformed ?? 0)),
+                ),
+          ),
     );
     final totalDuration = _workouts.fold<int>(
       0,
@@ -186,7 +190,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
         Expanded(
           child: _buildStatCard(
             'HOURS',
-            '${(totalDuration / 60).toStringAsFixed(0)}',
+            (totalDuration / 60).toStringAsFixed(0),
             Icons.timer,
           ),
         ),
@@ -261,18 +265,29 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
               children: recentWorkouts.map((workout) {
                 final volume = workout.exercises.fold<double>(
                   0,
-                  (sum, e) => sum + e.sets.fold<double>(
-                    0,
-                    (sSum, s) => sSum + ((s.loadUsed ?? 0) * (s.repsPerformed ?? 0)),
-                  ),
+                  (sum, e) =>
+                      sum +
+                      e.sets.fold<double>(
+                        0,
+                        (sSum, s) =>
+                            sSum + ((s.loadUsed ?? 0) * (s.repsPerformed ?? 0)),
+                      ),
                 );
-                final maxVolume = recentWorkouts.map((w) => w.exercises.fold<double>(
-                  0,
-                  (sum, e) => sum + e.sets.fold<double>(
-                    0,
-                    (sSum, s) => sSum + ((s.loadUsed ?? 0) * (s.repsPerformed ?? 0)),
-                  ),
-                )).reduce((a, b) => a > b ? a : b);
+                final maxVolume = recentWorkouts
+                    .map(
+                      (w) => w.exercises.fold<double>(
+                        0,
+                        (sum, e) =>
+                            sum +
+                            e.sets.fold<double>(
+                              0,
+                              (sSum, s) =>
+                                  sSum +
+                                  ((s.loadUsed ?? 0) * (s.repsPerformed ?? 0)),
+                            ),
+                      ),
+                    )
+                    .reduce((a, b) => a > b ? a : b);
 
                 final heightPercent = maxVolume > 0 ? volume / maxVolume : 0;
 
@@ -283,9 +298,11 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Container(
-                          height: 100 * heightPercent,
+                          height: (100 * heightPercent).toDouble(),
                           decoration: BoxDecoration(
-                            color: LaconicTheme.spartanBronze.withValues(alpha: 0.8),
+                            color: LaconicTheme.spartanBronze.withValues(
+                              alpha: 0.8,
+                            ),
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
@@ -367,10 +384,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
                 ),
                 Text(
                   '${workout.exercises.length} exercises • ${workout.totalDurationMinutes} min',
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ],
             ),
@@ -389,7 +403,9 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: LaconicTheme.spartanBronze.withValues(alpha: 0.1),
-        border: Border.all(color: LaconicTheme.spartanBronze.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: LaconicTheme.spartanBronze.withValues(alpha: 0.3),
+        ),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -397,7 +413,11 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
         children: [
           const Row(
             children: [
-              Icon(Icons.auto_awesome, color: LaconicTheme.spartanBronze, size: 20),
+              Icon(
+                Icons.auto_awesome,
+                color: LaconicTheme.spartanBronze,
+                size: 20,
+              ),
               SizedBox(width: 8),
               Text(
                 'AI INSIGHTS',
@@ -414,8 +434,14 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
           if (_profile != null) ...[
             _buildInsightRow('Fitness Level', _profile!.fitnessLevelText),
             _buildInsightRow('Training Goal', _profile!.trainingGoalText),
-            _buildInsightRow('Training Days', '${_profile!.trainingDaysPerWeek} days/week'),
-            _buildInsightRow('Workout Duration', '${_profile!.preferredWorkoutDuration} min'),
+            _buildInsightRow(
+              'Training Days',
+              '${_profile!.trainingDaysPerWeek} days/week',
+            ),
+            _buildInsightRow(
+              'Workout Duration',
+              '${_profile!.preferredWorkoutDuration} min',
+            ),
           ] else
             const Text(
               'Complete onboarding to get AI-powered insights',
@@ -432,10 +458,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
-          ),
+          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
           Text(
             value,
             style: const TextStyle(
