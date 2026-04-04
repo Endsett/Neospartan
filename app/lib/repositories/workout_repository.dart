@@ -196,7 +196,7 @@ class WorkoutRepository {
   ) async {
     try {
       final workouts = await getWorkoutsForDateRange(userId, start, end);
-      return workouts.fold<double>(0, (sum, w) => sum + (w.totalVolume ?? 0));
+      return workouts.fold<double>(0, (total, w) => total + w.totalVolume);
     } catch (e) {
       developer.log(
         'Error getting total volume: $e',
@@ -235,7 +235,7 @@ class WorkoutRepository {
                 ),
                 totalReps: exercise.sets.fold<int>(
                   0,
-                  (sum, s) => sum + (s.repsPerformed ?? 0),
+                  (total, s) => total + s.repsPerformed,
                 ),
                 avgRpe: exercise.sets.isEmpty
                     ? 0

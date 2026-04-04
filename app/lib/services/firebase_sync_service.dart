@@ -8,6 +8,9 @@ import '../models/exercise.dart';
 import '../services/ai_plan_service.dart';
 import '../services/guest_storage_service.dart';
 
+// Import WeeklyPlan and DailyWorkout from ai_plan_service.dart
+// These are defined in ai_plan_service.dart
+
 /// Firebase Sync Service
 /// Handles data persistence and synchronization with Firebase Firestore
 /// User data: workout history, preferences, micro-cycle logs

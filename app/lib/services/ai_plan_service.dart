@@ -9,6 +9,78 @@ import '../models/exercise.dart';
 import 'ai_memory_service.dart';
 import 'context_ingestion_service.dart';
 
+/// Weekly plan structure for AI-generated training plans
+class WeeklyPlan {
+  final DateTime weekStarting;
+  final List<DailyWorkout> dailyWorkouts;
+  final String weeklyNotes;
+  final String intensityRecommendation;
+
+  const WeeklyPlan({
+    required this.weekStarting,
+    required this.dailyWorkouts,
+    required this.weeklyNotes,
+    required this.intensityRecommendation,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'week_starting': weekStarting.toIso8601String(),
+      'daily_workouts': dailyWorkouts.map((d) => d.toMap()).toList(),
+      'weekly_notes': weeklyNotes,
+      'intensity_recommendation': intensityRecommendation,
+    };
+  }
+}
+
+/// Daily workout structure
+class DailyWorkout {
+  final String day;
+  final String workoutType;
+  final String focus;
+  final WorkoutProtocol protocol;
+
+  const DailyWorkout({
+    required this.day,
+    required this.workoutType,
+    required this.focus,
+    required this.protocol,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'day': day,
+      'workout_type': workoutType,
+      'focus': focus,
+      'protocol': protocol.toMap(),
+    };
+  }
+}
+
+// Extension to add toMap method to WorkoutProtocol
+extension WorkoutProtocolMap on WorkoutProtocol {
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'subtitle': subtitle,
+      'tier': tier.toString(),
+      'estimated_duration_minutes': estimatedDurationMinutes,
+      'mindset_prompt': mindsetPrompt,
+      'entries': entries
+          .map(
+            (e) => {
+              'exercise_name': e.exercise.name,
+              'sets': e.sets,
+              'reps': e.reps,
+              'rpe': e.intensityRpe,
+              'rest_seconds': e.restSeconds,
+            },
+          )
+          .toList(),
+    };
+  }
+}
+
 /// AI Plan Service using Gemini 2.5 Flash for intelligent training plans
 class AIPlanService {
   static final AIPlanService _instance = AIPlanService._internal();
@@ -199,63 +271,6 @@ Provide 2-3 specific recommendations for the next workout. Be concise and action
       debugPrint('Error getting recommendations: $e');
       return 'Continue with current plan based on your readiness score.';
     }
-  }
-
-  /// Build prompt for initial plan generation using Gemini
-  String _buildInitialPlanPrompt(UserProfile profile) {
-    return '''
-You are an elite combat sports conditioning coach and strength trainer. Create a detailed weekly training plan for a ${profile.fitnessLevelText} level athlete training for ${profile.trainingGoalText}.
-
-ATHLETE PROFILE:
-- Name: ${profile.displayName ?? 'Athlete'}
-- Age: ${profile.bodyComposition.age}
-- Weight: ${profile.bodyComposition.weight}kg
-- Height: ${profile.bodyComposition.height}cm
-- BMI: ${profile.bodyComposition.bmi.toStringAsFixed(1)}
-- Body Fat: ${profile.bodyComposition.bodyFatPercentage?.toStringAsFixed(1) ?? 'unknown'}%
-- Gender: ${profile.bodyComposition.gender ?? 'not specified'}
-
-TRAINING PARAMETERS:
-- Level: ${profile.fitnessLevelText}
-- Goal: ${profile.trainingGoalText}
-- Days per week: ${profile.trainingDaysPerWeek}
-- Session duration: ${profile.preferredWorkoutDuration} minutes
-${profile.injuriesOrLimitations != null ? '- Injuries/Limitations: ${profile.injuriesOrLimitations!.join(', ')}' : ''}
-
-INSTRUCTIONS:
-1. Create a ${profile.trainingDaysPerWeek}-day weekly split focusing on ${profile.trainingGoalText}
-2. Include strength training, conditioning, and skill work appropriate for the level
-3. Each workout should be ${profile.preferredWorkoutDuration} minutes
-4. Consider any injuries/limitations when selecting exercises
-5. Balance intensity across the week (hard days followed by lighter/recovery days)
-6. Include specific exercises, sets, reps, and RPE targets
-
-RESPONSE FORMAT:
-Return a JSON object with the following structure:
-{
-  "week_plan": [
-    {
-      "day": "Monday",
-      "workout_type": "Strength/Power",
-      "focus": "Lower Body Explosiveness",
-      "exercises": [
-        {
-          "name": "Back Squat",
-          "sets": 4,
-          "reps": "5",
-          "rpe": 8,
-          "rest_seconds": 180,
-          "notes": "Focus on explosive concentric"
-        }
-      ]
-    }
-  ],
-  "weekly_notes": "Overall progression strategy for the week",
-  "intensity_recommendation": "Based on athlete level and goals"
-}
-
-Ensure the JSON is valid and contains all required fields. Use realistic exercises appropriate for combat sports training.
-''';
   }
 
   /// Parse Gemini AI response into WeeklyPlan
