@@ -1,31 +1,29 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Supabase Configuration
 /// Contains Supabase URL and anon key for all backend services
 class SupabaseConfig {
-  // Supabase Project Configuration
-  // Get these from your Supabase project settings > API
-  static const String url = String.fromEnvironment(
-    'SUPABASE_URL',
-    defaultValue: 'YOUR_SUPABASE_URL',
-  );
-  
-  static const String anonKey = String.fromEnvironment(
-    'SUPABASE_ANON_KEY',
-    defaultValue: 'YOUR_SUPABASE_ANON_KEY',
-  );
-
   // Prevent instantiation
   SupabaseConfig._();
 
   /// Initialize Supabase
   static Future<void> initialize() async {
-    await Supabase.initialize(
-      url: url,
-      anonKey: anonKey,
-      debug: kDebugMode,
-    );
+    // Load environment variables from .env file
+    await dotenv.load();
+
+    final url = dotenv.env['SUPABASE_URL'] ?? '';
+    final anonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+
+    if (url.isEmpty || anonKey.isEmpty) {
+      throw Exception(
+        'Missing Supabase configuration. Please check your .env file '
+        'has SUPABASE_URL and SUPABASE_ANON_KEY set.',
+      );
+    }
+
+    await Supabase.initialize(url: url, anonKey: anonKey, debug: kDebugMode);
   }
 
   /// Get Supabase client instance
@@ -41,6 +39,12 @@ class SupabaseConfig {
   static String? get userId => currentUser?.id;
 
   /// Check if using development keys
-  static bool get isUsingDevKeys => 
-    url == 'YOUR_SUPABASE_URL' || anonKey == 'YOUR_SUPABASE_ANON_KEY';
+  static bool get isUsingDevKeys {
+    final url = dotenv.env['SUPABASE_URL'] ?? '';
+    final anonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+    return url.isEmpty ||
+        anonKey.isEmpty ||
+        url == 'YOUR_SUPABASE_URL' ||
+        anonKey == 'YOUR_SUPABASE_ANON_KEY';
+  }
 }
