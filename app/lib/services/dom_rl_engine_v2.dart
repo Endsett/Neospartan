@@ -377,20 +377,28 @@ class DomRlEngineV2 {
       final older = history.sublist(history.length > 5 ? 5 : 0);
 
       final recentMaxWeight = recent
-          .map((h) => h.maxWeight)
+          .map((h) => h['maxWeight'] as double? ?? 0.0)
           .reduce((a, b) => a > b ? a : b);
       final olderMaxWeight = older
-          .map((h) => h.maxWeight)
+          .map((h) => h['maxWeight'] as double? ?? 0.0)
           .reduce((a, b) => a > b ? a : b);
 
       final recentAvgReps =
           recent
-              .map((h) => h.totalReps / h.sets.length)
+              .map(
+                (h) =>
+                    (h['totalReps'] as int? ?? 0) /
+                    (h['sets'] as List? ?? []).length,
+              )
               .reduce((a, b) => a + b) /
           recent.length;
       final olderAvgReps =
           older
-              .map((h) => h.totalReps / h.sets.length)
+              .map(
+                (h) =>
+                    (h['totalReps'] as int? ?? 0) /
+                    (h['sets'] as List? ?? []).length,
+              )
               .reduce((a, b) => a + b) /
           older.length;
 
@@ -433,7 +441,9 @@ class DomRlEngineV2 {
         suggestedChange: suggestedChange,
         currentMaxWeight: recentMaxWeight,
         currentAvgReps: recentAvgReps,
-        trendData: history.map((h) => h.maxWeight).toList(),
+        trendData: history
+            .map((h) => h['maxWeight'] as double? ?? 0.0)
+            .toList(),
       );
     } catch (e) {
       developer.log(
