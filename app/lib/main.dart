@@ -10,6 +10,7 @@ import 'screens/stoic_screen.dart';
 import 'screens/phalanx_screen.dart';
 import 'screens/weekly_schedule_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'screens/analytics_dashboard.dart';
 import 'providers/workout_provider.dart';
 import 'providers/ingestion_provider.dart';
 import 'services/dom_rl_engine.dart';
@@ -146,6 +147,7 @@ class _NeospartanShellState extends State<NeospartanShell> {
   final List<Widget> _screens = [
     const AgogeScreen(),      // Training - Combat Conditioning
     const WeeklyScheduleScreen(), // Schedule - Weekly Plan
+    const AnalyticsDashboard(), // Analytics - Progress & Insights
     const GarrisonScreen(),   // Recovery - Readiness & Armor
     const StadionScreen(),    // Exercises - Movement Library
     const StoicScreen(),      // Mindset - Mental Conditioning
@@ -193,10 +195,11 @@ class _NeospartanShellState extends State<NeospartanShell> {
           ),
           _drawerItem(0, "TRAINING", Icons.auto_awesome, "Combat Conditioning"),
           _drawerItem(1, "SCHEDULE", Icons.calendar_today, "Weekly Plan"),
-          _drawerItem(2, "RECOVERY", Icons.shield_outlined, "Readiness & Armor"),
-          _drawerItem(3, "EXERCISES", Icons.directions_run, "Movement Library"),
-          _drawerItem(4, "MINDSET", Icons.psychology, "Mental Conditioning"),
-          _drawerItem(5, "IMPORT", Icons.document_scanner, "Plan Ingestion"),
+          _drawerItem(2, "ANALYTICS", Icons.show_chart, "Progress & Insights"),
+          _drawerItem(3, "RECOVERY", Icons.shield_outlined, "Readiness & Armor"),
+          _drawerItem(4, "EXERCISES", Icons.directions_run, "Movement Library"),
+          _drawerItem(5, "MINDSET", Icons.psychology, "Mental Conditioning"),
+          _drawerItem(6, "IMPORT", Icons.document_scanner, "Plan Ingestion"),
           const Spacer(),
           Padding(
             padding: const EdgeInsets.all(20.0),
