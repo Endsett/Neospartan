@@ -32,7 +32,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _workoutDuration = 45;
   final List<String> _injuries = [];
 
-  final _firebase = FirebaseSyncService();
+  // final _firebase = FirebaseSyncService(); // Removed
   final _aiService = AIPlanService();
 
   @override

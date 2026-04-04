@@ -14,7 +14,7 @@ class AnalyticsDashboard extends StatefulWidget {
 }
 
 class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
-  final _firebase = FirebaseSyncService();
+  // final _firebase = FirebaseSyncService(); // Removed
   UserProfile? _profile;
   List<CompletedWorkout> _workouts = [];
   bool _isLoading = true;

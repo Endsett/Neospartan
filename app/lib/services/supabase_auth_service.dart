@@ -33,7 +33,7 @@ class SupabaseAuthService {
   }) async {
     try {
       debugPrint('Signing up with email: $email');
-      
+
       final response = await _supabase.auth.signUp(
         email: email,
         password: password,
@@ -55,7 +55,7 @@ class SupabaseAuthService {
   }) async {
     try {
       debugPrint('Signing in with email: $email');
-      
+
       final response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
@@ -73,9 +73,9 @@ class SupabaseAuthService {
   Future<AuthResponse> signInWithGoogle() async {
     try {
       debugPrint('Signing in with Google');
-      
+
       final response = await _supabase.auth.signInWithOAuth(
-        Provider.google,
+        OAuthProvider.google,
         redirectTo: 'io.supabase.flutter://callback',
       );
 
@@ -112,10 +112,7 @@ class SupabaseAuthService {
   }
 
   /// Update user metadata
-  Future<User> updateProfile({
-    String? displayName,
-    String? photoUrl,
-  }) async {
+  Future<User> updateProfile({String? displayName, String? photoUrl}) async {
     try {
       final user = currentUser;
       if (user == null) throw Exception('No authenticated user');
@@ -144,11 +141,11 @@ class SupabaseAuthService {
 
       // First delete user profile data
       await _supabase.from('user_profiles').delete().eq('id', user.id);
-      
+
       // Then delete the auth user (requires admin privileges)
       // This should be done via a Supabase Edge Function
       debugPrint('Account deletion requested');
-      
+
       await signOut();
     } catch (e) {
       debugPrint('Account deletion error: $e');
@@ -159,8 +156,8 @@ class SupabaseAuthService {
   /// Refresh session
   Future<Session?> refreshSession() async {
     try {
-      final session = await _supabase.auth.refreshSession();
-      return session;
+      final response = await _supabase.auth.refreshSession();
+      return response.session;
     } catch (e) {
       debugPrint('Session refresh error: $e');
       return null;

@@ -12,7 +12,7 @@ class GarrisonScreen extends StatefulWidget {
 
 class _GarrisonScreenState extends State<GarrisonScreen> {
   final ArmorAnalyticsService _armorService = ArmorAnalyticsService();
-  final FirebaseSyncService _firebase = FirebaseSyncService();
+  // final FirebaseSyncService _firebase = FirebaseSyncService(); // Removed
 
   Map<String, dynamic> _data = {
     'hrv': 0.0,

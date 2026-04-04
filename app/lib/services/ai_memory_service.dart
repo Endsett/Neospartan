@@ -12,7 +12,7 @@ class AIMemoryService {
   final SupabaseDatabaseService _database = SupabaseDatabaseService();
 
   /// Store a new memory
-  Future<bool> storeMemory(AIMemory memory) async {
+  Future<bool> storeMemory(AIMemoryEntry memory) async {
     try {
       await _database.storeMemory({
         'type': memory.type.toString(),
@@ -32,7 +32,7 @@ class AIMemoryService {
   }
 
   /// Query memories by type
-  Future<List<AIMemory>> queryMemories({
+  Future<List<AIMemoryEntry>> queryMemories({
     AIMemoryType? type,
     int limit = 50,
   }) async {
@@ -42,8 +42,9 @@ class AIMemoryService {
         limit: limit,
       );
 
-      return response.map((data) => AIMemory(
+      return response.map((data) => AIMemoryEntry(
         id: data['id'],
+        userId: data['user_id'] ?? '',
         type: _parseMemoryType(data['type']),
         priority: _parseMemoryPriority(data['priority']),
         data: data['data'] ?? {},
@@ -65,7 +66,7 @@ class AIMemoryService {
   }
 
   /// Get memory by ID
-  Future<AIMemory?> getMemoryById(String memoryId) async {
+  Future<AIMemoryEntry?> getMemoryById(String memoryId) async {
     try {
       final response = await _database.executeQuery(
         'ai_memories',
@@ -83,8 +84,9 @@ class AIMemoryService {
         eq: {'id': memoryId},
       );
 
-      return AIMemory(
+      return AIMemoryEntry(
         id: data['id'],
+        userId: data['user_id'] ?? '',
         type: _parseMemoryType(data['type']),
         priority: _parseMemoryPriority(data['priority']),
         data: data['data'] ?? {},
@@ -134,7 +136,7 @@ class AIMemoryService {
   }
 
   /// Search memories by text
-  Future<List<AIMemory>> searchMemories(String query, {int limit = 20}) async {
+  Future<List<AIMemoryEntry>> searchMemories(String query, {int limit = 20}) async {
     try {
       // In a real implementation, you'd use PostgreSQL full-text search
       // For now, we'll fetch all memories and filter
@@ -154,21 +156,21 @@ class AIMemoryService {
 
   /// Parse memory type from string
   AIMemoryType _parseMemoryType(String? typeString) {
-    if (typeString == null) return AIMemoryType.workout;
+    if (typeString == null) return AIMemoryType.workoutHistory;
     
     for (final type in AIMemoryType.values) {
       if (type.toString() == typeString) return type;
     }
-    return AIMemoryType.workout;
+    return AIMemoryType.workoutHistory;
   }
 
   /// Parse memory priority from string
-  AIMemoryPriority _parseMemoryPriority(String? priorityString) {
-    if (priorityString == null) return AIMemoryPriority.normal;
+  MemoryPriority _parseMemoryPriority(String? priorityString) {
+    if (priorityString == null) return MemoryPriority.medium;
     
-    for (final priority in AIMemoryPriority.values) {
+    for (final priority in MemoryPriority.values) {
       if (priority.toString() == priorityString) return priority;
     }
-    return AIMemoryPriority.normal;
+    return MemoryPriority.medium;
   }
 }

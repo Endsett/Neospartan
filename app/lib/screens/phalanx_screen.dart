@@ -23,7 +23,7 @@ class PhalanxScreen extends StatefulWidget {
 class _PhalanxScreenState extends State<PhalanxScreen> {
   final TextEditingController _controller = TextEditingController();
   final PhalanxIngestionService _ingestionService = PhalanxIngestionService();
-  final FirebaseSyncService _firebase = FirebaseSyncService();
+  // final FirebaseSyncService _firebase = FirebaseSyncService(); // Removed
   final DomRlEngine _domRlEngine = DomRlEngine();
 
   bool _autopilotMode = true;

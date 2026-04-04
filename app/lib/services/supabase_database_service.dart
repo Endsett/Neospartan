@@ -6,7 +6,8 @@ import '../config/supabase_config.dart';
 /// Supabase Database Service
 /// Handles all database operations using Supabase PostgreSQL
 class SupabaseDatabaseService {
-  static final SupabaseDatabaseService _instance = SupabaseDatabaseService._internal();
+  static final SupabaseDatabaseService _instance =
+      SupabaseDatabaseService._internal();
   factory SupabaseDatabaseService() => _instance;
   SupabaseDatabaseService._internal();
 
@@ -24,7 +25,7 @@ class SupabaseDatabaseService {
   Future<void> saveUserProfile(String userId, Map<String, dynamic> data) async {
     try {
       debugPrint('Saving user profile: $userId');
-      
+
       await _supabase.from('user_profiles').upsert({
         'id': userId,
         ...data,
@@ -42,7 +43,7 @@ class SupabaseDatabaseService {
   Future<Map<String, dynamic>?> getUserProfile(String userId) async {
     try {
       debugPrint('Getting user profile: $userId');
-      
+
       final response = await _supabase
           .from('user_profiles')
           .select()
@@ -63,7 +64,7 @@ class SupabaseDatabaseService {
   Future<String> saveWorkoutSession(Map<String, dynamic> data) async {
     try {
       debugPrint('Saving workout session');
-      
+
       final response = await _supabase
           .from('workout_sessions')
           .insert({
@@ -90,20 +91,20 @@ class SupabaseDatabaseService {
   }) async {
     try {
       debugPrint('Getting workout sessions');
-      
-      var query = _supabase
+
+      var query = _supabase.client
           .from('workout_sessions')
           .select()
-          .eq('user_id', currentUserId!)
-          .order('date', ascending: false)
-          .limit(limit);
+          .eq('user_id', currentUserId!);
 
       if (startDate != null) {
-        query = query.gte('date', startDate.toIso8601String());
+        query = query.filter('date', 'gte', startDate.toIso8601String());
       }
       if (endDate != null) {
-        query = query.lte('date', endDate.toIso8601String());
+        query = query.filter('date', 'lte', endDate.toIso8601String());
       }
+
+      query = query.order('date', ascending: false).limit(limit);
 
       final response = await query;
       debugPrint('Retrieved ${response.length} workout sessions');
@@ -117,15 +118,22 @@ class SupabaseDatabaseService {
   // ==================== Workout Sets ====================
 
   /// Save workout sets
-  Future<void> saveWorkoutSets(String sessionId, List<Map<String, dynamic>> sets) async {
+  Future<void> saveWorkoutSets(
+    String sessionId,
+    List<Map<String, dynamic>> sets,
+  ) async {
     try {
       debugPrint('Saving ${sets.length} workout sets for session: $sessionId');
-      
-      final setsWithSession = sets.map((set) => {
-        ...set,
-        'session_id': sessionId,
-        'created_at': DateTime.now().toIso8601String(),
-      }).toList();
+
+      final setsWithSession = sets
+          .map(
+            (set) => {
+              ...set,
+              'session_id': sessionId,
+              'created_at': DateTime.now().toIso8601String(),
+            },
+          )
+          .toList();
 
       await _supabase.from('workout_sets').insert(setsWithSession);
       debugPrint('Workout sets saved successfully');
@@ -139,7 +147,7 @@ class SupabaseDatabaseService {
   Future<List<Map<String, dynamic>>> getWorkoutSets(String sessionId) async {
     try {
       debugPrint('Getting workout sets for session: $sessionId');
-      
+
       final response = await _supabase
           .from('workout_sets')
           .select()
@@ -160,7 +168,7 @@ class SupabaseDatabaseService {
   Future<void> storeMemory(Map<String, dynamic> memoryData) async {
     try {
       debugPrint('Storing AI memory');
-      
+
       await _supabase.from('ai_memories').insert({
         ...memoryData,
         'user_id': currentUserId,
@@ -182,17 +190,17 @@ class SupabaseDatabaseService {
   }) async {
     try {
       debugPrint('Querying AI memories');
-      
+
       var query = _supabase
           .from('ai_memories')
           .select()
-          .eq('user_id', currentUserId!)
-          .order('created_at', ascending: false)
-          .limit(limit);
+          .eq('user_id', currentUserId!);
 
       if (type != null) {
         query = query.eq('type', type);
       }
+
+      query = query.order('created_at', ascending: false).limit(limit);
 
       final response = await query;
       debugPrint('Retrieved ${response.length} AI memories');
@@ -209,7 +217,7 @@ class SupabaseDatabaseService {
   Future<void> saveWeeklyProgress(Map<String, dynamic> progressData) async {
     try {
       debugPrint('Saving weekly progress');
-      
+
       await _supabase.from('weekly_progress').upsert({
         ...progressData,
         'user_id': currentUserId,
@@ -227,7 +235,7 @@ class SupabaseDatabaseService {
   Future<Map<String, dynamic>?> getWeeklyProgress(DateTime weekStart) async {
     try {
       debugPrint('Getting weekly progress for week: $weekStart');
-      
+
       final response = await _supabase
           .from('weekly_progress')
           .select()
@@ -252,7 +260,7 @@ class SupabaseDatabaseService {
     dynamic value,
   }) {
     debugPrint('Subscribing to table: $tableName');
-    
+
     return _supabase
         .from(tableName)
         .stream(primaryKey: ['id'])
@@ -307,7 +315,7 @@ class SupabaseDatabaseService {
   Future<void> deleteRecord(String tableName, String id) async {
     try {
       debugPrint('Deleting record from $tableName: $id');
-      
+
       await _supabase.from(tableName).delete().eq('id', id);
       debugPrint('Record deleted successfully');
     } catch (e) {
