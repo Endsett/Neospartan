@@ -167,8 +167,8 @@ Provide concise analysis with specific recommendations.
       if (currentTokens >= maxTokens) break;
 
       final typeMemories = await _memoryService.queryMemories(
-        userId,
-        options: MemoryQueryOptions(types: [priority], limit: 10),
+        type: priority,
+        limit: 10,
       );
 
       // Sort by relevance and add until token limit
@@ -183,7 +183,7 @@ Provide concise analysis with specific recommendations.
             final summaryTokens = memory.summary!.length ~/ _charsPerToken;
             if (currentTokens + summaryTokens <= maxTokens) {
               memories.add(memory);
-              currentTokens += summaryTokens;
+              currentTokens += summaryTokens.toInt();
             }
           }
           continue;
@@ -379,12 +379,7 @@ Provide a concise summary that captures the key information.
     final relevantTypes = _inferTypesFromQuery(query);
 
     final memories = await _memoryService.queryMemories(
-      userId,
-      options: MemoryQueryOptions(
-        types: relevantTypes,
-        searchQuery: query,
-        limit: limit * 2, // Get more to rank
-      ),
+      limit: limit * 2, // Get more to rank
     );
 
     // Rank by relevance to query
