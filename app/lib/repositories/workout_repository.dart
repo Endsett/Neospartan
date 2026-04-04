@@ -1,5 +1,6 @@
 import 'dart:developer' as developer;
 import '../models/workout_tracking.dart';
+import '../models/exercise.dart';
 import '../services/supabase_database_service.dart';
 
 /// Repository for Workout CRUD operations using Supabase
@@ -22,7 +23,7 @@ class WorkoutRepository {
       // Save workout sets
       if (workout.exercises.isNotEmpty) {
         final allSets = <Map<String, dynamic>>[];
-        
+
         for (final exercise in workout.exercises) {
           for (final set in exercise.sets) {
             allSets.add({
@@ -36,7 +37,7 @@ class WorkoutRepository {
             });
           }
         }
-        
+
         await _database.saveWorkoutSets(sessionId, allSets);
       }
 
@@ -63,10 +64,10 @@ class WorkoutRepository {
       );
 
       final workouts = <CompletedWorkout>[];
-      
+
       for (final session in sessions) {
         final sets = await _database.getWorkoutSets(session['id']);
-        
+
         // Group sets by exercise
         final exerciseMap = <String, List<Map<String, dynamic>>>{};
         for (final set in sets) {
@@ -76,22 +77,34 @@ class WorkoutRepository {
           }
           exerciseMap[exerciseName]!.add(set);
         }
-        
+
         // Create CompletedExerciseEntry objects
         final exercises = exerciseMap.entries.map((entry) {
           return CompletedExerciseEntry(
-            exerciseName: entry.key,
-            sets: entry.value.map((setData) => SetPerformance(
-              setNumber: setData['set_number'] ?? 1,
-              repsPerformed: setData['reps_performed'] ?? 0,
-              actualRPE: setData['actual_rpe']?.toDouble(),
-              loadUsed: setData['load_used']?.toDouble(),
-              completed: setData['completed'] ?? false,
-              notes: setData['notes'] ?? '',
-            )).toList(),
+            exercise: Exercise(
+              id: entry.key,
+              name: entry.key,
+              category: ExerciseCategory.strength,
+              youtubeId: '',
+              targetMetaphor: '',
+              instructions: '',
+            ),
+            sets: entry.value
+                .map(
+                  (setData) => SetPerformance(
+                    setNumber: setData['set_number'] ?? 1,
+                    repsPerformed: setData['reps_performed'] ?? 0,
+                    actualRPE: setData['actual_rpe']?.toDouble(),
+                    loadUsed: setData['load_used']?.toDouble(),
+                    completed: setData['completed'] ?? false,
+                    notes: setData['notes'] ?? '',
+                  ),
+                )
+                .toList(),
+            completedAt: DateTime.now(),
           );
         }).toList();
-        
+
         final workout = CompletedWorkout(
           id: session['id'],
           protocolTitle: session['protocol_title'] ?? '',
@@ -101,13 +114,16 @@ class WorkoutRepository {
           totalDurationMinutes: session['total_duration_minutes'] ?? 0,
           readinessScoreAtStart: session['readiness_score_at_start'] ?? 0,
         );
-        
+
         workouts.add(workout);
       }
 
       return workouts;
     } catch (e) {
-      developer.log('Error getting workout history: $e', name: 'WorkoutRepository');
+      developer.log(
+        'Error getting workout history: $e',
+        name: 'WorkoutRepository',
+      );
       return [];
     }
   }
@@ -135,19 +151,31 @@ class WorkoutRepository {
         }
         exerciseMap[exerciseName]!.add(set);
       }
-      
+
       // Create CompletedExerciseEntry objects
       final exercises = exerciseMap.entries.map((entry) {
         return CompletedExerciseEntry(
-          exerciseName: entry.key,
-          sets: entry.value.map((setData) => SetPerformance(
-            setNumber: setData['set_number'] ?? 1,
-            repsPerformed: setData['reps_performed'] ?? 0,
-            actualRPE: setData['actual_rpe']?.toDouble(),
-            loadUsed: setData['load_used']?.toDouble(),
-            completed: setData['completed'] ?? false,
-            notes: setData['notes'] ?? '',
-          )).toList(),
+          exercise: Exercise(
+            id: entry.key,
+            name: entry.key,
+            category: ExerciseCategory.strength,
+            youtubeId: '',
+            targetMetaphor: '',
+            instructions: '',
+          ),
+          sets: entry.value
+              .map(
+                (setData) => SetPerformance(
+                  setNumber: setData['set_number'] ?? 1,
+                  repsPerformed: setData['reps_performed'] ?? 0,
+                  actualRPE: setData['actual_rpe']?.toDouble(),
+                  loadUsed: setData['load_used']?.toDouble(),
+                  completed: setData['completed'] ?? false,
+                  notes: setData['notes'] ?? '',
+                ),
+              )
+              .toList(),
+          completedAt: DateTime.now(),
         );
       }).toList();
 
@@ -195,10 +223,12 @@ class WorkoutRepository {
       final totalWorkouts = workouts.length;
       final totalSets = workouts.fold<int>(
         0,
-        (sum, workout) => sum + workout.exercises.fold(
-          0,
-          (exerciseSum, exercise) => exerciseSum + exercise.sets.length,
-        ),
+        (sum, workout) =>
+            sum +
+            workout.exercises.fold(
+              0,
+              (exerciseSum, exercise) => exerciseSum + exercise.sets.length,
+            ),
       );
       final totalVolume = workouts.fold<double>(
         0.0,
@@ -211,13 +241,17 @@ class WorkoutRepository {
         'totalVolume': totalVolume,
         'averageRPE': totalWorkouts > 0
             ? workouts.fold<double>(
-                0.0,
-                (sum, workout) => sum + workout.averageRPE,
-              ) / totalWorkouts
+                    0.0,
+                    (sum, workout) => sum + workout.averageRPE,
+                  ) /
+                  totalWorkouts
             : 0.0,
       };
     } catch (e) {
-      developer.log('Error getting workout stats: $e', name: 'WorkoutRepository');
+      developer.log(
+        'Error getting workout stats: $e',
+        name: 'WorkoutRepository',
+      );
       return {};
     }
   }
