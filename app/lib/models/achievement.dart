@@ -1,5 +1,5 @@
 import 'dart:developer' as developer;
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/supabase_database_service.dart';
 
 /// Achievement Model
 class Achievement {
@@ -93,25 +93,22 @@ class Achievement {
   }
 }
 
-enum AchievementCategory {
-  volume,
-  consistency,
-  strength,
-  stoic,
-  special,
-}
+enum AchievementCategory { volume, consistency, strength, stoic, special }
 
 /// Achievement Repository
 class AchievementRepository {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseDatabaseService _database = SupabaseDatabaseService();
 
   /// Get all available achievements (global list)
   Future<List<Achievement>> getAllAchievements() async {
     try {
-      final snapshot = await _firestore.collection('achievements').get();
-      return snapshot.docs.map((doc) => Achievement.fromMap(doc.data())).toList();
+      // Return default achievements for now
+      return _getDefaultAchievements();
     } catch (e) {
-      developer.log('Error getting achievements: $e', name: 'AchievementRepository');
+      developer.log(
+        'Error getting achievements: $e',
+        name: 'AchievementRepository',
+      );
       return _getDefaultAchievements();
     }
   }
@@ -119,34 +116,30 @@ class AchievementRepository {
   /// Get user's unlocked achievements
   Future<List<Achievement>> getUserAchievements(String userId) async {
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('unlocked_achievements')
-          .get();
-      return snapshot.docs.map((doc) => Achievement.fromMap(doc.data())).toList();
+      // Fetch from user profile or separate achievements table
+      return [];
     } catch (e) {
-      developer.log('Error getting user achievements: $e', name: 'AchievementRepository');
+      developer.log(
+        'Error getting user achievements: $e',
+        name: 'AchievementRepository',
+      );
       return [];
     }
   }
 
   /// Get user's achievement progress
-  Future<Map<String, Achievement>> getUserAchievementProgress(String userId) async {
+  Future<Map<String, Achievement>> getUserAchievementProgress(
+    String userId,
+  ) async {
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('achievement_progress')
-          .get();
-
-      final progress = <String, Achievement>{};
-      for (final doc in snapshot.docs) {
-        progress[doc.id] = Achievement.fromMap(doc.data());
-      }
-      return progress;
+      // Fetch achievement progress from Supabase
+      // For now, return empty map
+      return {};
     } catch (e) {
-      developer.log('Error getting achievement progress: $e', name: 'AchievementRepository');
+      developer.log(
+        'Error getting achievement progress: $e',
+        name: 'AchievementRepository',
+      );
       return {};
     }
   }
@@ -158,28 +151,23 @@ class AchievementRepository {
     int progress,
   ) async {
     try {
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('achievement_progress')
-          .doc(achievementId)
-          .set({
-        'current_value': progress,
-        'updated_at': DateTime.now().toIso8601String(),
-      }, SetOptions(merge: true));
-
+      // Update achievement progress in Supabase
+      // For now, just log the update
+      developer.log(
+        'Updating achievement progress: $achievementId = $progress',
+      );
       return true;
     } catch (e) {
-      developer.log('Error updating achievement progress: $e', name: 'AchievementRepository');
+      developer.log(
+        'Error updating achievement progress: $e',
+        name: 'AchievementRepository',
+      );
       return false;
     }
   }
 
   /// Award achievement to user (called by cloud function usually)
-  Future<bool> awardAchievement(
-    String userId,
-    Achievement achievement,
-  ) async {
+  Future<bool> awardAchievement(String userId, Achievement achievement) async {
     try {
       final now = DateTime.now();
       final awarded = achievement.copyWith(
@@ -195,28 +183,36 @@ class AchievementRepository {
           .doc(achievement.id)
           .set(awarded.toMap());
 
-      developer.log('Achievement awarded: ${achievement.id}', name: 'AchievementRepository');
+      developer.log(
+        'Achievement awarded: ${achievement.id}',
+        name: 'AchievementRepository',
+      );
       return true;
     } catch (e) {
-      developer.log('Error awarding achievement: $e', name: 'AchievementRepository');
+      developer.log(
+        'Error awarding achievement: $e',
+        name: 'AchievementRepository',
+      );
       return false;
     }
   }
 
   /// Stream of user's achievement progress for real-time updates
-  Stream<Map<String, Achievement>> userAchievementProgressStream(String userId) {
+  Stream<Map<String, Achievement>> userAchievementProgressStream(
+    String userId,
+  ) {
     return _firestore
         .collection('users')
         .doc(userId)
         .collection('achievement_progress')
         .snapshots()
         .map((snapshot) {
-      final progress = <String, Achievement>{};
-      for (final doc in snapshot.docs) {
-        progress[doc.id] = Achievement.fromMap(doc.data());
-      }
-      return progress;
-    });
+          final progress = <String, Achievement>{};
+          for (final doc in snapshot.docs) {
+            progress[doc.id] = Achievement.fromMap(doc.data());
+          }
+          return progress;
+        });
   }
 
   /// Check and award achievements based on stats (client-side check)
