@@ -7,8 +7,6 @@ import '../models/user_profile.dart';
 import '../models/exercise.dart';
 import '../services/ai_plan_service.dart';
 import '../services/guest_storage_service.dart';
-import '../providers/auth_provider.dart';
-import 'package:provider/provider.dart';
 
 /// Firebase Sync Service
 /// Handles data persistence and synchronization with Firebase Firestore

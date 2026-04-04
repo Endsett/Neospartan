@@ -1,5 +1,4 @@
 import 'dart:developer' as developer;
-import 'package:flutter/foundation.dart';
 import '../models/achievement.dart';
 import '../services/firestore_service.dart';
 
@@ -38,16 +37,23 @@ class AchievementService {
       ];
 
       final streakResults = await Future.wait(streakChecks);
-      newlyUnlocked.addAll(streakResults.where((a) => a != null).cast<Achievement>());
+      newlyUnlocked.addAll(
+        streakResults.where((a) => a != null).cast<Achievement>(),
+      );
 
       if (newlyUnlocked.isNotEmpty) {
-        developer.log('New achievements unlocked: ${newlyUnlocked.map((a) => a.id).join(', ')}',
-            name: 'AchievementService');
+        developer.log(
+          'New achievements unlocked: ${newlyUnlocked.map((a) => a.id).join(', ')}',
+          name: 'AchievementService',
+        );
       }
 
       return newlyUnlocked;
     } catch (e) {
-      developer.log('Error checking workout achievements: $e', name: 'AchievementService');
+      developer.log(
+        'Error checking workout achievements: $e',
+        name: 'AchievementService',
+      );
       return [];
     }
   }
@@ -118,7 +124,10 @@ class AchievementService {
 
   // ==================== INDIVIDUAL ACHIEVEMENT CHECKS ====================
 
-  Future<Achievement?> _checkFirstBlood(String userId, int totalWorkouts) async {
+  Future<Achievement?> _checkFirstBlood(
+    String userId,
+    int totalWorkouts,
+  ) async {
     if (totalWorkouts < 1) return null;
 
     return _awardIfNotUnlocked(
@@ -238,10 +247,15 @@ class AchievementService {
   }
 
   /// Award achievement if not already unlocked
-  Future<Achievement?> _awardIfNotUnlocked(String userId, Achievement achievement) async {
+  Future<Achievement?> _awardIfNotUnlocked(
+    String userId,
+    Achievement achievement,
+  ) async {
     // Check if already unlocked
     final existing = await _repository.getUserAchievements(userId);
-    final alreadyUnlocked = existing.any((a) => a.id == achievement.id && a.isUnlocked);
+    final alreadyUnlocked = existing.any(
+      (a) => a.id == achievement.id && a.isUnlocked,
+    );
 
     if (alreadyUnlocked) return null;
 
@@ -254,8 +268,10 @@ class AchievementService {
   }
 
   /// Get all achievements with user progress
-  Future<List<Achievement>> getAllAchievementsWithProgress(String userId) async {
-    final allAchievements = _repository.getDefaultAchievements();
+  Future<List<Achievement>> getAllAchievementsWithProgress(
+    String userId,
+  ) async {
+    final allAchievements = await _repository.getAllAchievements();
     final userProgress = await _repository.getUserAchievementProgress(userId);
     final unlocked = await _repository.getUserAchievements(userId);
 
@@ -273,9 +289,9 @@ class AchievementService {
       } else {
         // Get progress
         final progress = userProgress[achievement.id];
-        merged.add(achievement.copyWith(
-          currentValue: progress?.currentValue ?? 0,
-        ));
+        merged.add(
+          achievement.copyWith(currentValue: progress?.currentValue ?? 0),
+        );
       }
     }
 
@@ -287,7 +303,11 @@ class AchievementService {
     return achievements.fold<int>(0, (sum, a) {
       if (!a.isUnlocked) return sum;
       // Bronze = 10, Silver = 25, Gold = 50
-      final points = a.tier == 1 ? 10 : a.tier == 2 ? 25 : 50;
+      final points = a.tier == 1
+          ? 10
+          : a.tier == 2
+          ? 25
+          : 50;
       return sum + points;
     });
   }

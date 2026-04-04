@@ -223,9 +223,12 @@ class DomRlEngineV2 {
   }) async {
     try {
       // Get user's recent data for personalization
-      final recentWorkouts = await _workoutRepository.getRecentWorkouts(
+      final endDate = DateTime.now();
+      final startDate = endDate.subtract(const Duration(days: 30));
+      final recentWorkouts = await _workoutRepository.getWorkoutsForDateRange(
         userId,
-        limit: 20,
+        startDate,
+        endDate,
       );
       final avgVolume = recentWorkouts.isEmpty
           ? 0

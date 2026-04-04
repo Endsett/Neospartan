@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../providers/auth_provider.dart';
-import 'package:provider/provider.dart';
 
 /// Banner to indicate guest mode
 class GuestModeBanner extends StatelessWidget {
   final VoidCallback? onUpgrade;
 
-  const GuestModeBanner({
-    super.key,
-    this.onUpgrade,
-  });
+  const GuestModeBanner({super.key, this.onUpgrade});
 
   @override
   Widget build(BuildContext context) {
@@ -18,10 +14,10 @@ class GuestModeBanner extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: LaconicTheme.ironGray.withOpacity(0.8),
+        color: LaconicTheme.ironGray.withValues(alpha: 0.8),
         border: Border(
           bottom: BorderSide(
-            color: LaconicTheme.spartanBronze.withOpacity(0.3),
+            color: LaconicTheme.spartanBronze.withValues(alpha: 0.3),
           ),
         ),
       ),
@@ -29,17 +25,14 @@ class GuestModeBanner extends StatelessWidget {
         children: [
           Icon(
             Icons.person_outline,
-            color: LaconicTheme.spartanBronze,
+            color: LaconicTheme.spartanBronze.withValues(alpha: 1),
             size: 20,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'You are using Guest Mode - Data stored locally only',
-              style: TextStyle(
-                color: Colors.grey[300],
-                fontSize: 14,
-              ),
+              style: TextStyle(color: Colors.grey[300], fontSize: 14),
             ),
           ),
           if (onUpgrade != null) ...[
@@ -69,7 +62,7 @@ class GuestModeIndicator extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: LaconicTheme.spartanBronze.withOpacity(0.2),
+        color: LaconicTheme.spartanBronze.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
