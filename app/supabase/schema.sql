@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   has_completed_onboarding BOOLEAN DEFAULT false,
   experience_level TEXT,
   philosophical_baseline TEXT,
-  date_of_service DATE,
+  date_of_birth DATE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
