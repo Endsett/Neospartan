@@ -20,6 +20,7 @@ dependencies:
   http: ^1.2.0
   image_picker: ^1.0.7
   provider: ^6.1.5+1
+  shared_preferences: ^2.2.3
   uuid: ^4.4.0
 
 dev_dependencies:

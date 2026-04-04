@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'theme.dart';
 import 'screens/stadion_screen.dart';
@@ -19,6 +18,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'services/firestore_service.dart';
 import 'services/firebase_sync_service.dart';
+import 'widgets/guest_mode_banner.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -185,23 +185,40 @@ class _NeospartanShellState extends State<NeospartanShell> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+
     return Scaffold(
       key: _scaffoldKey,
       drawer: _buildMinimalistDrawer(),
-      body: Stack(
+      body: Column(
         children: [
-          _screens[_selectedIndex],
-          // Minimalist Floating Menu Button
-          Positioned(
-            top: 40,
-            left: 20,
-            child: IconButton(
-              icon: const Icon(
-                Icons.menu,
-                color: LaconicTheme.spartanBronze,
-                size: 30,
-              ),
-              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          // Show guest mode banner if user is anonymous
+          if (authProvider.isAnonymous)
+            GuestModeBanner(
+              onUpgrade: () {
+                // TODO: Navigate to sign up flow
+                _scaffoldKey.currentState?.openDrawer();
+              },
+            ),
+          // Main content
+          Expanded(
+            child: Stack(
+              children: [
+                _screens[_selectedIndex],
+                // Minimalist Floating Menu Button
+                Positioned(
+                  top: authProvider.isAnonymous ? 100 : 40,
+                  left: 20,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.menu,
+                      color: LaconicTheme.spartanBronze,
+                      size: 30,
+                    ),
+                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -338,14 +355,7 @@ class _NeospartanShellState extends State<NeospartanShell> {
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (auth.isAnonymous)
-                          Text(
-                            'Preview Mode',
-                            style: TextStyle(
-                              color: LaconicTheme.spartanBronze,
-                              fontSize: 12,
-                            ),
-                          ),
+                        if (auth.isAnonymous) const GuestModeIndicator(),
                       ],
                     ),
                   ),

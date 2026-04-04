@@ -85,9 +85,12 @@ class AuthProvider extends ChangeNotifier {
 
       // If profile doesn't exist, create it
       if (_userProfile == null) {
+        final isGuest = _user!.isAnonymous;
         _userProfile = UserProfile(
           userId: _user!.uid,
-          displayName: _user!.displayName ?? 'Spartan',
+          displayName: isGuest
+              ? 'Guest Spartan'
+              : (_user!.displayName ?? 'Spartan'),
           photoUrl: _user!.photoURL,
           bodyComposition: const BodyComposition(
             weight: 70,
@@ -96,6 +99,8 @@ class AuthProvider extends ChangeNotifier {
           ),
           fitnessLevel: FitnessLevel.beginner,
           trainingGoal: TrainingGoal.generalCombat,
+          experienceLevel: ExperienceLevel.novice,
+          philosophicalBaseline: isGuest ? 'Just exploring' : null,
           createdAt: DateTime.now(),
         );
 
