@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/ai_memory.dart';
 import '../models/user_profile.dart';
 import '../models/workout_protocol.dart';
@@ -9,6 +8,7 @@ import '../models/exercise.dart';
 import '../config/ai_config.dart';
 import 'ai_memory_service.dart';
 import 'context_ingestion_service.dart';
+import 'gemini_client.dart';
 
 /// Weekly plan structure for AI-generated training plans
 class WeeklyPlan {
@@ -88,8 +88,7 @@ class AIPlanService {
   factory AIPlanService() => _instance;
   AIPlanService._internal();
 
-  // Gemini 2.5 Flash API Key
-  late GenerativeModel _model;
+  final GeminiClient _geminiClient = GeminiClient();
   bool _initialized = false;
   final AIMemoryService _memoryService = AIMemoryService();
   final ContextIngestionService _contextService = ContextIngestionService();
@@ -97,15 +96,15 @@ class AIPlanService {
   /// Initialize the service with Gemini 2.5 Flash and memory system
   Future<void> initialize() async {
     try {
-      _model = GenerativeModel(
-        model: AIConfig.geminiModel,
-        apiKey: AIConfig.geminiApiKey,
-      );
+      await _geminiClient.initialize();
       await _memoryService.initialize(isGuest: false);
       _initialized = true;
       debugPrint(
         'AI Plan Service initialized with Gemini 2.0 Flash and memory system',
       );
+      if (AIConfig.isUsingDevKey) {
+        debugPrint('WARNING: Using development API key');
+      }
     } catch (e) {
       debugPrint('Failed to initialize AI service: $e');
       _initialized = false;
@@ -150,8 +149,11 @@ class AIPlanService {
         prompt = _buildBasicPrompt(profile);
       }
 
-      final response = await _model.generateContent([Content.text(prompt)]);
-      final planText = response.text;
+      final planText = await _geminiClient.generateContent(
+        prompt,
+        maxRetries: AIConfig.maxRetries,
+        delay: AIConfig.baseDelay,
+      );
 
       if (planText != null) {
         final plan = _parseAIResponseToPlan(planText, profile);
@@ -256,8 +258,11 @@ Return a JSON object with the following structure:
         prompt = _buildAdjustmentPrompt(profile, currentPlan, progress);
       }
 
-      final response = await _model.generateContent([Content.text(prompt)]);
-      final planText = response.text;
+      final planText = await _geminiClient.generateContent(
+        prompt,
+        maxRetries: AIConfig.maxRetries,
+        delay: AIConfig.baseDelay,
+      );
 
       if (planText != null) {
         final adjustedPlan = _parseAIResponseToPlan(planText, profile);

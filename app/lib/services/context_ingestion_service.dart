@@ -1,9 +1,9 @@
 import 'dart:developer' as developer;
-import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/ai_memory.dart';
 import '../models/user_profile.dart';
 import '../services/ai_memory_service.dart';
 import '../config/ai_config.dart';
+import 'gemini_client.dart';
 
 /// Context Ingestion Service - Intelligently feeds memory into Gemini prompts
 /// Analyzes context needs and constructs optimal prompts for AI interactions
@@ -317,13 +317,14 @@ Provide a concise summary that captures the key information.
 ''';
 
       // Use Gemini to generate summary
-      final model = GenerativeModel(
-        model: AIConfig.geminiModel,
-        apiKey: AIConfig.geminiApiKey,
-      );
+      final geminiClient = GeminiClient();
+      await geminiClient.initialize();
 
-      final response = await model.generateContent([Content.text(prompt)]);
-      final summary = response.text?.trim();
+      final summary = await geminiClient.generateContent(
+        prompt,
+        maxRetries: AIConfig.maxRetries,
+        delay: AIConfig.baseDelay,
+      );
 
       if (summary != null && summary.isNotEmpty) {
         developer.log(
