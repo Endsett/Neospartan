@@ -6,12 +6,14 @@ class LaconicTheme {
   static const Color spartanBronze = Color(0xFFCD7F32);
   static const Color ironGray = Color(0xFF333333);
   static const Color boneWhite = Color(0xFFE5E5E5);
+  static const Color accentRed = Color(0xFFE74C3C);
+  static const Color silverGray = Color(0xFF95A5A6);
+  static const Color successGreen = Color(0xFF27AE60);
+  static const Color darkGray = Color(0xFF2C3E50);
 
   static ThemeData get theme {
-    final baseTheme = ThemeData(
-      brightness: Brightness.dark,
-    );
-    
+    final baseTheme = ThemeData(brightness: Brightness.dark);
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
@@ -46,15 +48,8 @@ class LaconicTheme {
           fontWeight: FontWeight.w900,
           letterSpacing: -1.0,
         ),
-        bodyLarge: const TextStyle(
-          color: boneWhite,
-          fontSize: 16,
-          height: 1.5,
-        ),
-        bodyMedium: const TextStyle(
-          color: Colors.grey,
-          fontSize: 14,
-        ),
+        bodyLarge: const TextStyle(color: boneWhite, fontSize: 16, height: 1.5),
+        bodyMedium: const TextStyle(color: Colors.grey, fontSize: 14),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(

@@ -1,15 +1,15 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import '../services/supabase_database_service.dart';
+import '../services/hybrid_storage_service.dart';
 import '../models/ai_memory.dart';
 
-/// Service for managing AI memories using Supabase
+/// Service for managing AI memories using Hybrid Storage
 class AIMemoryService {
   static final AIMemoryService _instance = AIMemoryService._internal();
   factory AIMemoryService() => _instance;
   AIMemoryService._internal();
 
-  final SupabaseDatabaseService _database = SupabaseDatabaseService();
+  final HybridStorageService _storage = HybridStorageService();
 
   /// Store a new memory (convenience method)
   Future<bool> storeMemory({
@@ -36,7 +36,7 @@ class AIMemoryService {
         accessCount: 0,
       );
 
-      await _database.storeMemory({
+      final success = await _storage.storeMemory({
         'type': memory.type.toString(),
         'priority': memory.priority.toString(),
         'data': memory.data,
@@ -46,7 +46,7 @@ class AIMemoryService {
       });
 
       developer.log('AI memory stored successfully', name: 'AIMemoryService');
-      return true;
+      return success;
     } catch (e) {
       developer.log('Error storing AI memory: $e', name: 'AIMemoryService');
       return false;
@@ -56,7 +56,7 @@ class AIMemoryService {
   /// Store a new memory (direct method)
   Future<bool> storeMemoryEntry(AIMemoryEntry memory) async {
     try {
-      await _database.storeMemory({
+      final success = await _storage.storeMemory({
         'type': memory.type.toString(),
         'priority': memory.priority.toString(),
         'data': memory.data,
@@ -66,7 +66,7 @@ class AIMemoryService {
       });
 
       developer.log('AI memory stored successfully', name: 'AIMemoryService');
-      return true;
+      return success;
     } catch (e) {
       developer.log('Error storing AI memory: $e', name: 'AIMemoryService');
       return false;
@@ -79,7 +79,7 @@ class AIMemoryService {
     int limit = 50,
   }) async {
     try {
-      final response = await _database.queryMemories(
+      final response = await _storage.queryMemories(
         type: type?.toString(),
         limit: limit,
       );
@@ -88,20 +88,20 @@ class AIMemoryService {
           .map(
             (data) => AIMemoryEntry(
               id: data['id'],
-              userId: data['user_id'] ?? '',
+              userId: data['userId'] ?? '',
               type: _parseMemoryType(data['type']),
               priority: _parseMemoryPriority(data['priority']),
               data: data['data'] ?? {},
               tags: List<String>.from(data['tags'] ?? []),
               summary: data['summary'] ?? '',
-              createdAt: DateTime.parse(data['created_at']),
+              createdAt: DateTime.parse(data['createdAt']),
               expiresAt: data['expires_at'] != null
                   ? DateTime.parse(data['expires_at'])
                   : DateTime.now(),
-              accessCount: data['access_count'] ?? 0,
               lastAccessed: data['last_accessed'] != null
                   ? DateTime.parse(data['last_accessed'])
                   : DateTime.now(),
+              accessCount: data['access_count'] ?? 0,
             ),
           )
           .toList();
@@ -114,33 +114,24 @@ class AIMemoryService {
   /// Get memory by ID
   Future<AIMemoryEntry?> getMemoryById(String memoryId) async {
     try {
-      final response = await _database.executeQuery(
-        'ai_memories',
-        eq: {'id': memoryId},
-        limit: 1,
-      );
-
-      if (response.isEmpty) return null;
-
-      final data = response.first;
-
-      // Update access count
-      await _database.executeQuery('ai_memories', eq: {'id': memoryId});
-
-      return AIMemoryEntry(
-        id: data['id'],
-        userId: data['user_id'] ?? '',
-        type: _parseMemoryType(data['type']),
-        priority: _parseMemoryPriority(data['priority']),
-        data: data['data'] ?? {},
-        tags: List<String>.from(data['tags'] ?? []),
-        summary: data['summary'] ?? '',
-        createdAt: DateTime.parse(data['created_at']),
-        expiresAt: data['expires_at'] != null
-            ? DateTime.parse(data['expires_at'])
-            : DateTime.now(),
-        accessCount: (data['access_count'] ?? 0) + 1,
-        lastAccessed: DateTime.now(),
+      // For now, query all memories and filter by ID
+      // In a real implementation, you'd add a getById method to HybridStorageService
+      final memories = await queryMemories(limit: 1000);
+      return memories.firstWhere(
+        (memory) => memory.id == memoryId,
+        orElse: () => AIMemoryEntry(
+          id: '',
+          userId: '',
+          type: AIMemoryType.workoutHistory,
+          priority: MemoryPriority.low,
+          data: {},
+          tags: [],
+          summary: '',
+          createdAt: DateTime.now(),
+          expiresAt: DateTime.now(),
+          lastAccessed: DateTime.now(),
+          accessCount: 0,
+        ),
       );
     } catch (e) {
       developer.log('Error getting AI memory: $e', name: 'AIMemoryService');
@@ -179,23 +170,20 @@ class AIMemoryService {
       // This would typically be done via a database trigger or scheduled job
       // For now, we'll fetch expired memories and delete them
 
-      final expiredMemories = await _database.executeQuery(
-        'ai_memories',
-        select: ['id'],
-        neq: {'expires_at': null},
-        limit: 1000,
-      );
+      final memories = await queryMemories(limit: 1000);
+      final now = DateTime.now();
 
       int deletedCount = 0;
-      for (final _ in expiredMemories) {
-        // Check if expired
-        // In a real implementation, you'd use a WHERE clause
-        // For simplicity, we're just demonstrating the pattern
-        deletedCount++;
+      for (final memory in memories) {
+        if (memory.expiresAt.isBefore(now)) {
+          // In a real implementation, you'd delete the memory
+          // For now, just count expired memories
+          deletedCount++;
+        }
       }
 
       developer.log(
-        'Cleaned up $deletedCount expired memories',
+        'Found $deletedCount expired memories',
         name: 'AIMemoryService',
       );
       return deletedCount;

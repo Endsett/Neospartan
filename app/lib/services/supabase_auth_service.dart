@@ -12,16 +12,31 @@ class SupabaseAuthService {
 
   final SupabaseClient _supabase = SupabaseConfig.client;
   StreamController<AuthState>? _authStateController;
+  StreamSubscription<AuthState>? _authStateSubscription;
 
   /// Get current user
   User? get currentUser => _supabase.auth.currentUser;
 
   /// Get authentication state stream
   Stream<AuthState> get authState {
-    _authStateController ??= StreamController<AuthState>.broadcast();
-    _supabase.auth.onAuthStateChange.listen((data) {
-      _authStateController?.add(data);
-    });
+    // Only create controller if it doesn't exist
+    if (_authStateController == null) {
+      _authStateController = StreamController<AuthState>.broadcast();
+
+      // Only subscribe if not already subscribed
+      _authStateSubscription ??= _supabase.auth.onAuthStateChange.listen(
+        (data) {
+          _authStateController?.add(data);
+          debugPrint(
+            'Auth state changed: ${data.session?.user.id ?? 'signed out'}',
+          );
+        },
+        onError: (error) {
+          debugPrint('Auth state error: $error');
+          _authStateController?.addError(error);
+        },
+      );
+    }
     return _authStateController!.stream;
   }
 
@@ -173,6 +188,8 @@ class SupabaseAuthService {
 
   /// Dispose resources
   void dispose() {
+    _authStateSubscription?.cancel();
+    _authStateSubscription = null;
     _authStateController?.close();
     _authStateController = null;
   }

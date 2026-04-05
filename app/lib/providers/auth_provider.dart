@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_profile.dart';
@@ -20,6 +21,7 @@ class AuthProvider extends ChangeNotifier {
   String? _error;
   bool _isInitialized = false;
   bool _isGuestMode = false;
+  String? _guestId; // Unique guest ID
   StreamSubscription<AuthState>? _authStateSubscription;
 
   // Getters
@@ -30,12 +32,44 @@ class AuthProvider extends ChangeNotifier {
   bool get isInitialized => _isInitialized;
   bool get isGuestMode => _isGuestMode;
   bool get isAuthenticated => _user != null || _isGuestMode;
-  String? get userId => _isGuestMode ? 'guest_user' : _user?.id;
+  String? get userId => _isGuestMode ? _guestId : _user?.id;
   String? get displayName =>
       _user?.userMetadata?['display_name'] ?? _userProfile?.displayName;
   String? get email => _user?.email;
   String? get photoUrl =>
       _user?.userMetadata?['photo_url'] ?? _userProfile?.photoUrl;
+
+  /// Generate a unique guest ID
+  String _generateGuestId() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    final random = Random();
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final randomPart = String.fromCharCodes(
+      Iterable.generate(
+        8,
+        (_) => chars.codeUnitAt(random.nextInt(chars.length)),
+      ),
+    );
+    return 'guest_${timestamp}_$randomPart';
+  }
+
+  /// Initialize or get existing guest ID
+  Future<String> _getOrCreateGuestId() async {
+    if (_guestId != null) return _guestId!;
+
+    await _guestStorage.initialize();
+    _guestId = _guestStorage.getGuestId();
+
+    if (_guestId == null || _guestId!.isEmpty) {
+      _guestId = _generateGuestId();
+      await _guestStorage.saveGuestId(_guestId!);
+      developer.log('Generated new guest ID: $_guestId', name: 'AuthProvider');
+    } else {
+      developer.log('Using existing guest ID: $_guestId', name: 'AuthProvider');
+    }
+
+    return _guestId!;
+  }
 
   AuthProvider() {
     _init();
@@ -75,45 +109,92 @@ class AuthProvider extends ChangeNotifier {
 
   /// Initialize auth state listener
   void _init() {
-    // First check if we're in guest mode
-    _checkGuestMode();
+    debugPrint('AuthProvider: Starting initialization');
 
-    _authStateSubscription = _authService.authState.listen((
-      AuthState authState,
-    ) async {
-      developer.log(
-        'Auth state changed: ${authState.session?.user.id ?? 'signed out'}',
-        name: 'AuthProvider',
-      );
-      _user = authState.session?.user;
-
-      if (_user != null) {
-        // User is authenticated with Supabase - not in guest mode
-        _isGuestMode = false;
-        await _guestStorage.disableGuestMode();
-        // Load or create user profile
-        await _loadUserProfile();
-      } else if (!_isGuestMode) {
-        // Not authenticated and not in guest mode
-        _userProfile = null;
+    // Set a timeout to ensure initialization always completes
+    Future.delayed(const Duration(seconds: 10), () {
+      if (!_isInitialized) {
+        debugPrint('AuthProvider: Initialization timeout - forcing complete');
+        _isInitialized = true;
+        notifyListeners();
       }
-
-      _isInitialized = true;
-      notifyListeners();
     });
+
+    // First check if we're in guest mode (async)
+    _checkGuestMode()
+        .then((_) {
+          // After guest mode check, set up auth state listener
+          _setupAuthListener();
+        })
+        .catchError((error) {
+          debugPrint('AuthProvider: Error in guest mode check - $error');
+          // Continue with auth setup even if guest mode fails
+          _setupAuthListener();
+        });
+  }
+
+  /// Setup auth state listener (separate method for error recovery)
+  void _setupAuthListener() {
+    _authStateSubscription = _authService.authState.listen(
+      (AuthState authState) async {
+        developer.log(
+          'Auth state changed: ${authState.session?.user.id ?? 'signed out'}',
+          name: 'AuthProvider',
+        );
+        _user = authState.session?.user;
+
+        if (_user != null) {
+          // User is authenticated with Supabase - not in guest mode
+          _isGuestMode = false;
+          await _guestStorage.disableGuestMode();
+          // Load or create user profile
+          await _loadUserProfile();
+        } else if (!_isGuestMode) {
+          // Not authenticated and not in guest mode
+          _userProfile = null;
+        }
+
+        // Always mark as initialized after first auth state
+        if (!_isInitialized) {
+          _isInitialized = true;
+          debugPrint('AuthProvider: Initialization complete');
+        }
+        notifyListeners();
+      },
+      onError: (error) {
+        debugPrint('AuthProvider: Auth state error - $error');
+        // Mark as initialized even on error to prevent infinite loading
+        if (!_isInitialized) {
+          _isInitialized = true;
+        }
+        notifyListeners();
+      },
+    );
   }
 
   /// Check if guest mode was previously enabled
-  void _checkGuestMode() {
-    _isGuestMode = _guestStorage.isGuestMode;
-    if (_isGuestMode) {
-      // Load guest profile
-      _userProfile = _guestStorage.getUserProfile();
-      _isInitialized = true;
-      developer.log(
-        'Guest mode detected - profile loaded',
-        name: 'AuthProvider',
-      );
+  Future<void> _checkGuestMode() async {
+    try {
+      await _guestStorage.initialize();
+      _isGuestMode = _guestStorage.isGuestMode;
+
+      if (_isGuestMode) {
+        // Load guest ID
+        await _getOrCreateGuestId();
+
+        // Load guest profile
+        _userProfile = _guestStorage.getUserProfile();
+        _isInitialized = true;
+        developer.log(
+          'Guest mode detected - profile loaded with ID: $_guestId',
+          name: 'AuthProvider',
+        );
+        notifyListeners();
+      }
+    } catch (e) {
+      developer.log('Error checking guest mode: $e', name: 'AuthProvider');
+      // Continue without guest mode on error
+      _isGuestMode = false;
     }
   }
 
@@ -124,13 +205,17 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await _guestStorage.initialize();
+
+      // Ensure we have a guest ID
+      await _getOrCreateGuestId();
+
       await _guestStorage.enableGuestMode();
       _isGuestMode = true;
 
       // Create a default guest profile
       final now = DateTime.now();
       final guestProfile = UserProfile(
-        userId: 'guest_user',
+        userId: _guestId!,
         displayName: 'Guest Warrior',
         bodyComposition: const BodyComposition(
           weight: 70,
@@ -147,7 +232,10 @@ class AuthProvider extends ChangeNotifier {
       await _guestStorage.saveUserProfile(guestProfile);
       _userProfile = guestProfile;
 
-      developer.log('Guest mode enabled', name: 'AuthProvider');
+      developer.log(
+        'Guest mode enabled with ID: $_guestId',
+        name: 'AuthProvider',
+      );
       _isInitialized = true;
       notifyListeners();
       return true;

@@ -59,11 +59,17 @@ class CompletedExerciseEntry {
   final Exercise exercise;
   final List<SetPerformance> sets;
   final DateTime completedAt;
+  final Map<String, dynamic>?
+  progressiveOverloadData; // New field for tracking progress
+  final List<String>?
+  substitutionOptions; // New field for alternative exercises
 
   const CompletedExerciseEntry({
     required this.exercise,
     required this.sets,
     required this.completedAt,
+    this.progressiveOverloadData,
+    this.substitutionOptions,
   });
 
   Map<String, dynamic> toMap() {
@@ -71,6 +77,8 @@ class CompletedExerciseEntry {
       'exercise_name': exercise.name,
       'sets': sets.map((s) => s.toMap()).toList(),
       'completed_at': completedAt.toIso8601String(),
+      'progressive_overload_data': progressiveOverloadData,
+      'substitution_options': substitutionOptions,
     };
   }
 

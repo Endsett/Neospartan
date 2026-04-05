@@ -119,6 +119,11 @@ class SupabaseDatabaseService {
     try {
       debugPrint('Getting workout sessions');
 
+      if (currentUserId == null) {
+        debugPrint('No authenticated user - returning empty list');
+        return [];
+      }
+
       dynamic query = _supabase
           .from('workout_sessions')
           .select()
@@ -177,6 +182,10 @@ class SupabaseDatabaseService {
         'Saving workout set: ${setData['exercise_name']} Set ${setData['set_number']}',
       );
 
+      if (currentUserId == null) {
+        throw Exception('No authenticated user');
+      }
+
       await _supabase.from('workout_sets').insert({
         ...setData,
         'user_id': currentUserId,
@@ -215,6 +224,10 @@ class SupabaseDatabaseService {
     try {
       debugPrint('Storing AI memory');
 
+      if (currentUserId == null) {
+        throw Exception('No authenticated user');
+      }
+
       await _supabase.from('ai_memories').insert({
         ...memoryData,
         'user_id': currentUserId,
@@ -236,6 +249,11 @@ class SupabaseDatabaseService {
   }) async {
     try {
       debugPrint('Querying AI memories');
+
+      if (currentUserId == null) {
+        debugPrint('No authenticated user - returning empty list');
+        return [];
+      }
 
       dynamic query = _supabase
           .from('ai_memories')
@@ -292,6 +310,11 @@ class SupabaseDatabaseService {
     try {
       debugPrint('Getting weekly progress for week: $weekStart');
 
+      if (currentUserId == null) {
+        debugPrint('No authenticated user - returning null');
+        return null;
+      }
+
       final response = await _supabase
           .from('weekly_progress')
           .select()
@@ -316,6 +339,11 @@ class SupabaseDatabaseService {
     dynamic value,
   }) {
     debugPrint('Subscribing to table: $tableName');
+
+    if (currentUserId == null) {
+      debugPrint('No authenticated user - returning empty stream');
+      return Stream.value([]);
+    }
 
     return _supabase
         .from(tableName)
@@ -387,6 +415,10 @@ class SupabaseDatabaseService {
     try {
       debugPrint('Saving session readiness input');
 
+      if (currentUserId == null) {
+        throw Exception('No authenticated user');
+      }
+
       final response = await _supabase
           .from('session_readiness_inputs')
           .upsert({
@@ -410,6 +442,11 @@ class SupabaseDatabaseService {
     try {
       debugPrint('Getting session readiness input for: $date');
 
+      if (currentUserId == null) {
+        debugPrint('No authenticated user - returning null');
+        return null;
+      }
+
       final response = await _supabase
           .from('session_readiness_inputs')
           .select()
@@ -432,6 +469,11 @@ class SupabaseDatabaseService {
     try {
       debugPrint('Getting recent session readiness inputs');
 
+      if (currentUserId == null) {
+        debugPrint('No authenticated user - returning empty list');
+        return [];
+      }
+
       final startDate = DateTime.now().subtract(Duration(days: days));
 
       final response = await _supabase
@@ -453,6 +495,11 @@ class SupabaseDatabaseService {
     DateTime weekStart,
   ) async {
     try {
+      if (currentUserId == null) {
+        debugPrint('No authenticated user - returning empty list');
+        return [];
+      }
+
       final weekEnd = weekStart.add(const Duration(days: 6));
       final response = await _supabase
           .from('workout_calendar')
@@ -475,6 +522,10 @@ class SupabaseDatabaseService {
     try {
       debugPrint('Saving weekly directive');
 
+      if (currentUserId == null) {
+        throw Exception('No authenticated user');
+      }
+
       final response = await _supabase
           .from('weekly_directives')
           .upsert({
@@ -493,34 +544,21 @@ class SupabaseDatabaseService {
     }
   }
 
-  Future<void> saveWorkoutCalendarEntry({
-    required DateTime date,
-    String? workoutName,
-    bool isRestDay = false,
-  }) async {
-    try {
-      await _supabase.from('workout_calendar').upsert({
-        'user_id': currentUserId,
-        'date': _dateOnly(date),
-        'workout_name': workoutName,
-        'is_rest': isRestDay,
-      }, onConflict: 'user_id,date');
-    } catch (e) {
-      debugPrint('Error saving workout calendar entry: $e');
-      rethrow;
-    }
-  }
-
-  /// Get weekly directive for week
+  /// Get weekly directive
   Future<Map<String, dynamic>?> getWeeklyDirective(DateTime weekStart) async {
     try {
       debugPrint('Getting weekly directive for week: $weekStart');
+
+      if (currentUserId == null) {
+        debugPrint('No authenticated user - returning null');
+        return null;
+      }
 
       final response = await _supabase
           .from('weekly_directives')
           .select()
           .eq('user_id', currentUserId!)
-          .eq('week_starting', weekStart.toIso8601String().split('T')[0])
+          .eq('week_starting', _dateOnly(weekStart))
           .maybeSingle();
 
       debugPrint('Weekly directive retrieved: ${response != null}');
@@ -528,6 +566,28 @@ class SupabaseDatabaseService {
     } catch (e) {
       debugPrint('Error getting weekly directive: $e');
       return null;
+    }
+  }
+
+  Future<void> saveWorkoutCalendarEntry({
+    required DateTime date,
+    String? workoutName,
+    bool isRestDay = false,
+  }) async {
+    try {
+      if (currentUserId == null) {
+        throw Exception('No authenticated user');
+      }
+
+      await _supabase.from('workout_calendar').upsert({
+        'user_id': currentUserId!,
+        'date': _dateOnly(date),
+        'workout_name': workoutName,
+        'is_rest': isRestDay,
+      }, onConflict: 'user_id,date');
+    } catch (e) {
+      debugPrint('Error saving workout calendar entry: $e');
+      rethrow;
     }
   }
 
@@ -544,6 +604,11 @@ class SupabaseDatabaseService {
   }) async {
     try {
       debugPrint('Getting weekly directive history');
+
+      if (currentUserId == null) {
+        debugPrint('No authenticated user - returning empty list');
+        return [];
+      }
 
       final response = await _supabase
           .from('weekly_directives')
@@ -562,6 +627,10 @@ class SupabaseDatabaseService {
 
   Future<void> deleteWorkoutCalendarEntry(DateTime date) async {
     try {
+      if (currentUserId == null) {
+        throw Exception('No authenticated user');
+      }
+
       await _supabase
           .from('workout_calendar')
           .delete()
@@ -578,8 +647,13 @@ class SupabaseDatabaseService {
     Map<String, dynamic> payload,
   ) async {
     try {
+      if (currentUserId == null) {
+        debugPrint('No authenticated user - skipping analytics event');
+        return;
+      }
+
       await _supabase.from('analytics_events').insert({
-        'user_id': currentUserId,
+        'user_id': currentUserId!,
         'event_type': eventType,
         'payload': payload,
         'created_at': DateTime.now().toIso8601String(),

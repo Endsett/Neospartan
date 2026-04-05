@@ -2,7 +2,6 @@ import '../data/combat_exercise_library.dart';
 import '../models/equipment_type.dart';
 import '../models/movement_pattern.dart';
 import '../models/sport_category.dart';
-import '../models/exercise.dart' hide ExerciseCategory;
 
 /// Service for searching and filtering the exercise library
 class ExerciseLibraryService {

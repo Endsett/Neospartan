@@ -18,14 +18,21 @@ dependencies:
   google_fonts: ^6.2.1
   http: ^1.2.0
   image_picker: ^1.0.7
+  json_annotation: ^4.9.0  # For JSON serialization
   provider: ^6.1.5+1
   shared_preferences: ^2.2.3
   uuid: ^4.4.0
+  vibration: ^3.1.8  # For haptic feedback
+  speech_to_text: ^7.3.0  # For voice commands
+  flutter_tts: ^4.0.2  # For text-to-speech feedback
+  url_launcher: ^6.3.0  # For launching YouTube videos
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  build_runner: ^2.4.11  # For code generation
+  json_serializable: ^6.8.0  # For JSON serialization code generation
 
 flutter:
   uses-material-design: true

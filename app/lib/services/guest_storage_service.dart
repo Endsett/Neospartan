@@ -27,6 +27,7 @@ class GuestStorageService {
   static const String _weeklyDirectivesKey = 'guest_weekly_directives';
   static const String _dailyProtocolKey = 'guest_daily_protocol';
   static const String _isGuestModeKey = 'is_guest_mode';
+  static const String _guestIdKey = 'guest_id';
 
   /// Initialize the service
   Future<void> initialize() async {
@@ -55,6 +56,29 @@ class GuestStorageService {
   /// Disable guest mode (when user signs up)
   Future<void> disableGuestMode() async {
     await setGuestMode(false);
+  }
+
+  // ==================== Guest ID Management ====================
+
+  /// Save guest ID
+  Future<void> saveGuestId(String guestId) async {
+    try {
+      await initialize();
+      await _prefs?.setString(_guestIdKey, guestId);
+      developer.log('Guest ID saved: $guestId', name: 'GuestStorage');
+    } catch (e) {
+      developer.log('Error saving guest ID: $e', name: 'GuestStorage');
+    }
+  }
+
+  /// Get guest ID
+  String? getGuestId() {
+    try {
+      return _prefs?.getString(_guestIdKey);
+    } catch (e) {
+      developer.log('Error getting guest ID: $e', name: 'GuestStorage');
+      return null;
+    }
   }
 
   // ==================== User Profile ====================
@@ -127,7 +151,10 @@ class GuestStorageService {
       final key = _getTodayKey(_dailyProtocolKey);
       final json = jsonEncode(protocol.toMap());
       await _prefs?.setString(key, json);
-      await _prefs?.setString('${key}_timestamp', DateTime.now().toIso8601String());
+      await _prefs?.setString(
+        '${key}_timestamp',
+        DateTime.now().toIso8601String(),
+      );
       developer.log('Daily protocol saved for guest', name: 'GuestStorage');
     } catch (e) {
       developer.log('Error saving daily protocol: $e', name: 'GuestStorage');
@@ -199,10 +226,15 @@ class GuestStorageService {
   // ==================== Workout Calendar ====================
 
   /// Save workout calendar entry
-  Future<void> saveWorkoutCalendarEntry(DateTime date, String? workoutName, {bool isRest = false}) async {
+  Future<void> saveWorkoutCalendarEntry(
+    DateTime date,
+    String? workoutName, {
+    bool isRest = false,
+  }) async {
     try {
       await initialize();
-      final key = '${_workoutCalendarKey}_${date.toIso8601String().split('T')[0]}';
+      final key =
+          '${_workoutCalendarKey}_${date.toIso8601String().split('T')[0]}';
       final data = {
         'date': date.toIso8601String(),
         'workout_name': workoutName,
@@ -218,7 +250,8 @@ class GuestStorageService {
   /// Get workout calendar entry for date
   Map<String, dynamic>? getWorkoutCalendarEntry(DateTime date) {
     try {
-      final key = '${_workoutCalendarKey}_${date.toIso8601String().split('T')[0]}';
+      final key =
+          '${_workoutCalendarKey}_${date.toIso8601String().split('T')[0]}';
       final json = _prefs?.getString(key);
       if (json == null) return null;
       return jsonDecode(json) as Map<String, dynamic>;
@@ -228,7 +261,10 @@ class GuestStorageService {
   }
 
   /// Get all calendar entries for a date range
-  List<Map<String, dynamic>> getWorkoutCalendarForRange(DateTime start, DateTime end) {
+  List<Map<String, dynamic>> getWorkoutCalendarForRange(
+    DateTime start,
+    DateTime end,
+  ) {
     final results = <Map<String, dynamic>>[];
     var current = start;
 
@@ -261,7 +297,8 @@ class GuestStorageService {
   /// Get weekly progress for a week
   Map<String, dynamic>? getWeeklyProgress(DateTime weekStart) {
     try {
-      final key = '${_weeklyProgressKey}_${weekStart.toIso8601String().split('T')[0]}';
+      final key =
+          '${_weeklyProgressKey}_${weekStart.toIso8601String().split('T')[0]}';
       final json = _prefs?.getString(key);
       if (json == null) return null;
       return jsonDecode(json) as Map<String, dynamic>;
@@ -277,10 +314,7 @@ class GuestStorageService {
     try {
       await initialize();
       final memories = getCachedMemories();
-      memories.add({
-        ...memory,
-        'created_at': DateTime.now().toIso8601String(),
-      });
+      memories.add({...memory, 'created_at': DateTime.now().toIso8601String()});
       await _prefs?.setString(_aiMemoriesKey, jsonEncode(memories));
     } catch (e) {
       developer.log('Error caching memory: $e', name: 'GuestStorage');
@@ -305,7 +339,8 @@ class GuestStorageService {
   Future<void> saveSessionReadinessInput(Map<String, dynamic> data) async {
     try {
       await initialize();
-      final date = data['session_date'] as String? ??
+      final date =
+          data['session_date'] as String? ??
           DateTime.now().toIso8601String().split('T')[0];
       final key = '${_readinessInputsKey}_$date';
       await _prefs?.setString(key, jsonEncode(data));
@@ -318,7 +353,8 @@ class GuestStorageService {
   /// Get session readiness input for date
   Map<String, dynamic>? getSessionReadinessInput(DateTime date) {
     try {
-      final key = '${_readinessInputsKey}_${date.toIso8601String().split('T')[0]}';
+      final key =
+          '${_readinessInputsKey}_${date.toIso8601String().split('T')[0]}';
       final json = _prefs?.getString(key);
       if (json == null) return null;
       return jsonDecode(json) as Map<String, dynamic>;
@@ -344,7 +380,8 @@ class GuestStorageService {
   /// Get weekly directive for week
   Map<String, dynamic>? getWeeklyDirective(DateTime weekStart) {
     try {
-      final key = '${_weeklyDirectivesKey}_${weekStart.toIso8601String().split('T')[0]}';
+      final key =
+          '${_weeklyDirectivesKey}_${weekStart.toIso8601String().split('T')[0]}';
       final json = _prefs?.getString(key);
       if (json == null) return null;
       return jsonDecode(json) as Map<String, dynamic>;
@@ -440,10 +477,14 @@ class GuestStorageService {
   Future<void> clearAllData() async {
     try {
       final allKeys = _prefs?.getKeys() ?? {};
-      final keysToRemove = allKeys.where((key) =>
-          key.startsWith('guest_') ||
-          key.startsWith(_dailyProtocolKey) ||
-          key == _isGuestModeKey).toList();
+      final keysToRemove = allKeys
+          .where(
+            (key) =>
+                key.startsWith('guest_') ||
+                key.startsWith(_dailyProtocolKey) ||
+                key == _isGuestModeKey,
+          )
+          .toList();
 
       for (final key in keysToRemove) {
         await _prefs?.remove(key);
@@ -452,6 +493,159 @@ class GuestStorageService {
       developer.log('All guest data cleared', name: 'GuestStorage');
     } catch (e) {
       developer.log('Error clearing guest data: $e', name: 'GuestStorage');
+    }
+  }
+
+  // ==================== AI Memories ====================
+
+  /// Save AI memories
+  Future<void> saveAIMemories(List<Map<String, dynamic>> memories) async {
+    try {
+      await initialize();
+      final json = jsonEncode(memories);
+      await _prefs?.setString(_aiMemoriesKey, json);
+      developer.log('AI memories saved', name: 'GuestStorage');
+    } catch (e) {
+      developer.log('Error saving AI memories: $e', name: 'GuestStorage');
+    }
+  }
+
+  /// Get AI memories
+  List<Map<String, dynamic>>? getAIMemories() {
+    try {
+      final json = _prefs?.getString(_aiMemoriesKey);
+      if (json == null) return null;
+
+      final List<dynamic> decoded = jsonDecode(json);
+      return decoded.cast<Map<String, dynamic>>();
+    } catch (e) {
+      developer.log('Error loading AI memories: $e', name: 'GuestStorage');
+      return null;
+    }
+  }
+
+  // ==================== Workout Sessions ====================
+
+  /// Save workout sessions
+  Future<void> saveWorkoutSessions(List<Map<String, dynamic>> sessions) async {
+    try {
+      await initialize();
+      final json = jsonEncode(sessions);
+      await _prefs?.setString(_workoutsKey, json);
+      developer.log('Workout sessions saved', name: 'GuestStorage');
+    } catch (e) {
+      developer.log('Error saving workout sessions: $e', name: 'GuestStorage');
+    }
+  }
+
+  /// Get workout sessions
+  List<Map<String, dynamic>>? getWorkoutSessions() {
+    try {
+      final json = _prefs?.getString(_workoutsKey);
+      if (json == null) return null;
+
+      final List<dynamic> decoded = jsonDecode(json);
+      return decoded.cast<Map<String, dynamic>>();
+    } catch (e) {
+      developer.log('Error loading workout sessions: $e', name: 'GuestStorage');
+      return null;
+    }
+  }
+
+  // ==================== Session Readiness Inputs ====================
+
+  /// Save session readiness inputs
+  Future<void> saveSessionReadinessInputs(
+    List<Map<String, dynamic>> inputs,
+  ) async {
+    try {
+      await initialize();
+      final json = jsonEncode(inputs);
+      await _prefs?.setString(_readinessInputsKey, json);
+      developer.log('Session readiness inputs saved', name: 'GuestStorage');
+    } catch (e) {
+      developer.log(
+        'Error saving session readiness inputs: $e',
+        name: 'GuestStorage',
+      );
+    }
+  }
+
+  /// Get session readiness inputs
+  List<Map<String, dynamic>>? getSessionReadinessInputs() {
+    try {
+      final json = _prefs?.getString(_readinessInputsKey);
+      if (json == null) return null;
+
+      final List<dynamic> decoded = jsonDecode(json);
+      return decoded.cast<Map<String, dynamic>>();
+    } catch (e) {
+      developer.log(
+        'Error loading session readiness inputs: $e',
+        name: 'GuestStorage',
+      );
+      return null;
+    }
+  }
+
+  // ==================== Weekly Directives ====================
+
+  /// Save weekly directives
+  Future<void> saveWeeklyDirectives(
+    List<Map<String, dynamic>> directives,
+  ) async {
+    try {
+      await initialize();
+      final json = jsonEncode(directives);
+      await _prefs?.setString(_weeklyDirectivesKey, json);
+      developer.log('Weekly directives saved', name: 'GuestStorage');
+    } catch (e) {
+      developer.log('Error saving weekly directives: $e', name: 'GuestStorage');
+    }
+  }
+
+  /// Get weekly directives
+  List<Map<String, dynamic>>? getWeeklyDirectives() {
+    try {
+      final json = _prefs?.getString(_weeklyDirectivesKey);
+      if (json == null) return null;
+
+      final List<dynamic> decoded = jsonDecode(json);
+      return decoded.cast<Map<String, dynamic>>();
+    } catch (e) {
+      developer.log(
+        'Error loading weekly directives: $e',
+        name: 'GuestStorage',
+      );
+      return null;
+    }
+  }
+
+  // ==================== Workout Calendar ====================
+
+  /// Get workout calendar entries for a week
+  Future<List<Map<String, dynamic>>> getWorkoutCalendarEntries(
+    DateTime weekStart,
+  ) async {
+    try {
+      await initialize();
+      final entries = <Map<String, dynamic>>[];
+
+      for (int i = 0; i < 7; i++) {
+        final date = weekStart.add(Duration(days: i));
+        final entry = getWorkoutCalendarEntry(date);
+        if (entry != null) {
+          entries.add(entry);
+        }
+      }
+
+      return entries;
+    } catch (e) {
+      developer.log(
+        'Error getting workout calendar entries: $e',
+        name: 'GuestStorage',
+      );
+      return [];
     }
   }
 

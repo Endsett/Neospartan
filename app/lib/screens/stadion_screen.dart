@@ -5,6 +5,7 @@ import '../models/user_profile.dart';
 import '../providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../models/exercise.dart';
+import 'start_workout_screen.dart';
 
 /// Stadion Screen - Professional Fitness Trainer Dashboard
 /// Displays today's AI-generated workout with full exercise details
@@ -50,18 +51,9 @@ class _StadionScreenState extends State<StadionScreen> {
   }
 
   void _startWorkout() {
-    if (_todayWorkout == null) return;
-
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => WorkoutExecutionScreen(
-          workout: _todayWorkout!,
-          onComplete: () {
-            _loadTodaysWorkout();
-          },
-        ),
-      ),
+      MaterialPageRoute(builder: (context) => const StartWorkoutScreen()),
     );
   }
 
