@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
@@ -8,6 +9,8 @@ import '../services/tactical_retreat_service.dart';
 import '../services/state_persistence_service.dart';
 import '../services/ai_plan_service.dart';
 import '../services/dom_rl_engine_v2.dart';
+import '../repositories/session_readiness_repository.dart';
+import '../repositories/weekly_directive_repository.dart';
 import '../models/workout_protocol.dart';
 import '../models/user_profile.dart';
 import '../models/session_readiness_input.dart';
@@ -31,6 +34,10 @@ class _AgogeScreenState extends State<AgogeScreen> {
   final StatePersistenceService _persistence = StatePersistenceService();
   final AIPlanService _aiPlanService = AIPlanService();
   final DomRlEngineV2 _domRlEngineV2 = DomRlEngineV2();
+  final SessionReadinessRepository _readinessRepository =
+      SessionReadinessRepository();
+  final WeeklyDirectiveRepository _weeklyDirectiveRepository =
+      WeeklyDirectiveRepository();
 
   WorkoutProtocol? _protocol;
   int _readinessScore = 0;
@@ -53,7 +60,32 @@ class _AgogeScreenState extends State<AgogeScreen> {
   @override
   void initState() {
     super.initState();
+    _loadPersistedData();
     _loadProtocol();
+  }
+
+  /// Load persisted readiness input and weekly directive from Supabase
+  Future<void> _loadPersistedData() async {
+    try {
+      // Load today's readiness input if exists
+      final todayInput = await _readinessRepository.getTodayReadinessInput();
+      if (todayInput != null && mounted) {
+        setState(() {
+          _sessionReadinessInput = todayInput;
+        });
+      }
+
+      // Load current weekly directive if exists
+      final currentDirective = await _weeklyDirectiveRepository
+          .getCurrentWeeklyDirective();
+      if (currentDirective != null && mounted) {
+        setState(() {
+          _weeklyDirective = currentDirective;
+        });
+      }
+    } catch (e) {
+      developer.log('Error loading persisted data: $e', name: 'AgogeScreen');
+    }
   }
 
   Widget _buildSessionReadinessQuestionnaire() {
@@ -105,6 +137,15 @@ class _AgogeScreenState extends State<AgogeScreen> {
               onPressed: _protocol == null
                   ? null
                   : () async {
+                      // Persist the questionnaire input first
+                      final adjustedReadiness = _sessionReadinessInput
+                          .applyToReadiness(_readinessScore);
+                      await _readinessRepository.saveSessionReadinessInput(
+                        'local_user',
+                        _sessionReadinessInput,
+                        baselineReadiness: _readinessScore,
+                        adjustedReadiness: adjustedReadiness,
+                      );
                       await _loadStructuredRecommendation(_protocol!);
                       await _loadAdaptiveWeeklyDirective();
                     },
@@ -316,6 +357,12 @@ class _AgogeScreenState extends State<AgogeScreen> {
       final directive = await _domRlEngineV2.generateAdaptiveWeeklyDirective(
         userId: 'local_user',
         weeklyProgress: weeklyProgress,
+      );
+
+      // Persist the weekly directive to Supabase
+      await _weeklyDirectiveRepository.saveWeeklyDirective(
+        'local_user',
+        directive,
       );
 
       if (mounted) {

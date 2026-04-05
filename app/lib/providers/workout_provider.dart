@@ -64,7 +64,7 @@ class WorkoutProvider with ChangeNotifier {
         'readiness_score': readinessScore,
         'status': 'in_progress',
       });
-      _currentSessionId = sessionData['id'];
+      _currentSessionId = sessionData;
     } catch (e) {
       debugPrint('Error creating workout session: $e');
     }

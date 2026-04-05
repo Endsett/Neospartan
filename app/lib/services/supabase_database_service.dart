@@ -341,4 +341,147 @@ class SupabaseDatabaseService {
       rethrow;
     }
   }
+
+  // ==================== Session Readiness Inputs ====================
+
+  /// Save session readiness input
+  Future<String> saveSessionReadinessInput(Map<String, dynamic> data) async {
+    try {
+      debugPrint('Saving session readiness input');
+
+      final response = await _supabase
+          .from('session_readiness_inputs')
+          .upsert({
+            ...data,
+            'user_id': currentUserId,
+            'updated_at': DateTime.now().toIso8601String(),
+          }, onConflict: 'user_id,session_date')
+          .select('id')
+          .single();
+
+      debugPrint('Session readiness input saved: ${response['id']}');
+      return response['id'];
+    } catch (e) {
+      debugPrint('Error saving session readiness input: $e');
+      rethrow;
+    }
+  }
+
+  /// Get session readiness input for date
+  Future<Map<String, dynamic>?> getSessionReadinessInput(DateTime date) async {
+    try {
+      debugPrint('Getting session readiness input for: $date');
+
+      final response = await _supabase
+          .from('session_readiness_inputs')
+          .select()
+          .eq('user_id', currentUserId!)
+          .eq('session_date', date.toIso8601String().split('T')[0])
+          .maybeSingle();
+
+      debugPrint('Session readiness input retrieved: ${response != null}');
+      return response;
+    } catch (e) {
+      debugPrint('Error getting session readiness input: $e');
+      return null;
+    }
+  }
+
+  /// Get recent session readiness inputs
+  Future<List<Map<String, dynamic>>> getRecentSessionReadinessInputs({
+    int days = 7,
+  }) async {
+    try {
+      debugPrint('Getting recent session readiness inputs');
+
+      final startDate = DateTime.now().subtract(Duration(days: days));
+
+      final response = await _supabase
+          .from('session_readiness_inputs')
+          .select()
+          .eq('user_id', currentUserId!)
+          .gte('session_date', startDate.toIso8601String().split('T')[0])
+          .order('session_date', ascending: false);
+
+      debugPrint('Retrieved ${response.length} session readiness inputs');
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting recent session readiness inputs: $e');
+      return [];
+    }
+  }
+
+  // ==================== Weekly Directives ====================
+
+  /// Save weekly directive
+  Future<String> saveWeeklyDirective(Map<String, dynamic> data) async {
+    try {
+      debugPrint('Saving weekly directive');
+
+      final response = await _supabase
+          .from('weekly_directives')
+          .upsert({
+            ...data,
+            'user_id': currentUserId,
+            'updated_at': DateTime.now().toIso8601String(),
+          }, onConflict: 'user_id,week_starting')
+          .select('id')
+          .single();
+
+      debugPrint('Weekly directive saved: ${response['id']}');
+      return response['id'];
+    } catch (e) {
+      debugPrint('Error saving weekly directive: $e');
+      rethrow;
+    }
+  }
+
+  /// Get weekly directive for week
+  Future<Map<String, dynamic>?> getWeeklyDirective(DateTime weekStart) async {
+    try {
+      debugPrint('Getting weekly directive for week: $weekStart');
+
+      final response = await _supabase
+          .from('weekly_directives')
+          .select()
+          .eq('user_id', currentUserId!)
+          .eq('week_starting', weekStart.toIso8601String().split('T')[0])
+          .maybeSingle();
+
+      debugPrint('Weekly directive retrieved: ${response != null}');
+      return response;
+    } catch (e) {
+      debugPrint('Error getting weekly directive: $e');
+      return null;
+    }
+  }
+
+  /// Get current weekly directive (for current week)
+  Future<Map<String, dynamic>?> getCurrentWeeklyDirective() async {
+    final now = DateTime.now();
+    final weekStart = now.subtract(Duration(days: now.weekday - 1));
+    return getWeeklyDirective(weekStart);
+  }
+
+  /// Get weekly directive history
+  Future<List<Map<String, dynamic>>> getWeeklyDirectiveHistory({
+    int limit = 12,
+  }) async {
+    try {
+      debugPrint('Getting weekly directive history');
+
+      final response = await _supabase
+          .from('weekly_directives')
+          .select()
+          .eq('user_id', currentUserId!)
+          .order('week_starting', ascending: false)
+          .limit(limit);
+
+      debugPrint('Retrieved ${response.length} weekly directives');
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting weekly directive history: $e');
+      return [];
+    }
+  }
 }
