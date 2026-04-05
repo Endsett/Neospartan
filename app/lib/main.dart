@@ -208,10 +208,12 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
+    final isGuest = !context.watch<AuthProvider>().isAuthenticated;
+
     return Scaffold(
       body: Column(
         children: [
-          const GuestModeBanner(),
+          if (isGuest) const GuestModeBanner(),
           Expanded(child: _screens[_currentIndex]),
         ],
       ),

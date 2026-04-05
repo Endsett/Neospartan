@@ -36,6 +36,27 @@ CREATE TABLE IF NOT EXISTS workout_sessions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Workout Calendar Table
+CREATE TABLE IF NOT EXISTS workout_calendar (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  workout_name TEXT,
+  is_rest BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE (user_id, date)
+);
+
+-- Analytics Events Table
+CREATE TABLE IF NOT EXISTS analytics_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  payload JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Workout Sets Table
 CREATE TABLE IF NOT EXISTS workout_sets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -88,6 +109,8 @@ ALTER TABLE workout_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workout_sets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_memories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE weekly_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workout_calendar ENABLE ROW LEVEL SECURITY;
+ALTER TABLE analytics_events ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for User Profiles
 DROP POLICY IF EXISTS "Users can view own profile" ON user_profiles;
@@ -147,12 +170,26 @@ CREATE POLICY "Users can insert own progress" ON weekly_progress FOR INSERT WITH
 CREATE POLICY "Users can update own progress" ON weekly_progress FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own progress" ON weekly_progress FOR DELETE USING (auth.uid() = user_id);
 
+-- RLS Policies for Workout Calendar
+CREATE POLICY "Users can view own calendar" ON workout_calendar FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own calendar" ON workout_calendar FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own calendar" ON workout_calendar FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own calendar" ON workout_calendar FOR DELETE USING (auth.uid() = user_id);
+
+-- RLS Policies for Analytics Events
+CREATE POLICY "Users can view own analytics events" ON analytics_events FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own analytics events" ON analytics_events FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own analytics events" ON analytics_events FOR DELETE USING (auth.uid() = user_id);
+
 -- Create Indexes for Better Performance
 CREATE INDEX IF NOT EXISTS idx_workout_sessions_user_date ON workout_sessions(user_id, date DESC);
 CREATE INDEX IF NOT EXISTS idx_workout_sets_session ON workout_sets(session_id);
 CREATE INDEX IF NOT EXISTS idx_ai_memories_user_type ON ai_memories(user_id, type);
 CREATE INDEX IF NOT EXISTS idx_ai_memories_created ON ai_memories(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_weekly_progress_user_week ON weekly_progress(user_id, week_starting DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_weekly_progress_user_week_unique ON weekly_progress(user_id, week_starting);
+CREATE INDEX IF NOT EXISTS idx_workout_calendar_user_date ON workout_calendar(user_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_user_created ON analytics_events(user_id, created_at DESC);
 
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

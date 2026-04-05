@@ -36,8 +36,32 @@ class AuthProvider extends ChangeNotifier {
     _init();
   }
 
+  Future<bool> saveOnboardingProfile(UserProfile profile) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final ok = await _userRepository.saveUserProfile(profile);
+      if (!ok) {
+        _setError('Failed to save onboarding profile');
+        return false;
+      }
+
+      _userProfile = profile;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   /// Initialize auth state listener
   void _init() {
+    _bootstrapCurrentUser();
+
     _authStateSubscription = _authService.authState.listen((
       AuthState authState,
     ) async {
@@ -59,12 +83,49 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  Future<void> _bootstrapCurrentUser() async {
+    try {
+      _user = _authService.currentUser;
+      if (_user != null) {
+        await _loadUserProfile();
+      } else {
+        _userProfile = null;
+      }
+    } catch (e) {
+      developer.log('Error bootstrapping auth state: $e', name: 'AuthProvider');
+    } finally {
+      _isInitialized = true;
+      notifyListeners();
+    }
+  }
+
   /// Load user profile from repository
   Future<void> _loadUserProfile() async {
     if (_user == null) return;
 
     try {
       _userProfile = await _userRepository.getUserProfile(_user!.id);
+
+      if (_userProfile == null) {
+        final now = DateTime.now();
+        final bootstrapProfile = UserProfile(
+          userId: _user!.id,
+          displayName: _user?.userMetadata?['display_name'] ?? _user?.email,
+          photoUrl: _user?.userMetadata?['photo_url'],
+          bodyComposition: const BodyComposition(weight: 0, height: 0, age: 0),
+          fitnessLevel: FitnessLevel.beginner,
+          trainingGoal: TrainingGoal.generalCombat,
+          createdAt: now,
+          updatedAt: now,
+          hasCompletedOnboarding: false,
+        );
+
+        final created = await _userRepository.saveUserProfile(bootstrapProfile);
+        if (created) {
+          _userProfile = bootstrapProfile;
+        }
+      }
+
       notifyListeners();
     } catch (e) {
       developer.log('Error loading user profile: $e', name: 'AuthProvider');

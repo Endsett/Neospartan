@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../models/user_profile.dart';
+import '../providers/auth_provider.dart';
 import '../services/ai_plan_service.dart';
 
 /// Multi-step onboarding screen for first-time users
@@ -52,9 +54,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     });
 
     try {
+      final authProvider = context.read<AuthProvider>();
+      final userId = authProvider.userId;
+
+      if (userId == null) {
+        throw Exception('You must be logged in to complete onboarding.');
+      }
+
       // Create user profile
       final profile = UserProfile(
-        userId: 'anonymous',
+        userId: userId,
         displayName: _nameController.text.isNotEmpty
             ? _nameController.text
             : null,
@@ -76,8 +85,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         hasCompletedOnboarding: true,
       );
 
-      // Save profile to Firebase
-      // await _firebase.saveUserProfile(profile); // TODO: Implement with Supabase
+      final saved = await authProvider.saveOnboardingProfile(profile);
+      if (!saved) {
+        throw Exception(authProvider.error ?? 'Failed to save profile');
+      }
 
       // Generate AI training plan
       await _aiService.generateInitialTrainingPlan(profile);

@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/workout_tracking.dart';
+import '../models/workout_protocol.dart';
 import '../services/ai_plan_service.dart';
+import '../services/agoge_service.dart';
+import '../services/supabase_database_service.dart';
 import '../providers/auth_provider.dart';
+import '../providers/workout_provider.dart';
 import '../models/user_profile.dart';
+import 'pre_battle_primer_screen.dart';
+import 'workout_session_screen.dart';
 import 'package:provider/provider.dart';
 import '../widgets/weekly_calendar.dart';
 
@@ -17,6 +23,7 @@ class WeeklyScheduleScreen extends StatefulWidget {
 
 class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
   // final _firebase = FirebaseSyncService(); // Removed
+  final SupabaseDatabaseService _database = SupabaseDatabaseService();
   DateTime _currentWeekStart = _getWeekStart(DateTime.now());
   List<CalendarDay> _weekDays = [];
   List<CompletedWorkout> _workouts = [];
@@ -42,16 +49,65 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
     });
 
     try {
-      // Load workouts for the week
-      // TODO: Implement with Supabase
-      final workouts = <CompletedWorkout>[];
-      final scheduled = <Map<String, dynamic>>{};
+      final sessions = await _database.getWorkoutSessions(
+        startDate: _currentWeekStart,
+        endDate: _currentWeekStart.add(const Duration(days: 6)),
+        limit: 100,
+      );
+      final workouts = sessions.map((session) {
+        final start =
+            DateTime.tryParse(session['start_time']?.toString() ?? '') ??
+            DateTime.tryParse(session['date']?.toString() ?? '') ??
+            DateTime.now();
+        final end =
+            DateTime.tryParse(session['end_time']?.toString() ?? '') ?? start;
+
+        return CompletedWorkout(
+          id: session['id']?.toString() ?? '',
+          protocolTitle: session['workout_type']?.toString() ?? 'Workout',
+          exercises: const [],
+          startTime: start,
+          endTime: end,
+          totalDurationMinutes: end.difference(start).inMinutes.clamp(0, 600),
+          readinessScoreAtStart: 70,
+        );
+      }).toList();
+
+      final calendarEntries = await _database.getWorkoutCalendarForWeek(
+        _currentWeekStart,
+      );
+      final scheduled = <String, dynamic>{
+        for (final row in calendarEntries) row['date']?.toString() ?? '': row,
+      };
 
       // Build calendar days
-      final days = _buildCalendarDays(
-        workouts,
-        scheduled as Map<String, dynamic>,
+      final days = _buildCalendarDays(workouts, scheduled);
+
+      final completedCount = days
+          .where(
+            (d) =>
+                d.status == DayStatus.completed ||
+                d.status == DayStatus.partial,
+          )
+          .length;
+      final plannedCount = days
+          .where((d) => d.status != DayStatus.empty)
+          .length;
+      final totalVolume = days.fold<double>(
+        0,
+        (sum, d) => sum + (d.totalVolume ?? 0),
       );
+
+      try {
+        await _database.saveWeeklyProgress({
+          'week_starting': _currentWeekStart.toIso8601String(),
+          'workouts_completed': completedCount,
+          'total_planned_workouts': plannedCount,
+          'average_rpe': 0.0,
+          'total_volume': totalVolume,
+          'average_readiness': 70,
+        });
+      } catch (_) {}
 
       setState(() {
         _workouts = workouts;
@@ -112,9 +168,11 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                 return setSum + ((s.loadUsed ?? 0) * (s.repsPerformed ?? 0));
               });
         });
+      } else if (scheduledData?['is_rest'] == true) {
+        status = DayStatus.rest;
       } else if (scheduledData != null) {
         // Scheduled for future
-        if (date.isAfter(DateTime.now())) {
+        if (date.isAfter(DateTime.now()) || _isSameDay(date, DateTime.now())) {
           status = DayStatus.scheduled;
           workoutName = scheduledData['workout_name'];
         } else {
@@ -122,8 +180,6 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
           status = DayStatus.missed;
           workoutName = scheduledData['workout_name'];
         }
-      } else if (scheduledData?['is_rest'] == true) {
-        status = DayStatus.rest;
       } else {
         status = DayStatus.empty;
       }
@@ -397,27 +453,166 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
   }
 
   void _showDayContextMenu(CalendarDay day) {
-    // Implementation for long-press menu
+    _showScheduleOptions(day);
   }
 
   void _startScheduledWorkout(CalendarDay day) {
-    // Navigate to workout session - TODO: Load scheduled protocol and start
+    final protocol = _resolveScheduledProtocol(day.workoutName);
+    final readinessScore = _inferReadinessFromProtocol(protocol);
+    final workoutProvider = context.read<WorkoutProvider>();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PreBattlePrimerScreen(
+          onAcknowledged: () {
+            workoutProvider.startWorkout(protocol, readinessScore);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const WorkoutSessionScreen(),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  WorkoutProtocol _resolveScheduledProtocol(String? workoutName) {
+    final agogeService = AgogeService();
+    final normalized = (workoutName ?? '').trim().toLowerCase();
+
+    if (normalized.contains('spartan charge')) {
+      return agogeService.generateProtocol(90);
+    }
+    if (normalized.contains('phalanx')) {
+      return agogeService.generateProtocol(70);
+    }
+    if (normalized.contains('garrison')) {
+      return agogeService.generateProtocol(50);
+    }
+    if (normalized.contains('stoic restoration') ||
+        normalized.contains('recovery')) {
+      return agogeService.generateProtocol(20);
+    }
+
+    final fallback = agogeService.generateProtocol(70);
+    if ((workoutName ?? '').trim().isEmpty) {
+      return fallback;
+    }
+
+    return WorkoutProtocol(
+      title: workoutName!.trim(),
+      subtitle: fallback.subtitle,
+      tier: fallback.tier,
+      entries: fallback.entries,
+      estimatedDurationMinutes: fallback.estimatedDurationMinutes,
+      mindsetPrompt: fallback.mindsetPrompt,
+    );
+  }
+
+  int _inferReadinessFromProtocol(WorkoutProtocol protocol) {
+    switch (protocol.tier) {
+      case ProtocolTier.elite:
+        return 90;
+      case ProtocolTier.ready:
+        return 75;
+      case ProtocolTier.fatigued:
+        return 50;
+      case ProtocolTier.recovery:
+        return 30;
+    }
   }
 
   void _scheduleWorkout(CalendarDay day) {
-    // Show workout selection dialog
+    final controller = TextEditingController(
+      text: day.workoutName ?? 'Training Session',
+    );
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Schedule Workout'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: 'Workout name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              try {
+                await _database.saveWorkoutCalendarEntry(
+                  date: day.date,
+                  workoutName: controller.text.trim().isEmpty
+                      ? 'Training Session'
+                      : controller.text.trim(),
+                  isRestDay: false,
+                );
+                if (!mounted) return;
+                navigator.pop();
+                _loadWeekData();
+              } catch (e) {
+                if (!mounted) return;
+                _showOperationError('Could not schedule workout: $e');
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _rescheduleWorkout(CalendarDay day) {
-    // Show date picker and reschedule
+    showDatePicker(
+      context: context,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 90)),
+      initialDate: day.date,
+    ).then((newDate) async {
+      if (newDate == null) return;
+
+      try {
+        await _database.deleteWorkoutCalendarEntry(day.date);
+        await _database.saveWorkoutCalendarEntry(
+          date: newDate,
+          workoutName: day.workoutName ?? 'Training Session',
+          isRestDay: false,
+        );
+        if (!mounted) return;
+        _currentWeekStart = _getWeekStart(newDate);
+        _loadWeekData();
+      } catch (e) {
+        if (!mounted) return;
+        _showOperationError('Could not reschedule workout: $e');
+      }
+    });
   }
 
   void _cancelScheduledWorkout(CalendarDay day) {
-    // Remove from schedule
+    _database
+        .deleteWorkoutCalendarEntry(day.date)
+        .then((_) => _loadWeekData())
+        .catchError((e) => _showOperationError('Could not cancel workout: $e'));
   }
 
   void _markRestDay(CalendarDay day) {
-    // Mark as rest day
+    _database
+        .saveWorkoutCalendarEntry(date: day.date, isRestDay: true)
+        .then((_) => _loadWeekData())
+        .catchError((e) => _showOperationError('Could not mark rest day: $e'));
+  }
+
+  void _showOperationError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
   }
 
   Widget _buildDetailChip(IconData icon, String text) {
@@ -484,7 +679,7 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
             ),
             const SizedBox(height: 20),
             DropdownButtonFormField<TrainingGoal>(
-              value: TrainingGoal.generalCombat,
+              initialValue: TrainingGoal.generalCombat,
               decoration: const InputDecoration(
                 labelText: 'Training Goal',
                 labelStyle: TextStyle(color: Colors.grey),
@@ -503,7 +698,7 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<ExperienceLevel>(
-              value: profile.experienceLevel ?? ExperienceLevel.novice,
+              initialValue: profile.experienceLevel ?? ExperienceLevel.novice,
               decoration: const InputDecoration(
                 labelText: 'Experience Level',
                 labelStyle: TextStyle(color: Colors.grey),
@@ -522,7 +717,7 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<int>(
-              value: 4,
+              initialValue: 4,
               decoration: const InputDecoration(
                 labelText: 'Training Days per Week',
                 labelStyle: TextStyle(color: Colors.grey),
@@ -611,7 +806,9 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
       // Generate AI-powered training plan
       final weeklyPlan = await aiService.generateInitialTrainingPlan(profile);
 
-      Navigator.pop(context); // Close loading dialog
+      if (!mounted) return;
+
+      Navigator.of(context).pop(); // Close loading dialog
 
       showDialog(
         context: context,
@@ -642,7 +839,8 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
         ),
       );
     } catch (e) {
-      Navigator.pop(context); // Close loading dialog
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close loading dialog
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error generating plan: $e'),

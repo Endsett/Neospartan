@@ -65,15 +65,42 @@ class SupabaseDatabaseService {
     try {
       debugPrint('Saving workout session');
 
-      final response = await _supabase
-          .from('workout_sessions')
-          .insert({
-            ...data,
-            'user_id': currentUserId,
-            'created_at': DateTime.now().toIso8601String(),
-          })
-          .select('id')
-          .single();
+      if (currentUserId == null) {
+        throw Exception('No authenticated user');
+      }
+
+      final payload = {...data, 'user_id': currentUserId};
+
+      if (payload['start_time'] == null) {
+        payload['start_time'] = DateTime.now().toIso8601String();
+      }
+
+      if (payload['date'] == null && payload['start_time'] != null) {
+        final parsed = DateTime.tryParse(payload['start_time'].toString());
+        if (parsed != null) {
+          payload['date'] = _dateOnly(parsed);
+        }
+      } else if (payload['date'] != null) {
+        final parsedDate = DateTime.tryParse(payload['date'].toString());
+        if (parsedDate != null) {
+          payload['date'] = _dateOnly(parsedDate);
+        }
+      }
+
+      final response = payload['id'] != null
+          ? await _supabase
+                .from('workout_sessions')
+                .upsert(payload, onConflict: 'id')
+                .select('id')
+                .single()
+          : await _supabase
+                .from('workout_sessions')
+                .insert({
+                  ...payload,
+                  'created_at': DateTime.now().toIso8601String(),
+                })
+                .select('id')
+                .single();
 
       debugPrint('Workout session saved: ${response['id']}');
       return response['id'];
@@ -98,10 +125,10 @@ class SupabaseDatabaseService {
           .eq('user_id', currentUserId!);
 
       if (startDate != null) {
-        query = query.filter('date', 'gte', startDate.toIso8601String());
+        query = query.gte('date', _dateOnly(startDate));
       }
       if (endDate != null) {
-        query = query.filter('date', 'lte', endDate.toIso8601String());
+        query = query.lte('date', _dateOnly(endDate));
       }
 
       query = query.order('date', ascending: false).limit(limit);
@@ -152,6 +179,7 @@ class SupabaseDatabaseService {
 
       await _supabase.from('workout_sets').insert({
         ...setData,
+        'user_id': currentUserId,
         'created_at': DateTime.now().toIso8601String(),
       });
       debugPrint('Workout set saved successfully');
@@ -236,11 +264,21 @@ class SupabaseDatabaseService {
     try {
       debugPrint('Saving weekly progress');
 
+      if (currentUserId == null) {
+        throw Exception('No authenticated user');
+      }
+
+      final rawWeekStart = progressData['week_starting'];
+      final weekStartDate = rawWeekStart is DateTime
+          ? rawWeekStart
+          : DateTime.tryParse(rawWeekStart?.toString() ?? '');
+
       await _supabase.from('weekly_progress').upsert({
         ...progressData,
         'user_id': currentUserId,
+        'week_starting': _dateOnly(weekStartDate ?? DateTime.now()),
         'created_at': DateTime.now().toIso8601String(),
-      });
+      }, onConflict: 'user_id,week_starting');
 
       debugPrint('Weekly progress saved successfully');
     } catch (e) {
@@ -258,7 +296,7 @@ class SupabaseDatabaseService {
           .from('weekly_progress')
           .select()
           .eq('user_id', currentUserId!)
-          .eq('week_starting', weekStart.toIso8601String())
+          .eq('week_starting', _dateOnly(weekStart))
           .maybeSingle();
 
       debugPrint('Weekly progress retrieved: ${response != null}');
@@ -342,6 +380,7 @@ class SupabaseDatabaseService {
     }
   }
 
+<<<<<<< HEAD
   // ==================== Session Readiness Inputs ====================
 
   /// Save session readiness input
@@ -411,6 +450,25 @@ class SupabaseDatabaseService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getWorkoutCalendarForWeek(
+    DateTime weekStart,
+  ) async {
+    try {
+      final weekEnd = weekStart.add(const Duration(days: 6));
+      final response = await _supabase
+          .from('workout_calendar')
+          .select()
+          .eq('user_id', currentUserId!)
+          .gte('date', _dateOnly(weekStart))
+          .lte('date', _dateOnly(weekEnd));
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting workout calendar for week: $e');
+      return [];
+    }
+  }
+
   // ==================== Weekly Directives ====================
 
   /// Save weekly directive
@@ -432,6 +490,24 @@ class SupabaseDatabaseService {
       return response['id'];
     } catch (e) {
       debugPrint('Error saving weekly directive: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> saveWorkoutCalendarEntry({
+    required DateTime date,
+    String? workoutName,
+    bool isRestDay = false,
+  }) async {
+    try {
+      await _supabase.from('workout_calendar').upsert({
+        'user_id': currentUserId,
+        'date': _dateOnly(date),
+        'workout_name': workoutName,
+        'is_rest': isRestDay,
+      }, onConflict: 'user_id,date');
+    } catch (e) {
+      debugPrint('Error saving workout calendar entry: $e');
       rethrow;
     }
   }
@@ -483,5 +559,38 @@ class SupabaseDatabaseService {
       debugPrint('Error getting weekly directive history: $e');
       return [];
     }
+  }
+
+  Future<void> deleteWorkoutCalendarEntry(DateTime date) async {
+    try {
+      await _supabase
+          .from('workout_calendar')
+          .delete()
+          .eq('user_id', currentUserId!)
+          .eq('date', _dateOnly(date));
+    } catch (e) {
+      debugPrint('Error deleting workout calendar entry: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> saveAnalyticsEvent(
+    String eventType,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      await _supabase.from('analytics_events').insert({
+        'user_id': currentUserId,
+        'event_type': eventType,
+        'payload': payload,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('Error saving analytics event: $e');
+    }
+  }
+
+  String _dateOnly(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
