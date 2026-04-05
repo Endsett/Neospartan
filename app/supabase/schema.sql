@@ -113,18 +113,30 @@ ALTER TABLE workout_calendar ENABLE ROW LEVEL SECURITY;
 ALTER TABLE analytics_events ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for User Profiles
+DROP POLICY IF EXISTS "Users can view own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Users can insert own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Users can delete own profile" ON user_profiles;
 CREATE POLICY "Users can view own profile" ON user_profiles FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Users can update own profile" ON user_profiles FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "Users can insert own profile" ON user_profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users can delete own profile" ON user_profiles FOR DELETE USING (auth.uid() = id);
 
 -- RLS Policies for Workout Sessions
+DROP POLICY IF EXISTS "Users can view own sessions" ON workout_sessions;
+DROP POLICY IF EXISTS "Users can insert own sessions" ON workout_sessions;
+DROP POLICY IF EXISTS "Users can update own sessions" ON workout_sessions;
+DROP POLICY IF EXISTS "Users can delete own sessions" ON workout_sessions;
 CREATE POLICY "Users can view own sessions" ON workout_sessions FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own sessions" ON workout_sessions FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own sessions" ON workout_sessions FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own sessions" ON workout_sessions FOR DELETE USING (auth.uid() = user_id);
 
 -- RLS Policies for Workout Sets
+DROP POLICY IF EXISTS "Users can view own sets" ON workout_sets;
+DROP POLICY IF EXISTS "Users can insert own sets" ON workout_sets;
+DROP POLICY IF EXISTS "Users can update own sets" ON workout_sets;
+DROP POLICY IF EXISTS "Users can delete own sets" ON workout_sets;
 CREATE POLICY "Users can view own sets" ON workout_sets FOR SELECT USING (
   auth.uid() = (SELECT user_id FROM workout_sessions WHERE id = session_id)
 );
@@ -139,12 +151,20 @@ CREATE POLICY "Users can delete own sets" ON workout_sets FOR DELETE USING (
 );
 
 -- RLS Policies for AI Memories
+DROP POLICY IF EXISTS "Users can view own memories" ON ai_memories;
+DROP POLICY IF EXISTS "Users can insert own memories" ON ai_memories;
+DROP POLICY IF EXISTS "Users can update own memories" ON ai_memories;
+DROP POLICY IF EXISTS "Users can delete own memories" ON ai_memories;
 CREATE POLICY "Users can view own memories" ON ai_memories FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own memories" ON ai_memories FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own memories" ON ai_memories FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own memories" ON ai_memories FOR DELETE USING (auth.uid() = user_id);
 
 -- RLS Policies for Weekly Progress
+DROP POLICY IF EXISTS "Users can view own progress" ON weekly_progress;
+DROP POLICY IF EXISTS "Users can insert own progress" ON weekly_progress;
+DROP POLICY IF EXISTS "Users can update own progress" ON weekly_progress;
+DROP POLICY IF EXISTS "Users can delete own progress" ON weekly_progress;
 CREATE POLICY "Users can view own progress" ON weekly_progress FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own progress" ON weekly_progress FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own progress" ON weekly_progress FOR UPDATE USING (auth.uid() = user_id);
@@ -162,14 +182,14 @@ CREATE POLICY "Users can insert own analytics events" ON analytics_events FOR IN
 CREATE POLICY "Users can delete own analytics events" ON analytics_events FOR DELETE USING (auth.uid() = user_id);
 
 -- Create Indexes for Better Performance
-CREATE INDEX idx_workout_sessions_user_date ON workout_sessions(user_id, date DESC);
-CREATE INDEX idx_workout_sets_session ON workout_sets(session_id);
-CREATE INDEX idx_ai_memories_user_type ON ai_memories(user_id, type);
-CREATE INDEX idx_ai_memories_created ON ai_memories(created_at DESC);
-CREATE INDEX idx_weekly_progress_user_week ON weekly_progress(user_id, week_starting DESC);
+CREATE INDEX IF NOT EXISTS idx_workout_sessions_user_date ON workout_sessions(user_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_workout_sets_session ON workout_sets(session_id);
+CREATE INDEX IF NOT EXISTS idx_ai_memories_user_type ON ai_memories(user_id, type);
+CREATE INDEX IF NOT EXISTS idx_ai_memories_created ON ai_memories(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_weekly_progress_user_week ON weekly_progress(user_id, week_starting DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_weekly_progress_user_week_unique ON weekly_progress(user_id, week_starting);
-CREATE INDEX idx_workout_calendar_user_date ON workout_calendar(user_id, date DESC);
-CREATE INDEX idx_analytics_events_user_created ON analytics_events(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_workout_calendar_user_date ON workout_calendar(user_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_user_created ON analytics_events(user_id, created_at DESC);
 
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -181,6 +201,7 @@ END;
 $$ language 'plpgsql';
 
 -- Trigger to automatically update updated_at
+DROP TRIGGER IF EXISTS update_user_profiles_updated_at ON user_profiles;
 CREATE TRIGGER update_user_profiles_updated_at
   BEFORE UPDATE ON user_profiles
   FOR EACH ROW
@@ -197,6 +218,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trigger to create user profile on signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
