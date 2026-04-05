@@ -380,7 +380,6 @@ class SupabaseDatabaseService {
     }
   }
 
-<<<<<<< HEAD
   // ==================== Session Readiness Inputs ====================
 
   /// Save session readiness input
