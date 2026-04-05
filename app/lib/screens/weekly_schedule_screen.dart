@@ -22,7 +22,6 @@ class WeeklyScheduleScreen extends StatefulWidget {
 }
 
 class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
-  // final _firebase = FirebaseSyncService(); // Removed
   final SupabaseDatabaseService _database = SupabaseDatabaseService();
   DateTime _currentWeekStart = _getWeekStart(DateTime.now());
   List<CalendarDay> _weekDays = [];
@@ -1090,17 +1089,5 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
       }
     }
     return streak;
-  }
-}
-
-// Extension methods for FirebaseSyncService
-extension WeeklyScheduleExtension on Object {
-  /* FirebaseSyncService removed */
-  Future<Map<String, dynamic>> getScheduledWorkoutsForWeek(
-    DateTime weekStart,
-  ) async {
-    // This would be implemented in the actual FirebaseSyncService
-    // For now, return empty map
-    return {};
   }
 }

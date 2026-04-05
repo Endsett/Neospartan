@@ -158,9 +158,7 @@ class UserProfile {
       userId: map['id'] ?? map['user_id'] ?? '',
       displayName: map['display_name'],
       photoUrl: map['photo_url'],
-      bodyComposition: BodyComposition.fromMap(
-        map['body_composition'] ?? map['body_compression'] ?? {},
-      ),
+      bodyComposition: BodyComposition.fromMap(map['body_composition'] ?? {}),
       fitnessLevel: rawFitness is int
           ? FitnessLevel.values[rawFitness]
           : FitnessLevel.values.firstWhere(

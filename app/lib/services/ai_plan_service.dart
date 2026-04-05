@@ -10,6 +10,7 @@ import '../config/ai_config.dart';
 import 'ai_memory_service.dart';
 import 'context_ingestion_service.dart';
 import 'gemini_client.dart';
+import 'workout_plan_storage_service.dart';
 
 /// Weekly plan structure for AI-generated training plans
 class WeeklyPlan {
@@ -170,21 +171,24 @@ class AIPlanService {
   /// Check if service is initialized
   bool get isInitialized => _initialized;
 
-  /// Generate initial training plan based on user profile using Gemini AI with memory context
-  Future<WeeklyPlan?> generateInitialTrainingPlan(UserProfile profile) async {
+  /// Generate initial training plan for user (supports guest mode)
+  Future<WeeklyPlan?> generateInitialTrainingPlan(UserProfile? profile) async {
+    // Use guest profile if no profile provided (guest mode)
+    final effectiveProfile = profile ?? _createGuestProfile();
+
     if (!isInitialized) {
-      debugPrint('AI Plan Service not initialized');
-      return null;
+      debugPrint('AI Plan Service not initialized, generating fallback plan');
+      return _generateFallbackPlan(effectiveProfile);
     }
 
     try {
       // Store user profile in memory
       try {
         await _memoryService.storeMemory(
-          userId: profile.userId,
+          userId: effectiveProfile.userId,
           type: AIMemoryType.userProfile,
           priority: MemoryPriority.high,
-          data: profile.toMap(),
+          data: effectiveProfile.toMap(),
           tags: ['profile', 'initial'],
           summary: 'Initial user profile setup',
         );
@@ -196,14 +200,14 @@ class AIPlanService {
       String prompt;
       try {
         prompt = await _contextService.buildPrompt(
-          userId: profile.userId,
+          userId: effectiveProfile.userId,
           contextType: 'training_plan_generation',
-          userProfile: profile,
+          userProfile: effectiveProfile,
           maxTokens: 8000,
         );
       } catch (e) {
         debugPrint('Context building failed, using basic prompt: $e');
-        prompt = _buildBasicPrompt(profile);
+        prompt = _buildBasicPrompt(effectiveProfile);
       }
 
       final planText = await _geminiClient.generateContent(
@@ -213,12 +217,12 @@ class AIPlanService {
       );
 
       if (planText != null) {
-        final plan = _parseAIResponseToPlan(planText, profile);
+        final plan = _parseAIResponseToPlan(planText, effectiveProfile);
 
         // Store generated plan in memory
         try {
           await _memoryService.storeMemory(
-            userId: profile.userId,
+            userId: effectiveProfile.userId,
             type: AIMemoryType.workoutHistory,
             priority: MemoryPriority.high,
             data: plan.toMap(),
@@ -228,13 +232,52 @@ class AIPlanService {
           debugPrint('Failed to store plan in memory: $e');
         }
 
+        // Save to workout plan storage for cross-screen sync
+        try {
+          final storage = WorkoutPlanStorageService();
+          await storage.saveWeeklyPlan(
+            weekStarting: plan.weekStarting,
+            dailyWorkouts: plan.dailyWorkouts
+                .map(
+                  (dw) => DailyWorkoutPlan(
+                    day: dw.day,
+                    workoutType: dw.workoutType,
+                    focus: dw.focus,
+                    exercises: dw.protocol.entries
+                        .map(
+                          (entry) => PlannedExercise(
+                            exercise: entry.exercise,
+                            sets: entry.sets,
+                            targetReps: entry.reps,
+                            targetRpe: entry.intensityRpe,
+                            restSeconds: entry.restSeconds,
+                            notes: '',
+                          ),
+                        )
+                        .toList(),
+                    estimatedDurationMinutes:
+                        dw.protocol.estimatedDurationMinutes,
+                    mindsetPrompt: dw.protocol.mindsetPrompt,
+                    isRestDay: dw.workoutType.toLowerCase().contains('rest'),
+                  ),
+                )
+                .toList(),
+            weeklyNotes: plan.weeklyNotes,
+            intensityRecommendation: plan.intensityRecommendation,
+            profile: effectiveProfile,
+          );
+          debugPrint('AI plan saved to workout storage for cross-screen sync');
+        } catch (e) {
+          debugPrint('Failed to save plan to storage: $e');
+        }
+
         return plan;
       }
     } catch (e) {
       debugPrint('Error generating AI plan: $e');
     }
 
-    return _generateFallbackPlan(profile);
+    return _generateFallbackPlan(effectiveProfile);
   }
 
   /// Build basic prompt when memory system fails
@@ -933,6 +976,26 @@ Return a JSON object with the same structure as before:
       'Sunday',
     ];
     return days[index % 7];
+  }
+
+  /// Create a default guest profile for guest mode
+  UserProfile _createGuestProfile() {
+    return UserProfile(
+      userId: 'guest_user',
+      displayName: 'Guest Athlete',
+      bodyComposition: BodyComposition(
+        weight: 70,
+        height: 175,
+        bodyFatPercentage: 15,
+        age: 30,
+      ),
+      fitnessLevel: FitnessLevel.intermediate,
+      trainingGoal: TrainingGoal.generalCombat,
+      trainingDaysPerWeek: 4,
+      preferredWorkoutDuration: 45,
+      createdAt: DateTime.now(),
+      hasCompletedOnboarding: true,
+    );
   }
 
   // ============ MEMORY MANAGEMENT HELPERS ============

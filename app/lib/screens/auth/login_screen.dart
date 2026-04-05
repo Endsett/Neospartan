@@ -350,7 +350,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildAnonymousButton(AuthProvider authProvider) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
       child: OutlinedButton(
         onPressed: authProvider.isLoading || _isAnonymousLoading

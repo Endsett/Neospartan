@@ -34,7 +34,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _workoutDuration = 45;
   final List<String> _injuries = [];
 
-  // final _firebase = FirebaseSyncService(); // Removed
   final _aiService = AIPlanService();
 
   @override
@@ -90,15 +89,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         throw Exception(authProvider.error ?? 'Failed to save profile');
       }
 
-      // Generate AI training plan
-      await _aiService.generateInitialTrainingPlan(profile);
+      // Generate AI training plan - wrapped in separate try-catch to not fail onboarding
+      try {
+        await _aiService.generateInitialTrainingPlan(profile);
+      } catch (aiError) {
+        debugPrint('AI plan generation failed (non-critical): $aiError');
+        // Don't fail onboarding if AI plan generation fails
+      }
 
-      widget.onComplete();
+      // Only call onComplete if widget is still mounted
+      if (mounted) {
+        widget.onComplete();
+      }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 

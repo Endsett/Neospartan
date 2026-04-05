@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   id UUID REFERENCES auth.users(id) PRIMARY KEY,
   display_name TEXT,
   photo_url TEXT,
-  body_compression JSONB,
+  body_composition JSONB,
   fitness_level TEXT,
   training_goal TEXT,
   training_days_per_week INTEGER,
@@ -171,12 +171,19 @@ CREATE POLICY "Users can update own progress" ON weekly_progress FOR UPDATE USIN
 CREATE POLICY "Users can delete own progress" ON weekly_progress FOR DELETE USING (auth.uid() = user_id);
 
 -- RLS Policies for Workout Calendar
+DROP POLICY IF EXISTS "Users can view own calendar" ON workout_calendar;
+DROP POLICY IF EXISTS "Users can insert own calendar" ON workout_calendar;
+DROP POLICY IF EXISTS "Users can update own calendar" ON workout_calendar;
+DROP POLICY IF EXISTS "Users can delete own calendar" ON workout_calendar;
 CREATE POLICY "Users can view own calendar" ON workout_calendar FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own calendar" ON workout_calendar FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own calendar" ON workout_calendar FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own calendar" ON workout_calendar FOR DELETE USING (auth.uid() = user_id);
 
 -- RLS Policies for Analytics Events
+DROP POLICY IF EXISTS "Users can view own analytics events" ON analytics_events;
+DROP POLICY IF EXISTS "Users can insert own analytics events" ON analytics_events;
+DROP POLICY IF EXISTS "Users can delete own analytics events" ON analytics_events;
 CREATE POLICY "Users can view own analytics events" ON analytics_events FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own analytics events" ON analytics_events FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can delete own analytics events" ON analytics_events FOR DELETE USING (auth.uid() = user_id);
@@ -190,6 +197,157 @@ CREATE INDEX IF NOT EXISTS idx_weekly_progress_user_week ON weekly_progress(user
 CREATE UNIQUE INDEX IF NOT EXISTS idx_weekly_progress_user_week_unique ON weekly_progress(user_id, week_starting);
 CREATE INDEX IF NOT EXISTS idx_workout_calendar_user_date ON workout_calendar(user_id, date DESC);
 CREATE INDEX IF NOT EXISTS idx_analytics_events_user_created ON analytics_events(user_id, created_at DESC);
+
+-- Session Readiness Inputs Table
+CREATE TABLE IF NOT EXISTS session_readiness_inputs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  session_date DATE NOT NULL,
+  readiness_score INTEGER,
+  sleep_hours REAL,
+  stress_level INTEGER,
+  soreness_level INTEGER,
+  energy_level INTEGER,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE (user_id, session_date)
+);
+
+-- Weekly Directives Table
+CREATE TABLE IF NOT EXISTS weekly_directives (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  week_starting DATE NOT NULL,
+  focus TEXT,
+  intensity_modifier REAL DEFAULT 1.0,
+  volume_modifier REAL DEFAULT 1.0,
+  special_instructions TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE (user_id, week_starting)
+);
+
+-- Enable RLS on new tables
+ALTER TABLE session_readiness_inputs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE weekly_directives ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for Session Readiness
+DROP POLICY IF EXISTS "Users can view own readiness inputs" ON session_readiness_inputs;
+DROP POLICY IF EXISTS "Users can insert own readiness inputs" ON session_readiness_inputs;
+DROP POLICY IF EXISTS "Users can update own readiness inputs" ON session_readiness_inputs;
+DROP POLICY IF EXISTS "Users can delete own readiness inputs" ON session_readiness_inputs;
+CREATE POLICY "Users can view own readiness inputs" ON session_readiness_inputs FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own readiness inputs" ON session_readiness_inputs FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own readiness inputs" ON session_readiness_inputs FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own readiness inputs" ON session_readiness_inputs FOR DELETE USING (auth.uid() = user_id);
+
+-- RLS Policies for Weekly Directives
+DROP POLICY IF EXISTS "Users can view own directives" ON weekly_directives;
+DROP POLICY IF EXISTS "Users can insert own directives" ON weekly_directives;
+DROP POLICY IF EXISTS "Users can update own directives" ON weekly_directives;
+DROP POLICY IF EXISTS "Users can delete own directives" ON weekly_directives;
+CREATE POLICY "Users can view own directives" ON weekly_directives FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own directives" ON weekly_directives FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own directives" ON weekly_directives FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own directives" ON weekly_directives FOR DELETE USING (auth.uid() = user_id);
+
+-- Indexes for new tables
+CREATE INDEX IF NOT EXISTS idx_session_readiness_user_date ON session_readiness_inputs(user_id, session_date DESC);
+CREATE INDEX IF NOT EXISTS idx_weekly_directives_user_week ON weekly_directives(user_id, week_starting DESC);
+
+-- Generated Workouts Table (for AI-generated workouts)
+CREATE TABLE IF NOT EXISTS generated_workouts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  workout_name TEXT NOT NULL,
+  description TEXT,
+  sport_focus TEXT,
+  generated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  protocol JSONB,
+  exercises JSONB,
+  total_duration_minutes INTEGER,
+  target_intensity INTEGER,
+  ai_reasoning TEXT,
+  generation_context JSONB,
+  ai_confidence_score REAL,
+  scheduled_date DATE,
+  completed BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Exercise Performance History (for AI learning)
+CREATE TABLE IF NOT EXISTS exercise_performance_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  exercise_id TEXT NOT NULL,
+  exercise_name TEXT,
+  completed_workout_id UUID REFERENCES generated_workouts(id) ON DELETE CASCADE,
+  performance_rating INTEGER,
+  perceived_difficulty INTEGER,
+  would_repeat BOOLEAN,
+  completed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Workout Templates Table
+CREATE TABLE IF NOT EXISTS workout_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  primary_sport TEXT,
+  training_focus TEXT,
+  target_duration_minutes INTEGER,
+  blocks JSONB,
+  required_equipment TEXT[],
+  optional_equipment TEXT[],
+  min_fitness_level INTEGER,
+  max_fitness_level INTEGER,
+  recommended_weekly_frequency INTEGER DEFAULT 2,
+  is_system_template BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS on new tables
+ALTER TABLE generated_workouts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE exercise_performance_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workout_templates ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for Generated Workouts
+DROP POLICY IF EXISTS "Users can view own generated workouts" ON generated_workouts;
+DROP POLICY IF EXISTS "Users can insert own generated workouts" ON generated_workouts;
+DROP POLICY IF EXISTS "Users can update own generated workouts" ON generated_workouts;
+DROP POLICY IF EXISTS "Users can delete own generated workouts" ON generated_workouts;
+CREATE POLICY "Users can view own generated workouts" ON generated_workouts FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own generated workouts" ON generated_workouts FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own generated workouts" ON generated_workouts FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own generated workouts" ON generated_workouts FOR DELETE USING (auth.uid() = user_id);
+
+-- RLS Policies for Exercise Performance History
+DROP POLICY IF EXISTS "Users can view own exercise history" ON exercise_performance_history;
+DROP POLICY IF EXISTS "Users can insert own exercise history" ON exercise_performance_history;
+CREATE POLICY "Users can view own exercise history" ON exercise_performance_history FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own exercise history" ON exercise_performance_history FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- RLS Policies for Workout Templates (readable by all, writable only by system)
+DROP POLICY IF EXISTS "Users can view templates" ON workout_templates;
+CREATE POLICY "Users can view templates" ON workout_templates FOR SELECT USING (true);
+
+-- Indexes for new tables
+CREATE INDEX IF NOT EXISTS idx_generated_workouts_user_date ON generated_workouts(user_id, scheduled_date DESC);
+CREATE INDEX IF NOT EXISTS idx_generated_workouts_created ON generated_workouts(user_id, generated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_exercise_perf_user_exercise ON exercise_performance_history(user_id, exercise_id);
+CREATE INDEX IF NOT EXISTS idx_workout_templates_sport ON workout_templates(primary_sport);
+
+-- Insert default workout templates
+INSERT INTO workout_templates (id, name, description, primary_sport, training_focus, target_duration_minutes, blocks, required_equipment, recommended_weekly_frequency, is_system_template)
+VALUES 
+  (gen_random_uuid(), 'MMA Fight Conditioning', 'High-intensity conditioning session mimicking MMA fight pace', 'mma', 'powerEndurance', 60, 
+   '[{"id": "warmup", "name": "Fight Prep Warmup", "type": "warmup", "duration": 600}, {"id": "striking", "name": "Striking Power", "type": "combatSpecific", "duration": 900}]'::jsonb,
+   ARRAY[]::TEXT[], 2, true),
+  (gen_random_uuid(), 'Boxing Power Development', 'Build knockout power through explosive training', 'boxing', 'explosivePower', 45,
+   '[{"id": "activation", "name": "Neural Activation", "type": "activation", "duration": 480}]'::jsonb,
+   ARRAY[]::TEXT[], 2, true)
+ON CONFLICT DO NOTHING;
 
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

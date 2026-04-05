@@ -28,8 +28,6 @@ class AgogeScreen extends StatefulWidget {
 
 class _AgogeScreenState extends State<AgogeScreen> {
   final AgogeService _agogeService = AgogeService();
-  final DomRlEngine _domRlEngine = DomRlEngine();
-  final EphorScrutinyService _ephorService = EphorScrutinyService();
   final TacticalRetreatService _tacticalRetreat = TacticalRetreatService();
   final StatePersistenceService _persistence = StatePersistenceService();
   final AIPlanService _aiPlanService = AIPlanService();
@@ -418,50 +416,71 @@ class _AgogeScreenState extends State<AgogeScreen> {
   }
 
   Future<void> _generateNewProtocol() async {
-    // Fetch readiness data
-    final score = 80; // Default readiness score - TODO: get from actual source
-    _readinessScore = score;
+    try {
+      // Fetch readiness data
+      final score =
+          80; // Default readiness score - TODO: get from actual source
+      _readinessScore = score;
 
-    // Generate base protocol
-    final baseProtocol = _agogeService.generateProtocol(score);
+      // Generate base protocol
+      final baseProtocol = _agogeService.generateProtocol(score);
 
-    // Apply DOM-RL optimization if enabled
-    WorkoutProtocol finalProtocol = baseProtocol;
-    DomRlResult? domRlResult;
-    if (_useDomRl) {
-      // TODO: Implement DOM-RL with proper MicroCycle
-    }
+      // Apply DOM-RL optimization if enabled
+      WorkoutProtocol finalProtocol = baseProtocol;
+      DomRlResult? domRlResult;
+      if (_useDomRl) {
+        // TODO: Implement DOM-RL with proper MicroCycle
+      }
 
-    // Check for tactical retreat
-    final jointStress = <String, int>{};
-    final retreatCheck = _tacticalRetreat.checkRetreatStatus(
-      currentReadiness: score,
-      jointStress: jointStress,
-    );
+      // Check for tactical retreat
+      final jointStress = <String, int>{};
+      final retreatCheck = _tacticalRetreat.checkRetreatStatus(
+        currentReadiness: score,
+        jointStress: jointStress,
+      );
 
-    // Override protocol if retreat required
-    if (retreatCheck.shouldRetreat && retreatCheck.enforcedProtocol != null) {
-      finalProtocol = retreatCheck.enforcedProtocol!;
-    }
+      // Override protocol if retreat required
+      if (retreatCheck.shouldRetreat && retreatCheck.enforcedProtocol != null) {
+        finalProtocol = retreatCheck.enforcedProtocol!;
+      }
 
-    // Save the new protocol
-    await _persistence.saveDailyProtocol(finalProtocol);
-    await _persistence.setPreference('last_readiness_score', score);
-    await _persistence.setPreference(
-      'last_protocol_date',
-      '${DateTime.now().year}-${DateTime.now().month}-${DateTime.now().day}',
-    );
+      // Save the new protocol
+      await _persistence.saveDailyProtocol(finalProtocol);
+      await _persistence.setPreference('last_readiness_score', score);
+      await _persistence.setPreference(
+        'last_protocol_date',
+        '${DateTime.now().year}-${DateTime.now().month}-${DateTime.now().day}',
+      );
 
-    await _loadStructuredRecommendation(finalProtocol);
-    await _loadAdaptiveWeeklyDirective();
+      await _loadStructuredRecommendation(finalProtocol);
+      await _loadAdaptiveWeeklyDirective();
 
-    if (mounted) {
-      setState(() {
-        _protocol = finalProtocol;
-        _domRlResult = domRlResult;
-        _retreatCheck = retreatCheck;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _protocol = finalProtocol;
+          _domRlResult = domRlResult;
+          _retreatCheck = retreatCheck;
+          _isLoading = false;
+        });
+      }
+    } catch (e, stackTrace) {
+      developer.log(
+        'Error generating protocol: $e\n$stackTrace',
+        name: 'AgogeScreen',
+      );
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _protocol = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to generate workout: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     }
   }
 

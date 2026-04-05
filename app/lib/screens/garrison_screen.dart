@@ -13,7 +13,6 @@ class GarrisonScreen extends StatefulWidget {
 
 class _GarrisonScreenState extends State<GarrisonScreen> {
   final ArmorAnalyticsService _armorService = ArmorAnalyticsService();
-  // final FirebaseSyncService _firebase = FirebaseSyncService(); // Removed
 
   Map<String, dynamic> _data = {
     'hrv': 0.0,
@@ -39,8 +38,7 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
     // Use mock data for now
     final data = {'hrv': 65.0, 'sleep': 7.5, 'rhr': 55, 'score': 85};
 
-    // Load Armor Analytics
-    // final microCycle = await _firebase.buildMicroCycle(); // TODO: Implement with Supabase
+    // Load Armor Analytics with empty MicroCycle
     final microCycle = MicroCycle(
       days: [],
       startDate: DateTime.now(),

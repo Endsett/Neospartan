@@ -286,29 +286,7 @@ class _FlowStateScreenState extends State<FlowStateScreen> {
   }
 
   void _submitAssessment() {
-    // TODO: Implement FlowStateAssessment class
-    // final assessment = FlowStateAssessment(
-    //   mentalEngagement: _mentalEngagement,
-    //   focusClarity: _focusClarity,
-    //   formDiscipline: _formDiscipline,
-    //   overallFlow: _overallFlow,
-    //   notes: _notesController.text.isEmpty ? null : _notesController.text,
-    //   timestamp: DateTime.now(),
-    // );
-
-    // Save to Firebase
-    // Create completed workout record
-    // final updatedWorkout = CompletedWorkout(
-    //   id: widget.workout.id,
-    //   protocolTitle: widget.workout.protocolTitle,
-    //   exercises: widget.workout.exercises,
-    //   startTime: widget.workout.startTime,
-    //   endTime: widget.workout.endTime,
-    //   totalDurationMinutes: widget.workout.totalDurationMinutes,
-    //   readinessScoreAtStart: widget.workout.readinessScoreAtStart,
-    // );
-
-    // FirebaseSyncService().saveCompletedWorkout(updatedWorkout); // TODO: Implement with Supabase
+    // Flow state assessment complete - callback triggers navigation
     widget.onComplete();
   }
 }

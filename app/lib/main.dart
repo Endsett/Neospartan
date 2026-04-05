@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'theme.dart';
 import 'screens/stadion_screen.dart';
@@ -31,31 +28,50 @@ void main() async {
 
   bool servicesInitialized = false;
   String? initError;
+  String? failedService;
 
   try {
-    // Initialize Firebase for Analytics and Crashlytics only
-    await Firebase.initializeApp();
+    // Initialize Supabase first (required for all other services)
+    try {
+      await SupabaseConfig.initialize();
+      debugPrint('✓ Supabase initialized');
+    } catch (e) {
+      failedService = 'Supabase';
+      throw Exception('Failed to initialize Supabase: $e');
+    }
 
-    // Enable Crashlytics for error tracking
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-    PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true;
-    };
+    // Initialize DOM-RL Engine
+    try {
+      await DomRlEngine().initialize();
+      debugPrint('✓ DOM-RL Engine initialized');
+    } catch (e) {
+      failedService = 'DOM-RL Engine';
+      throw Exception('Failed to initialize DOM-RL Engine: $e');
+    }
 
-    // Initialize Supabase
-    await SupabaseConfig.initialize();
+    // Initialize AI Plan Service
+    try {
+      await AIPlanService().initialize();
+      debugPrint('✓ AI Plan Service initialized');
+    } catch (e) {
+      failedService = 'AI Plan Service';
+      throw Exception('Failed to initialize AI Plan Service: $e');
+    }
 
-    // Initialize services
-    await DomRlEngine().initialize();
-    await AIPlanService().initialize();
-    await StatePersistenceService().initialize();
+    // Initialize State Persistence Service
+    try {
+      await StatePersistenceService().initialize();
+      debugPrint('✓ State Persistence Service initialized');
+    } catch (e) {
+      failedService = 'State Persistence';
+      throw Exception('Failed to initialize State Persistence: $e');
+    }
 
     servicesInitialized = true;
-    debugPrint('All services initialized successfully');
-  } catch (e) {
-    initError = e.toString();
-    debugPrint('Initialization error: $e');
+    debugPrint('✓ All services initialized successfully');
+  } catch (e, stackTrace) {
+    initError = '[$failedService] $e\n\nStack trace:\n$stackTrace';
+    debugPrint('✗ Initialization error: $initError');
   }
 
   runApp(
@@ -141,48 +157,100 @@ class NeospartanApp extends StatelessWidget {
   }
 }
 
-class AuthGate extends StatelessWidget {
+/// AuthGate handles routing based on authentication state
+/// Supports both Supabase authenticated users and guest mode users
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  // Cache the stream to prevent recreating it on rebuilds
+  late final Stream<AuthState> _authStateStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _authStateStream = SupabaseAuthService().authState;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<AuthState>(
-      stream: SupabaseAuthService().authState,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const WarriorLoadingScreen(message: 'AUTHENTICATING');
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        // Wait for initialization
+        if (!authProvider.isInitialized) {
+          return const WarriorLoadingScreen(message: 'INITIALIZING');
         }
 
-        final user = snapshot.data?.session?.user;
-
-        if (user != null) {
-          // User is authenticated
-          return FutureBuilder<Map<String, dynamic>?>(
-            future: SupabaseDatabaseService().getUserProfile(user.id),
-            builder: (context, profileSnapshot) {
-              if (profileSnapshot.connectionState == ConnectionState.waiting) {
-                return const WarriorLoadingScreen(message: 'LOADING PROFILE');
-              }
-
-              final profile = profileSnapshot.data;
-
-              if (profile != null &&
-                  profile['has_completed_onboarding'] == true) {
-                return const MainNavigation();
-              } else {
-                return OnboardingScreen(
-                  onComplete: () {
-                    // Navigate to main app after onboarding with combat transition
-                    Navigator.of(context).pushReplacement(
-                      CombatPageTransition(child: const MainNavigation()),
-                    );
-                  },
+        // Check if user is in guest mode first
+        if (authProvider.isGuestMode) {
+          final profile = authProvider.userProfile;
+          if (profile != null && profile.hasCompletedOnboarding) {
+            return const MainNavigation();
+          } else {
+            return OnboardingScreen(
+              onComplete: () {
+                Navigator.of(context).pushReplacement(
+                  CombatPageTransition(child: const MainNavigation()),
                 );
-              }
-            },
-          );
-        } else {
-          // User is not authenticated
-          return const LoginScreen();
+              },
+            );
+          }
         }
+
+        // Check Supabase auth state using cached stream
+        return StreamBuilder<AuthState>(
+          stream: _authStateStream,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData) {
+              return const WarriorLoadingScreen(message: 'AUTHENTICATING');
+            }
+
+            final user = snapshot.data?.session?.user;
+
+            if (user != null) {
+              // User is authenticated with Supabase
+              return FutureBuilder<Map<String, dynamic>?>(
+                future: SupabaseDatabaseService().getUserProfile(user.id),
+                builder: (context, profileSnapshot) {
+                  if (profileSnapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const WarriorLoadingScreen(
+                      message: 'LOADING PROFILE',
+                    );
+                  }
+
+                  final profile = profileSnapshot.data;
+
+                  if (profile != null &&
+                      profile['has_completed_onboarding'] == true) {
+                    return const MainNavigation();
+                  } else {
+                    return OnboardingScreen(
+                      onComplete: () {
+                        Navigator.of(context).pushReplacement(
+                          CombatPageTransition(child: const MainNavigation()),
+                        );
+                      },
+                    );
+                  }
+                },
+              );
+            } else {
+              // User is not authenticated - show login screen with guest option
+              return LoginScreen(
+                onAnonymousSignIn: () {
+                  // Enable guest mode
+                  context.read<AuthProvider>().enableGuestMode();
+                },
+              );
+            }
+          },
+        );
       },
     );
   }
@@ -208,7 +276,7 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
-    final isGuest = !context.watch<AuthProvider>().isAuthenticated;
+    final isGuest = context.watch<AuthProvider>().isGuestMode;
 
     return Scaffold(
       body: Column(

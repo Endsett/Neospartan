@@ -1,5 +1,7 @@
 // No unused analytics import here
 import 'exercise.dart';
+import 'sport_category.dart' hide ExerciseCategory;
+import '../data/combat_exercise_library.dart' show CombatExercise;
 
 /// Joint stress tracking for Armor Analytics
 class JointStressEntry {
@@ -291,5 +293,94 @@ class MicroCycle {
 
   List<double> get rpeTrend {
     return days.expand((d) => d.rpeEntries).toList();
+  }
+}
+
+/// Daily workout plan/schedule entry
+class DailyWorkout {
+  final String id;
+  final DateTime date;
+  final List<CombatExercise> exercises;
+  final int intensityLevel; // 1-10
+  final int durationSeconds;
+  final bool completed;
+  final List<SportCategory> sports;
+  final List<String> skillFocus;
+
+  const DailyWorkout({
+    required this.id,
+    required this.date,
+    required this.exercises,
+    required this.intensityLevel,
+    required this.durationSeconds,
+    this.completed = false,
+    this.sports = const [],
+    this.skillFocus = const [],
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'date': date.toIso8601String(),
+      'exercises': exercises.map((e) => e.toLegacyExercise().toMap()).toList(),
+      'intensity_level': intensityLevel,
+      'duration_seconds': durationSeconds,
+      'completed': completed,
+      'sports': sports.map((s) => s.name).toList(),
+      'skill_focus': skillFocus,
+    };
+  }
+
+  factory DailyWorkout.fromMap(Map<String, dynamic> map) {
+    final dateStr = map['date'];
+    final parsedDate = dateStr != null
+        ? DateTime.tryParse(dateStr) ?? DateTime.now()
+        : DateTime.now();
+
+    return DailyWorkout(
+      id: map['id']?.toString() ?? '',
+      date: parsedDate,
+      exercises:
+          (map['exercises'] as List<dynamic>?)
+              ?.map(
+                (e) => CombatExercise(
+                  id: e['id'] ?? '',
+                  name: e['name'] ?? '',
+                  category: ExerciseCategory.values.firstWhere(
+                    (c) => c.name == e['category'],
+                    orElse: () => ExerciseCategory.strength,
+                  ),
+                  youtubeId: e['youtube_id'] ?? '',
+                  targetMetaphor: e['target_metaphor'] ?? '',
+                  instructions: e['instructions'] ?? '',
+                  intensityLevel: e['intensity_level'] ?? 5,
+                  primaryMuscles:
+                      (e['primary_muscles'] as List<dynamic>?)
+                          ?.cast<String>() ??
+                      [],
+                  jointStress: {},
+                ),
+              )
+              .toList() ??
+          [],
+      intensityLevel: map['intensity_level'] ?? 5,
+      durationSeconds: map['duration_seconds'] ?? 0,
+      completed: map['completed'] ?? false,
+      sports:
+          (map['sports'] as List<dynamic>?)
+              ?.map(
+                (s) => SportCategory.values.firstWhere(
+                  (v) => v.name == s,
+                  orElse: () => SportCategory.generalCombat,
+                ),
+              )
+              .toList() ??
+          [],
+      skillFocus:
+          (map['skill_focus'] as List<dynamic>?)
+              ?.map((s) => s.toString())
+              .toList() ??
+          [],
+    );
   }
 }

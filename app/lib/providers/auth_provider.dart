@@ -5,17 +5,21 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_profile.dart';
 import '../repositories/user_repository.dart';
 import '../services/supabase_auth_service.dart';
+import '../services/guest_storage_service.dart';
 
 /// Provider managing authentication state and user profile
+/// Supports both authenticated (Supabase) and guest (local storage) modes
 class AuthProvider extends ChangeNotifier {
   final SupabaseAuthService _authService = SupabaseAuthService();
   final UserRepository _userRepository = UserRepository();
+  final GuestStorageService _guestStorage = GuestStorageService();
 
   User? _user;
   UserProfile? _userProfile;
   bool _isLoading = false;
   String? _error;
   bool _isInitialized = false;
+  bool _isGuestMode = false;
   StreamSubscription<AuthState>? _authStateSubscription;
 
   // Getters
@@ -24,8 +28,9 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isInitialized => _isInitialized;
-  bool get isAuthenticated => _user != null;
-  String? get userId => _user?.id;
+  bool get isGuestMode => _isGuestMode;
+  bool get isAuthenticated => _user != null || _isGuestMode;
+  String? get userId => _isGuestMode ? 'guest_user' : _user?.id;
   String? get displayName =>
       _user?.userMetadata?['display_name'] ?? _userProfile?.displayName;
   String? get email => _user?.email;
@@ -41,15 +46,25 @@ class AuthProvider extends ChangeNotifier {
     _clearError();
 
     try {
-      final ok = await _userRepository.saveUserProfile(profile);
-      if (!ok) {
-        _setError('Failed to save onboarding profile');
-        return false;
-      }
+      if (_isGuestMode) {
+        // Save to local storage for guest mode
+        await _guestStorage.saveUserProfile(profile);
+        await _guestStorage.completeOnboarding();
+        _userProfile = profile;
+        notifyListeners();
+        return true;
+      } else {
+        // Save to Supabase for authenticated users
+        final ok = await _userRepository.saveUserProfile(profile);
+        if (!ok) {
+          _setError('Failed to save onboarding profile');
+          return false;
+        }
 
-      _userProfile = profile;
-      notifyListeners();
-      return true;
+        _userProfile = profile;
+        notifyListeners();
+        return true;
+      }
     } catch (e) {
       _setError(e.toString());
       return false;
@@ -60,7 +75,8 @@ class AuthProvider extends ChangeNotifier {
 
   /// Initialize auth state listener
   void _init() {
-    _bootstrapCurrentUser();
+    // First check if we're in guest mode
+    _checkGuestMode();
 
     _authStateSubscription = _authService.authState.listen((
       AuthState authState,
@@ -72,9 +88,13 @@ class AuthProvider extends ChangeNotifier {
       _user = authState.session?.user;
 
       if (_user != null) {
+        // User is authenticated with Supabase - not in guest mode
+        _isGuestMode = false;
+        await _guestStorage.disableGuestMode();
         // Load or create user profile
         await _loadUserProfile();
-      } else {
+      } else if (!_isGuestMode) {
+        // Not authenticated and not in guest mode
         _userProfile = null;
       }
 
@@ -83,19 +103,98 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> _bootstrapCurrentUser() async {
+  /// Check if guest mode was previously enabled
+  void _checkGuestMode() {
+    _isGuestMode = _guestStorage.isGuestMode;
+    if (_isGuestMode) {
+      // Load guest profile
+      _userProfile = _guestStorage.getUserProfile();
+      _isInitialized = true;
+      developer.log(
+        'Guest mode detected - profile loaded',
+        name: 'AuthProvider',
+      );
+    }
+  }
+
+  /// Enable guest mode for users who don't want to sign in
+  Future<bool> enableGuestMode() async {
+    _setLoading(true);
+    _clearError();
+
     try {
-      _user = _authService.currentUser;
-      if (_user != null) {
-        await _loadUserProfile();
-      } else {
-        _userProfile = null;
-      }
-    } catch (e) {
-      developer.log('Error bootstrapping auth state: $e', name: 'AuthProvider');
-    } finally {
+      await _guestStorage.initialize();
+      await _guestStorage.enableGuestMode();
+      _isGuestMode = true;
+
+      // Create a default guest profile
+      final now = DateTime.now();
+      final guestProfile = UserProfile(
+        userId: 'guest_user',
+        displayName: 'Guest Warrior',
+        bodyComposition: const BodyComposition(
+          weight: 70,
+          height: 175,
+          age: 25,
+        ),
+        fitnessLevel: FitnessLevel.beginner,
+        trainingGoal: TrainingGoal.generalCombat,
+        createdAt: now,
+        updatedAt: now,
+        hasCompletedOnboarding: false,
+      );
+
+      await _guestStorage.saveUserProfile(guestProfile);
+      _userProfile = guestProfile;
+
+      developer.log('Guest mode enabled', name: 'AuthProvider');
       _isInitialized = true;
       notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Failed to enable guest mode: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Sign in anonymously (enables guest mode)
+  Future<bool> signInAnonymously() async {
+    return enableGuestMode();
+  }
+
+  /// Convert guest account to authenticated account
+  Future<bool> convertGuestToAuthenticated(
+    String email,
+    String password,
+  ) async {
+    if (!_isGuestMode) {
+      _setError('Not in guest mode');
+      return false;
+    }
+
+    _setLoading(true);
+    _clearError();
+
+    try {
+      // TODO: Implement migration of guest data to Supabase
+      // This would involve:
+      // 1. Creating a new Supabase account
+      // 2. Migrating all guest data to the new account
+      // 3. Clearing local guest data
+
+      developer.log(
+        'Guest to authenticated conversion not yet implemented',
+        name: 'AuthProvider',
+      );
+      _setError('Guest account conversion coming soon');
+      return false;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
@@ -214,13 +313,24 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Sign out
+  /// Sign out - handles both authenticated and guest modes
   Future<void> signOut() async {
     _setLoading(true);
 
     try {
-      await _authService.signOut();
-      developer.log('Sign out successful', name: 'AuthProvider');
+      if (_isGuestMode) {
+        // Clear guest data and exit guest mode
+        await _guestStorage.clearAllData();
+        await _guestStorage.disableGuestMode();
+        _isGuestMode = false;
+        _userProfile = null;
+        developer.log('Guest session ended', name: 'AuthProvider');
+      } else {
+        // Sign out from Supabase
+        await _authService.signOut();
+        developer.log('Sign out successful', name: 'AuthProvider');
+      }
+      notifyListeners();
     } catch (e) {
       _setError(e.toString());
     } finally {
@@ -250,42 +360,49 @@ class AuthProvider extends ChangeNotifier {
     return resetPassword(email);
   }
 
-  /// Update user profile
+  /// Update user profile (supports both authenticated and guest modes)
   Future<bool> updateProfile({String? displayName, String? photoUrl}) async {
     _setLoading(true);
     _clearError();
 
     try {
-      // Update auth metadata
-      await _authService.updateProfile(
-        displayName: displayName,
-        photoUrl: photoUrl,
-      );
-
-      // Update local user profile
-      if (_userProfile != null) {
-        final updatedProfile = UserProfile(
-          userId: _userProfile!.userId,
-          displayName: displayName ?? _userProfile!.displayName,
-          photoUrl: photoUrl ?? _userProfile!.photoUrl,
-          bodyComposition: _userProfile!.bodyComposition,
-          fitnessLevel: _userProfile!.fitnessLevel,
-          experienceLevel: _userProfile!.experienceLevel,
-          trainingGoal: _userProfile!.trainingGoal,
-          philosophicalBaseline: _userProfile!.philosophicalBaseline,
-          trainingDaysPerWeek: _userProfile!.trainingDaysPerWeek,
-          preferredWorkoutDuration: _userProfile!.preferredWorkoutDuration,
-          injuriesOrLimitations: _userProfile!.injuriesOrLimitations,
-          dateOfBirth: _userProfile!.dateOfBirth,
-          createdAt: _userProfile!.createdAt,
-          updatedAt: DateTime.now(),
-          hasCompletedOnboarding: _userProfile!.hasCompletedOnboarding,
-        );
-
-        await _userRepository.saveUserProfile(updatedProfile);
-        _userProfile = updatedProfile;
+      if (_userProfile == null) {
+        _setError('No profile to update');
+        return false;
       }
 
+      final updatedProfile = UserProfile(
+        userId: _userProfile!.userId,
+        displayName: displayName ?? _userProfile!.displayName,
+        photoUrl: photoUrl ?? _userProfile!.photoUrl,
+        bodyComposition: _userProfile!.bodyComposition,
+        fitnessLevel: _userProfile!.fitnessLevel,
+        experienceLevel: _userProfile!.experienceLevel,
+        trainingGoal: _userProfile!.trainingGoal,
+        philosophicalBaseline: _userProfile!.philosophicalBaseline,
+        trainingDaysPerWeek: _userProfile!.trainingDaysPerWeek,
+        preferredWorkoutDuration: _userProfile!.preferredWorkoutDuration,
+        injuriesOrLimitations: _userProfile!.injuriesOrLimitations,
+        dateOfBirth: _userProfile!.dateOfBirth,
+        createdAt: _userProfile!.createdAt,
+        updatedAt: DateTime.now(),
+        hasCompletedOnboarding: _userProfile!.hasCompletedOnboarding,
+      );
+
+      if (_isGuestMode) {
+        // Save to local storage for guest mode
+        await _guestStorage.saveUserProfile(updatedProfile);
+      } else {
+        // Update auth metadata for Supabase users
+        await _authService.updateProfile(
+          displayName: displayName,
+          photoUrl: photoUrl,
+        );
+        // Save to Supabase
+        await _userRepository.saveUserProfile(updatedProfile);
+      }
+
+      _userProfile = updatedProfile;
       developer.log('Profile updated successfully', name: 'AuthProvider');
       notifyListeners();
       return true;
@@ -323,19 +440,12 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Anonymous authentication (not supported by Supabase - stubbed for compatibility)
-  bool get isAnonymous => false; // Supabase doesn't support anonymous auth
+  /// Check if user is in anonymous/guest mode
+  bool get isAnonymous => _isGuestMode;
 
-  Future<bool> signInAnonymously() async {
-    _setError('Anonymous authentication is not supported with Supabase');
-    return false;
-  }
-
+  /// Link guest account to email (convert guest to authenticated)
   Future<bool> linkAnonymousToEmail(String email, String password) async {
-    _setError(
-      'Anonymous authentication linking is not supported with Supabase',
-    );
-    return false;
+    return convertGuestToAuthenticated(email, password);
   }
 
   /// Clear error
