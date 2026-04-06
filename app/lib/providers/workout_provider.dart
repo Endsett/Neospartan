@@ -341,11 +341,72 @@ class WorkoutProvider with ChangeNotifier {
     }
   }
 
-  /// Cancel current workout
-  void cancelWorkout() {
+  /// Abandon current workout and save partial progress
+  Future<void> abandonWorkout() async {
+    if (!_isWorkoutActive || _activeProtocol == null || _startTime == null) {
+      resetWorkout();
+      return;
+    }
+
+    final endTime = DateTime.now();
+    final duration = endTime.difference(_startTime!).inMinutes;
+
+    // Calculate completion percentage
+    final totalExercises = _activeProtocol!.entries.length;
+    final completedCount = _completedExercises.length;
+    final completionPercentage = totalExercises > 0
+        ? (completedCount / totalExercises * 100).clamp(0.0, 100.0)
+        : 0.0;
+
+    // Save partial workout session
+    if (_currentSessionId != null) {
+      try {
+        await _database.savePartialWorkoutSession(
+          sessionId: _currentSessionId!,
+          startTime: _startTime!,
+          workoutType: _activeProtocol!.title,
+          exercisesCompleted: completedCount,
+          totalExercises: totalExercises,
+          completionPercentage: completionPercentage,
+          readinessScore: _initialReadinessScore ?? 70,
+          durationMinutes: duration,
+        );
+
+        // Log analytics event for abandoned workout
+        await _database.saveAnalyticsEvent('workout_abandoned', {
+          'session_id': _currentSessionId,
+          'completion_percentage': completionPercentage,
+          'exercises_completed': completedCount,
+          'total_exercises': totalExercises,
+          'duration_minutes': duration,
+          'partial_workout': true,
+        });
+      } catch (e) {
+        debugPrint('Error saving partial workout: $e');
+      }
+    }
+
+    // Reset state
+    _isWorkoutActive = false;
     _activeProtocol = null;
     _currentEntryIndex = 0;
+    _startTime = null;
+    _initialReadinessScore = null;
+    _currentSessionId = null;
+    _exerciseSets.clear();
+    _completedExercises.clear();
+
+    // Clear persisted state
+    await _persistence.clearWorkoutState();
+
+    notifyListeners();
+  }
+
+  /// Cancel workout without saving (legacy - use abandonWorkout for partial saves)
+  void cancelWorkout() {
     _isWorkoutActive = false;
+    _activeProtocol = null;
+    _currentEntryIndex = 0;
     _startTime = null;
     _initialReadinessScore = null;
     _exerciseSets.clear();

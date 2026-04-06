@@ -2,6 +2,7 @@ import 'dart:developer' as developer;
 import '../models/workout_tracking.dart';
 import '../models/exercise.dart';
 import '../services/supabase_database_service.dart';
+import '../config/supabase_config.dart';
 
 /// Repository for Workout CRUD operations using Supabase
 class WorkoutRepository {
@@ -294,6 +295,101 @@ class WorkoutRepository {
         name: 'WorkoutRepository',
       );
       return {};
+    }
+  }
+
+  /// Get today's workout plan
+  Future<Map<String, dynamic>?> getTodaysPlan() async {
+    try {
+      final today = DateTime.now();
+      final planDate = today.toIso8601String().split('T')[0];
+
+      final supabase = SupabaseConfig.client;
+      final userId = SupabaseConfig.userId;
+      if (userId == null) return null;
+
+      final response = await supabase
+          .from('daily_workout_plans')
+          .select()
+          .eq('plan_date', planDate)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      return response;
+    } catch (e) {
+      developer.log(
+        'Error getting today\'s plan: $e',
+        name: 'WorkoutRepository',
+      );
+      return null;
+    }
+  }
+
+  /// Save today's workout plan
+  Future<bool> saveTodaysPlan(Map<String, dynamic> plan) async {
+    try {
+      final today = DateTime.now();
+      final planDate = today.toIso8601String().split('T')[0];
+      final planId = 'plan_$planDate';
+      final userId = SupabaseConfig.userId;
+
+      if (userId == null) {
+        developer.log(
+          'Cannot save plan: no authenticated user',
+          name: 'WorkoutRepository',
+        );
+        return false;
+      }
+
+      await SupabaseConfig.client.from('daily_workout_plans').upsert({
+        'id': planId,
+        'plan_date': planDate,
+        'title': plan['title'] ?? 'Daily Protocol',
+        'exercises': plan['exercises'] ?? [],
+        'estimated_duration_minutes': plan['estimatedDurationMinutes'] ?? 45,
+        'readiness_score': plan['readinessScore'] ?? 80,
+        'user_id': userId,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'id');
+
+      developer.log(
+        'Today\'s plan saved successfully',
+        name: 'WorkoutRepository',
+      );
+      return true;
+    } catch (e) {
+      developer.log(
+        'Error saving today\'s plan: $e',
+        name: 'WorkoutRepository',
+      );
+      return false;
+    }
+  }
+
+  /// Delete today's plan (for regeneration)
+  Future<bool> deleteTodaysPlan() async {
+    try {
+      final today = DateTime.now();
+      final planId = 'plan_${today.toIso8601String().split('T')[0]}';
+      final userId = SupabaseConfig.userId;
+
+      if (userId == null) return false;
+
+      await SupabaseConfig.client
+          .from('daily_workout_plans')
+          .delete()
+          .eq('id', planId)
+          .eq('user_id', userId);
+
+      developer.log('Today\'s plan deleted', name: 'WorkoutRepository');
+      return true;
+    } catch (e) {
+      developer.log(
+        'Error deleting today\'s plan: $e',
+        name: 'WorkoutRepository',
+      );
+      return false;
     }
   }
 }

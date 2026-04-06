@@ -461,12 +461,25 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
     final readinessScore = _inferReadinessFromProtocol(protocol);
     final workoutProvider = context.read<WorkoutProvider>();
 
+    // Get user profile from auth provider
+    final authProvider = context.read<AuthProvider>();
+    final userProfile = authProvider.userProfile;
+
+    if (userProfile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please complete your profile first')),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => PreBattlePrimerScreen(
-          onAcknowledged: () {
-            workoutProvider.startWorkout(protocol, readinessScore);
+          userProfile: userProfile,
+          readinessScore: readinessScore,
+          onWorkoutLoaded: (loadedProtocol, loadedReadinessScore) {
+            workoutProvider.startWorkout(loadedProtocol, loadedReadinessScore);
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(

@@ -2,6 +2,8 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
+import '../widgets/glass_card.dart';
+import '../widgets/gradient_button.dart';
 import '../services/agoge_service.dart';
 import '../services/dom_rl_engine.dart';
 import '../services/ephor_scrutiny_service.dart';
@@ -11,13 +13,19 @@ import '../services/ai_plan_service.dart';
 import '../services/dom_rl_engine_v2.dart';
 import '../repositories/session_readiness_repository.dart';
 import '../repositories/weekly_directive_repository.dart';
+import '../repositories/workout_repository.dart';
+import '../repositories/exercise_repository.dart';
 import '../models/workout_protocol.dart';
 import '../models/user_profile.dart';
 import '../models/session_readiness_input.dart';
 import '../models/workout_tracking.dart';
+import '../models/workout_preferences.dart';
+import '../models/exercise.dart';
 import '../providers/workout_provider.dart';
+import '../providers/auth_provider.dart';
 import 'workout_session_screen.dart';
 import 'pre_battle_primer_screen.dart';
+import 'workout_preferences_screen.dart';
 
 class AgogeScreen extends StatefulWidget {
   const AgogeScreen({super.key});
@@ -38,6 +46,7 @@ class _AgogeScreenState extends State<AgogeScreen> {
       SessionReadinessRepository();
   final WeeklyDirectiveRepository _weeklyDirectiveRepository =
       WeeklyDirectiveRepository();
+  final WorkoutRepository _workoutRepository = WorkoutRepository();
 
   WorkoutProtocol? _protocol;
   int _readinessScore = 0;
@@ -89,27 +98,41 @@ class _AgogeScreenState extends State<AgogeScreen> {
   }
 
   Widget _buildSessionReadinessQuestionnaire() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: LaconicTheme.ironGray.withValues(alpha: 0.15),
-        border: Border.all(color: LaconicTheme.ironGray.withValues(alpha: 0.5)),
-        borderRadius: BorderRadius.circular(8),
-      ),
+    return GlassCard(
+      elevated: true,
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '2-MINUTE READINESS CHECK',
-            style: TextStyle(
-              color: LaconicTheme.spartanBronze,
-              fontSize: 10,
-              letterSpacing: 2.0,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [LaconicTheme.spartanBronze, LaconicTheme.warmGold],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.fitness_center,
+                  color: LaconicTheme.deepBlack,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'READINESS CHECK',
+                style: TextStyle(
+                  color: LaconicTheme.warmGold,
+                  fontSize: 12,
+                  letterSpacing: 2.0,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           _buildSliderRow(
             'Soreness',
             _sessionReadinessInput.soreness,
@@ -130,27 +153,26 @@ class _AgogeScreenState extends State<AgogeScreen> {
             _sessionReadinessInput.stress,
             (v) => _updateSessionInput(stress: v),
           ),
-          const SizedBox(height: 8),
-          SizedBox(
+          const SizedBox(height: 16),
+          GradientButton(
+            label: 'APPLY TO RECOMMENDATIONS',
+            onPressed: _protocol == null
+                ? null
+                : () async {
+                    final adjustedReadiness = _sessionReadinessInput
+                        .applyToReadiness(_readinessScore);
+                    await _readinessRepository.saveSessionReadinessInput(
+                      'local_user',
+                      _sessionReadinessInput,
+                      baselineReadiness: _readinessScore,
+                      adjustedReadiness: adjustedReadiness,
+                    );
+                    await _loadStructuredRecommendation(_protocol!);
+                    await _loadAdaptiveWeeklyDirective();
+                  },
+            isSecondary: true,
             width: double.infinity,
-            child: OutlinedButton(
-              onPressed: _protocol == null
-                  ? null
-                  : () async {
-                      // Persist the questionnaire input first
-                      final adjustedReadiness = _sessionReadinessInput
-                          .applyToReadiness(_readinessScore);
-                      await _readinessRepository.saveSessionReadinessInput(
-                        'local_user',
-                        _sessionReadinessInput,
-                        baselineReadiness: _readinessScore,
-                        adjustedReadiness: adjustedReadiness,
-                      );
-                      await _loadStructuredRecommendation(_protocol!);
-                      await _loadAdaptiveWeeklyDirective();
-                    },
-              child: const Text('APPLY QUESTIONNAIRE TO AI RECOMMENDATIONS'),
-            ),
+            height: 48,
           ),
         ],
       ),
@@ -384,12 +406,30 @@ class _AgogeScreenState extends State<AgogeScreen> {
   Future<void> _loadProtocol() async {
     setState(() => _isLoading = true);
 
-    // First, check if we already have a protocol for today
+    // First, check if we have a saved plan in Supabase for today
+    final todaysPlan = await _workoutRepository.getTodaysPlan();
+    if (todaysPlan != null) {
+      // Convert saved plan back to WorkoutProtocol
+      final protocol = _planToProtocol(todaysPlan);
+      await _loadStructuredRecommendation(protocol);
+      await _loadAdaptiveWeeklyDirective();
+      if (mounted) {
+        setState(() {
+          _protocol = protocol;
+          _readinessScore = todaysPlan['readiness_score'] ?? 80;
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    // Check local persistence as fallback
     final savedProtocol = _persistence.loadDailyProtocol();
     if (savedProtocol != null && !_isNewDay()) {
       await _loadStructuredRecommendation(savedProtocol);
       await _loadAdaptiveWeeklyDirective();
-      // Use saved protocol - don't regenerate
+      // Save to Supabase for future loads
+      await _saveProtocolToSupabase(savedProtocol);
       if (mounted) {
         setState(() {
           _protocol = savedProtocol;
@@ -405,6 +445,73 @@ class _AgogeScreenState extends State<AgogeScreen> {
 
     // No saved protocol or new day - generate new one
     await _generateNewProtocol();
+  }
+
+  /// Convert saved plan to WorkoutProtocol
+  WorkoutProtocol _planToProtocol(Map<String, dynamic> plan) {
+    final exercises = (plan['exercises'] as List<dynamic>?) ?? [];
+    final entries = exercises.map((e) {
+      return ProtocolEntry(
+        exercise: Exercise(
+          id: e['exerciseId'] ?? e['name'] ?? 'unknown',
+          name: e['name'] ?? 'Unknown Exercise',
+          category: ExerciseCategory.values.firstWhere(
+            (c) => c.name == (e['category'] ?? 'strength'),
+            orElse: () => ExerciseCategory.strength,
+          ),
+          youtubeId: e['youtubeId'] ?? '',
+          targetMetaphor: e['targetMetaphor'] ?? '',
+          instructions: e['instructions'] ?? '',
+        ),
+        sets: e['sets'] ?? 3,
+        reps: e['reps'] ?? 10,
+        intensityRpe: (e['intensityRpe'] ?? 7.0).toDouble(),
+        restSeconds: e['restSeconds'] ?? 60,
+      );
+    }).toList();
+
+    return WorkoutProtocol(
+      title: plan['title'] ?? 'Daily Protocol',
+      subtitle: plan['subtitle'] ?? 'Agoge Training',
+      tier: ProtocolTier.values.firstWhere(
+        (t) => t.name == (plan['tier'] ?? 'ready'),
+        orElse: () => ProtocolTier.ready,
+      ),
+      entries: entries,
+      estimatedDurationMinutes: plan['estimated_duration_minutes'] ?? 45,
+      mindsetPrompt:
+          plan['mindsetPrompt'] ?? 'Forge your body, sharpen your mind.',
+    );
+  }
+
+  /// Save protocol to Supabase
+  Future<void> _saveProtocolToSupabase(WorkoutProtocol protocol) async {
+    final exercises = protocol.entries
+        .map(
+          (e) => {
+            'exerciseId': e.exercise.id,
+            'name': e.exercise.name,
+            'category': e.exercise.category.name,
+            'youtubeId': e.exercise.youtubeId,
+            'targetMetaphor': e.exercise.targetMetaphor,
+            'instructions': e.exercise.instructions,
+            'sets': e.sets,
+            'reps': e.reps,
+            'intensityRpe': e.intensityRpe,
+            'restSeconds': e.restSeconds,
+          },
+        )
+        .toList();
+
+    await _workoutRepository.saveTodaysPlan({
+      'title': protocol.title,
+      'subtitle': protocol.subtitle,
+      'tier': protocol.tier.name,
+      'exercises': exercises,
+      'estimatedDurationMinutes': protocol.estimatedDurationMinutes,
+      'mindsetPrompt': protocol.mindsetPrompt,
+      'readinessScore': _readinessScore,
+    });
   }
 
   bool _isNewDay() {
@@ -446,6 +553,7 @@ class _AgogeScreenState extends State<AgogeScreen> {
 
     // Save the new protocol
     await _persistence.saveDailyProtocol(finalProtocol);
+    await _saveProtocolToSupabase(finalProtocol);
     await _persistence.setPreference('last_readiness_score', score);
     await _persistence.setPreference(
       'last_protocol_date',
@@ -482,6 +590,17 @@ class _AgogeScreenState extends State<AgogeScreen> {
       appBar: AppBar(
         title: const Text("A G O G E"),
         actions: [
+          // Phalanx import button
+          IconButton(
+            icon: const Icon(
+              Icons.upload_file,
+              color: LaconicTheme.spartanBronze,
+            ),
+            onPressed: () {
+              Navigator.pushNamed(context, '/phalanx');
+            },
+            tooltip: 'Import Plan (Phalanx)',
+          ),
           // DOM-RL toggle
           IconButton(
             icon: Icon(
@@ -595,40 +714,85 @@ class _AgogeScreenState extends State<AgogeScreen> {
                     if (_domRlResult != null) _buildDomRlActionCard(),
 
                     const SizedBox(height: 20),
-                    const Text(
-                      "DAILY PROTOCOL",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        letterSpacing: 1.0,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    // Plan Header with Regenerate and Custom buttons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            "TODAY'S WORKOUT PLAN",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              letterSpacing: 1.0,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            TextButton.icon(
+                              onPressed: _regeneratePlan,
+                              icon: const Icon(Icons.refresh, size: 16),
+                              label: const Text(
+                                'NEW',
+                                style: TextStyle(fontSize: 11),
+                              ),
+                              style: TextButton.styleFrom(
+                                foregroundColor: LaconicTheme.spartanBronze,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: _showCustomPlanPreferences,
+                              icon: const Icon(Icons.tune, size: 16),
+                              label: const Text(
+                                'CUSTOM',
+                                style: TextStyle(fontSize: 11),
+                              ),
+                              style: TextButton.styleFrom(
+                                foregroundColor: LaconicTheme.spartanBronze,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
+                    if (_protocol != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_protocol!.title} • ${_protocol!.estimatedDurationMinutes} min • ${_protocol!.entries.length} exercises',
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
-                    ...?_protocol?.entries.map(
-                      (entry) => Padding(
+                    // Exercise cards with set counters
+                    ...?_protocol?.entries.asMap().entries.map((mapEntry) {
+                      final index = mapEntry.key;
+                      final entry = mapEntry.value;
+                      return Padding(
                         padding: const EdgeInsets.only(bottom: 12.0),
-                        child: _buildWorkoutCard(
-                          entry.exercise.name,
-                          "${entry.sets} SETS × ${entry.reps > 0 ? entry.reps : 'MAX'} REPS",
-                          "RPE ${entry.intensityRpe.toStringAsFixed(1)}",
+                        child: _buildExercisePlanCard(
+                          index: index,
+                          entry: entry,
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                     const SizedBox(height: 40),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          if (_protocol != null) {
-                            _showPreBattlePrimer(workoutProvider);
-                          }
-                        },
-                        child: const Text(
-                          "INITIALIZE PROTOCOL",
-                          style: TextStyle(letterSpacing: 2.0),
-                        ),
-                      ),
+                    GradientButton(
+                      label: 'INITIALIZE PROTOCOL',
+                      onPressed: _protocol != null
+                          ? () => _showPreBattlePrimer(workoutProvider)
+                          : null,
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -639,13 +803,28 @@ class _AgogeScreenState extends State<AgogeScreen> {
   }
 
   void _showPreBattlePrimer(WorkoutProvider workoutProvider) {
+    // Get user profile from auth provider
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userProfile = authProvider.userProfile;
+
+    if (userProfile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please complete your profile first')),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => PreBattlePrimerScreen(
-          onAcknowledged: () {
-            workoutProvider.startWorkout(_protocol!, _readinessScore);
-            Navigator.pushReplacement(
+          userProfile: userProfile,
+          readinessScore: _readinessScore,
+          existingProtocol: _protocol, // Pass the existing protocol
+          onWorkoutLoaded: (protocol, readinessScore) {
+            workoutProvider.startWorkout(protocol, readinessScore);
+            Navigator.pop(context); // Close primer
+            Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => const WorkoutSessionScreen(),
@@ -889,42 +1068,242 @@ class _AgogeScreenState extends State<AgogeScreen> {
     );
   }
 
-  Widget _buildWorkoutCard(String title, String desc, String duration) {
+  /// Regenerate today's workout plan
+  Future<void> _regeneratePlan() async {
+    // Delete current plan and generate new one
+    await _workoutRepository.deleteTodaysPlan();
+    await _persistence.clearDailyProtocol();
+    await _generateNewProtocol();
+  }
+
+  /// Show custom workout preferences screen
+  Future<void> _showCustomPlanPreferences() async {
+    // Get user profile from auth provider
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userProfile = authProvider.userProfile;
+
+    if (userProfile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please complete your profile first')),
+      );
+      return;
+    }
+
+    // Navigate to preferences screen
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => WorkoutPreferencesScreen(
+          profile: userProfile,
+          onGenerate: (preferences) async {
+            await _generateCustomProtocol(preferences, userProfile);
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Generate custom workout protocol based on user preferences
+  Future<void> _generateCustomProtocol(
+    WorkoutPreferences preferences,
+    UserProfile profile,
+  ) async {
+    setState(() => _isLoading = true);
+
+    try {
+      // Initialize AI plan service
+      final aiPlanService = AIPlanService();
+      await aiPlanService.initialize();
+
+      // Get available exercises matching preferences
+      final exerciseRepo = ExerciseRepository();
+      final allExercises = await exerciseRepo.getAllExercises();
+
+      // Filter exercises by preferred categories if specified
+      final availableExercises = preferences.preferredCategories.isNotEmpty
+          ? allExercises
+                .where(
+                  (e) => preferences.preferredCategories.contains(e.category),
+                )
+                .toList()
+          : allExercises;
+
+      // Generate custom protocol
+      final protocol = await aiPlanService.generateCustomProtocol(
+        profile,
+        preferences,
+        availableExercises: availableExercises.isNotEmpty
+            ? availableExercises
+            : null,
+      );
+
+      if (protocol != null) {
+        // Save the custom protocol
+        await _persistence.saveDailyProtocol(protocol);
+        await _saveProtocolToSupabase(protocol);
+
+        setState(() {
+          _protocol = protocol;
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'AI-generated ${preferences.trainingFocusLabel} workout ready!',
+            ),
+            backgroundColor: LaconicTheme.spartanBronze,
+          ),
+        );
+      } else {
+        throw Exception('Failed to generate custom protocol');
+      }
+    } catch (e) {
+      debugPrint('Error generating custom protocol: $e');
+      setState(() => _isLoading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  /// Build exercise plan card with set counter
+  Widget _buildExercisePlanCard({
+    required int index,
+    required ProtocolEntry entry,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: LaconicTheme.ironGray.withValues(alpha: 0.1),
         border: Border.all(color: LaconicTheme.ironGray.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
+          // Exercise number and name
+          Row(
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: LaconicTheme.spartanBronze.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    '${index + 1}',
+                    style: const TextStyle(
+                      color: LaconicTheme.spartanBronze,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  entry.exercise.name,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  desc,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+          const SizedBox(height: 12),
+          // Set counter visualization
+          Row(
+            children: [
+              Text(
+                'SETS:',
+                style: TextStyle(
+                  color: Colors.grey.withValues(alpha: 0.8),
+                  fontSize: 11,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Set counter circles
+              Row(
+                children: List.generate(entry.sets, (setIndex) {
+                  return Container(
+                    width: 28,
+                    height: 28,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: LaconicTheme.spartanBronze,
+                        width: 2,
+                      ),
+                      color: Colors.transparent,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${setIndex + 1}',
+                        style: TextStyle(
+                          color: LaconicTheme.spartanBronze,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Exercise details row
+          Row(
+            children: [
+              _buildDetailChip(
+                '${entry.reps > 0 ? entry.reps : 'MAX'} REPS',
+                Icons.fitness_center,
+              ),
+              const SizedBox(width: 12),
+              _buildDetailChip(
+                'RPE ${entry.intensityRpe.toStringAsFixed(1)}',
+                Icons.speed,
+              ),
+              const SizedBox(width: 12),
+              _buildDetailChip('${entry.restSeconds}s REST', Icons.timer),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build detail chip for exercise card
+  Widget _buildDetailChip(String label, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: LaconicTheme.ironGray.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: LaconicTheme.spartanBronze, size: 14),
+          const SizedBox(width: 6),
           Text(
-            duration,
+            label,
             style: const TextStyle(
-              color: LaconicTheme.spartanBronze,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+              color: Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'theme.dart';
 import 'screens/stadion_screen.dart';
 import 'screens/garrison_screen.dart';
@@ -13,17 +12,18 @@ import 'screens/phalanx_screen.dart';
 import 'screens/weekly_schedule_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/analytics_dashboard.dart';
+import 'screens/exercise_library_screen.dart';
+import 'screens/profile_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'providers/workout_provider.dart';
 import 'providers/ingestion_provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/exercise_provider.dart';
 import 'services/dom_rl_engine.dart';
 import 'services/ai_plan_service.dart';
-import 'services/supabase_auth_service.dart';
-import 'services/supabase_database_service.dart';
 import 'services/state_persistence_service.dart';
 import 'config/supabase_config.dart';
-import 'widgets/guest_mode_banner.dart';
+import 'widgets/animated_nav_bar.dart';
 import 'widgets/warrior_animations.dart';
 
 void main() async {
@@ -31,19 +31,30 @@ void main() async {
 
   bool servicesInitialized = false;
   String? initError;
+  bool firebaseInitialized = false;
 
   try {
-    // Initialize Firebase for Analytics and Crashlytics only
-    await Firebase.initializeApp();
+    // Initialize Firebase for Analytics and Crashlytics (optional - app works without it)
+    try {
+      await Firebase.initializeApp();
+      firebaseInitialized = true;
 
-    // Enable Crashlytics for error tracking
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-    PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true;
-    };
+      // Enable Crashlytics for error tracking
+      FlutterError.onError =
+          FirebaseCrashlytics.instance.recordFlutterFatalError;
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+      debugPrint('Firebase initialized successfully');
+    } catch (firebaseError) {
+      debugPrint(
+        'Firebase initialization failed (non-critical): $firebaseError',
+      );
+      // Continue without Firebase - app is still functional
+    }
 
-    // Initialize Supabase
+    // Initialize Supabase (required)
     await SupabaseConfig.initialize();
 
     // Initialize services
@@ -52,16 +63,17 @@ void main() async {
     await StatePersistenceService().initialize();
 
     servicesInitialized = true;
-    debugPrint('All services initialized successfully');
+    debugPrint('All required services initialized successfully');
   } catch (e) {
     initError = e.toString();
-    debugPrint('Initialization error: $e');
+    debugPrint('Critical initialization error: $e');
   }
 
   runApp(
     NeospartanApp(
       servicesInitialized: servicesInitialized,
       initError: initError,
+      firebaseInitialized: firebaseInitialized,
     ),
   );
 }
@@ -69,11 +81,13 @@ void main() async {
 class NeospartanApp extends StatelessWidget {
   final bool servicesInitialized;
   final String? initError;
+  final bool firebaseInitialized;
 
   const NeospartanApp({
     super.key,
     required this.servicesInitialized,
     this.initError,
+    this.firebaseInitialized = false,
   });
 
   @override
@@ -83,6 +97,7 @@ class NeospartanApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => WorkoutProvider()),
         ChangeNotifierProvider(create: (_) => IngestionProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => ExerciseProvider()),
       ],
       child: MaterialApp(
         title: 'Neospartan',
@@ -93,7 +108,6 @@ class NeospartanApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         // Custom page transitions for combat feel
         onGenerateRoute: (settings) {
-          // Use CombatPageTransition for all routes
           Widget? target;
           switch (settings.name) {
             case '/stadion':
@@ -117,6 +131,9 @@ class NeospartanApp extends StatelessWidget {
             case '/analytics':
               target = const AnalyticsDashboard();
               break;
+            case '/exercise_library':
+              target = const ExerciseLibraryScreen();
+              break;
             case '/login':
               target = const LoginScreen();
               break;
@@ -127,15 +144,6 @@ class NeospartanApp extends StatelessWidget {
           }
           return null;
         },
-        routes: {
-          '/stadion': (context) => const StadionScreen(),
-          '/garrison': (context) => const GarrisonScreen(),
-          '/agoge': (context) => const AgogeScreen(),
-          '/stoic': (context) => const StoicScreen(),
-          '/phalanx': (context) => const PhalanxScreen(),
-          '/weekly_schedule': (context) => const WeeklyScheduleScreen(),
-          '/analytics': (context) => const AnalyticsDashboard(),
-        },
       ),
     );
   }
@@ -144,45 +152,32 @@ class NeospartanApp extends StatelessWidget {
 class AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<AuthState>(
-      stream: SupabaseAuthService().authState,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        // Still initializing - show loading
+        if (!authProvider.isInitialized) {
           return const WarriorLoadingScreen(message: 'AUTHENTICATING');
         }
 
-        final user = snapshot.data?.session?.user;
-
-        if (user != null) {
-          // User is authenticated
-          return FutureBuilder<Map<String, dynamic>?>(
-            future: SupabaseDatabaseService().getUserProfile(user.id),
-            builder: (context, profileSnapshot) {
-              if (profileSnapshot.connectionState == ConnectionState.waiting) {
-                return const WarriorLoadingScreen(message: 'LOADING PROFILE');
-              }
-
-              final profile = profileSnapshot.data;
-
-              if (profile != null &&
-                  profile['has_completed_onboarding'] == true) {
-                return const MainNavigation();
-              } else {
-                return OnboardingScreen(
-                  onComplete: () {
-                    // Navigate to main app after onboarding with combat transition
-                    Navigator.of(context).pushReplacement(
-                      CombatPageTransition(child: const MainNavigation()),
-                    );
-                  },
-                );
-              }
-            },
-          );
-        } else {
-          // User is not authenticated
+        // Not authenticated - show login
+        if (!authProvider.isAuthenticated) {
           return const LoginScreen();
         }
+
+        // Check onboarding status from profile
+        final profile = authProvider.userProfile;
+        if (profile == null || !profile.hasCompletedOnboarding) {
+          return OnboardingScreen(
+            onComplete: () {
+              Navigator.of(context).pushReplacement(
+                CombatPageTransition(child: const MainNavigation()),
+              );
+            },
+          );
+        }
+
+        // Authenticated and onboarded - show main app
+        return const MainNavigation();
       },
     );
   }
@@ -198,54 +193,30 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
 
+  final List<NavItem> _navItems = const [
+    NavItem(icon: Icons.local_fire_department, label: 'Agoge'),
+    NavItem(icon: Icons.calendar_view_week, label: 'Schedule'),
+    NavItem(icon: Icons.fitness_center, label: 'Library'),
+    NavItem(icon: Icons.monitor_heart, label: 'Garrison'),
+    NavItem(icon: Icons.person, label: 'Profile'),
+  ];
+
   final List<Widget> _screens = [
-    const StadionScreen(),
-    const GarrisonScreen(),
     const AgogeScreen(),
     const WeeklyScheduleScreen(),
-    const AnalyticsDashboard(),
+    const ExerciseLibraryScreen(),
+    const GarrisonScreen(),
+    const ProfileScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final isGuest = !context.watch<AuthProvider>().isAuthenticated;
-
     return Scaffold(
-      body: Column(
-        children: [
-          if (isGuest) const GuestModeBanner(),
-          Expanded(child: _screens[_currentIndex]),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
+      body: _screens[_currentIndex],
+      bottomNavigationBar: AnimatedNavBar(
+        items: _navItems,
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: const Color(0xFF2a2a2a),
-        selectedItemColor: const Color(0xFFd4af37),
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.fitness_center),
-            label: 'Stadion',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.schedule),
-            label: 'Garrison',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.local_fire_department),
-            label: 'Agoge',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_view_week),
-            label: 'Schedule',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.analytics),
-            label: 'Analytics',
-          ),
-        ],
       ),
     );
   }

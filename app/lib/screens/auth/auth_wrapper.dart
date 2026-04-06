@@ -1,4 +1,3 @@
-import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
@@ -57,12 +56,7 @@ class _AuthWrapperState extends State<AuthWrapper>
     // Not authenticated - show login
     if (!authProvider.isAuthenticated) {
       _animationController.reverse();
-      return LoginScreen(
-        onAnonymousSignIn: () {
-          // Anonymous sign-in will trigger auth state change
-          developer.log('Anonymous sign-in triggered', name: 'AuthWrapper');
-        },
-      );
+      return const LoginScreen();
     }
 
     // Authenticated - show main app with transition
@@ -128,15 +122,7 @@ class AuthGate extends StatelessWidget {
     }
 
     if (!authProvider.isAuthenticated) {
-      return LoginScreen(
-        onAnonymousSignIn: () {
-          // Anonymous sign-in will trigger auth state change
-          developer.log(
-            'Anonymous sign-in triggered in AuthGate',
-            name: 'AuthGate',
-          );
-        },
-      );
+      return const LoginScreen();
     }
 
     // Check if user has completed onboarding by looking at their profile

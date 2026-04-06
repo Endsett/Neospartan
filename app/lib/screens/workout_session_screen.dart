@@ -365,6 +365,12 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
   }
 
   void _showCancelDialog(BuildContext context, WorkoutProvider provider) {
+    final completedExercises = provider.completedExercises.length;
+    final totalExercises = provider.activeProtocol?.entries.length ?? 0;
+    final percentage = totalExercises > 0
+        ? (completedExercises / totalExercises * 100).toStringAsFixed(0)
+        : '0';
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -373,8 +379,10 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
           "ABANDON MISSION?",
           style: TextStyle(color: Colors.white),
         ),
-        content: const Text(
-          "The Spartan does not yield lightly. Are you sure?",
+        content: Text(
+          completedExercises > 0
+              ? "You've completed $completedExercises of $totalExercises exercises ($percentage%).\n\nYour partial progress will be saved."
+              : "The Spartan does not yield lightly. Are you sure?",
         ),
         actions: [
           TextButton(
@@ -385,8 +393,9 @@ class _WorkoutSessionScreenState extends State<WorkoutSessionScreen>
             ),
           ),
           TextButton(
-            onPressed: () {
-              provider.cancelWorkout();
+            onPressed: () async {
+              await provider.abandonWorkout();
+              if (!mounted) return;
               Navigator.pop(context); // Dialog
               Navigator.pop(context); // Screen
             },

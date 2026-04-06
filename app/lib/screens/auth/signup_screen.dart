@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme.dart';
+import '../../widgets/glass_card.dart';
+import '../../widgets/gradient_button.dart';
 
 /// Signup Screen - Account creation with Spartan theme
 class SignupScreen extends StatefulWidget {
@@ -49,57 +51,68 @@ class _SignupScreenState extends State<SignupScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title
-                _buildTitle(),
-                const SizedBox(height: 32),
+          child: GlassCard(
+            elevated: true,
+            padding: const EdgeInsets.all(32),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  _buildTitle(),
+                  const SizedBox(height: 32),
 
-                // Error message
-                if (authProvider.error != null) ...[
-                  _buildErrorMessage(authProvider.error!),
+                  // Error message
+                  if (authProvider.error != null) ...[
+                    _buildErrorMessage(authProvider.error!),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Name field
+                  _buildNameField(),
                   const SizedBox(height: 16),
+
+                  // Email field
+                  _buildEmailField(),
+                  const SizedBox(height: 16),
+
+                  // Password field
+                  _buildPasswordField(),
+                  const SizedBox(height: 16),
+
+                  // Confirm password field
+                  _buildConfirmPasswordField(),
+                  const SizedBox(height: 16),
+
+                  // Terms checkbox
+                  _buildTermsCheckbox(),
+                  const SizedBox(height: 32),
+
+                  // Sign up button
+                  GradientButton(
+                    label: 'CREATE ACCOUNT',
+                    onPressed: authProvider.isLoading || !_agreeToTerms
+                        ? null
+                        : _handleSignUp,
+                    isLoading: authProvider.isLoading,
+                    width: double.infinity,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Divider
+                  _buildDivider(),
+                  const SizedBox(height: 24),
+
+                  // Google Sign up
+                  _buildGoogleSignUpButton(authProvider),
+                  const SizedBox(height: 16),
+
+                  // Link anonymous account (if currently anonymous)
+                  if (authProvider.isAnonymous)
+                    _buildLinkAnonymousButton(authProvider),
                 ],
-
-                // Name field
-                _buildNameField(),
-                const SizedBox(height: 16),
-
-                // Email field
-                _buildEmailField(),
-                const SizedBox(height: 16),
-
-                // Password field
-                _buildPasswordField(),
-                const SizedBox(height: 16),
-
-                // Confirm password field
-                _buildConfirmPasswordField(),
-                const SizedBox(height: 16),
-
-                // Terms checkbox
-                _buildTermsCheckbox(),
-                const SizedBox(height: 32),
-
-                // Sign up button
-                _buildSignUpButton(authProvider),
-                const SizedBox(height: 24),
-
-                // Divider
-                _buildDivider(),
-                const SizedBox(height: 24),
-
-                // Google Sign up
-                _buildGoogleSignUpButton(authProvider),
-                const SizedBox(height: 16),
-
-                // Link anonymous account (if currently anonymous)
-                if (authProvider.isAnonymous)
-                  _buildLinkAnonymousButton(authProvider),
-              ],
+              ),
             ),
           ),
         ),
@@ -113,21 +126,16 @@ class _SignupScreenState extends State<SignupScreen> {
       children: [
         Text(
           'JOIN THE AGŌGĒ',
-          style: TextStyle(
-            color: LaconicTheme.spartanBronze,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 4,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.displaySmall?.copyWith(letterSpacing: 4),
         ),
         const SizedBox(height: 8),
         Text(
           'Begin your transformation',
-          style: TextStyle(
-            color: Colors.grey[400],
-            fontSize: 14,
-            letterSpacing: 1,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: LaconicTheme.mistGray),
         ),
       ],
     );
@@ -311,46 +319,6 @@ class _SignupScreenState extends State<SignupScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildSignUpButton(AuthProvider authProvider) {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: authProvider.isLoading || !_agreeToTerms
-            ? null
-            : _handleSignUp,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: LaconicTheme.spartanBronze,
-          foregroundColor: Colors.black,
-          disabledBackgroundColor: LaconicTheme.spartanBronze.withValues(
-            alpha: 0.5,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 0,
-        ),
-        child: authProvider.isLoading
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
-                ),
-              )
-            : const Text(
-                'CREATE ACCOUNT',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                ),
-              ),
-      ),
     );
   }
 

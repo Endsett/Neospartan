@@ -110,7 +110,53 @@ class SupabaseDatabaseService {
     }
   }
 
-  /// Get workout sessions for a user
+  /// Save partial/abandoned workout session with completion percentage
+  Future<void> savePartialWorkoutSession({
+    required String sessionId,
+    required DateTime startTime,
+    required String workoutType,
+    required int exercisesCompleted,
+    required int totalExercises,
+    required double completionPercentage,
+    required int readinessScore,
+    int? durationMinutes,
+  }) async {
+    try {
+      debugPrint(
+        'Saving partial workout session: $completionPercentage% complete',
+      );
+
+      if (currentUserId == null) {
+        throw Exception('No authenticated user');
+      }
+
+      final endTime = DateTime.now();
+      final actualDuration =
+          durationMinutes ?? endTime.difference(startTime).inMinutes;
+
+      await _supabase.from('workout_sessions').upsert({
+        'id': sessionId,
+        'user_id': currentUserId,
+        'date': _dateOnly(startTime),
+        'start_time': startTime.toIso8601String(),
+        'end_time': endTime.toIso8601String(),
+        'workout_type': workoutType,
+        'status': 'abandoned',
+        'completion_percentage': completionPercentage,
+        'exercises_completed': exercisesCompleted,
+        'total_exercises': totalExercises,
+        'notes':
+            'readiness:$readinessScore;duration:$actualDuration;status:abandoned;completed:$exercisesCompleted/$totalExercises',
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'id');
+
+      debugPrint('Partial workout session saved successfully');
+    } catch (e) {
+      debugPrint('Error saving partial workout session: $e');
+      rethrow;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getWorkoutSessions({
     DateTime? startDate,
     DateTime? endDate,
@@ -177,9 +223,12 @@ class SupabaseDatabaseService {
         'Saving workout set: ${setData['exercise_name']} Set ${setData['set_number']}',
       );
 
+      // Remove user_id if present - workout_sets table only requires session_id
+      final payload = Map<String, dynamic>.from(setData);
+      payload.remove('user_id');
+
       await _supabase.from('workout_sets').insert({
-        ...setData,
-        'user_id': currentUserId,
+        ...payload,
         'created_at': DateTime.now().toIso8601String(),
       });
       debugPrint('Workout set saved successfully');
@@ -586,6 +635,152 @@ class SupabaseDatabaseService {
       });
     } catch (e) {
       debugPrint('Error saving analytics event: $e');
+    }
+  }
+
+  // ==================== Performance Analytics for AI ====================
+
+  /// Fetch a structured summary of recent workout performance for AI prompt context.
+  /// Returns per-exercise stats, volume trends, RPE trends, and weekly progress.
+  Future<Map<String, dynamic>> getRecentPerformanceSummary({
+    int sessionLimit = 10,
+    int weeklyProgressWeeks = 4,
+  }) async {
+    try {
+      if (currentUserId == null) {
+        return {'empty': true, 'reason': 'no_user'};
+      }
+
+      // 1. Fetch recent completed sessions
+      final sessions = await getWorkoutSessions(limit: sessionLimit);
+      if (sessions.isEmpty) {
+        return {'empty': true, 'reason': 'no_sessions'};
+      }
+
+      // 2. Fetch sets for each session
+      final allSets = <Map<String, dynamic>>[];
+      for (final session in sessions) {
+        final sessionId = session['id']?.toString();
+        if (sessionId == null || sessionId.isEmpty) continue;
+        final sets = await getWorkoutSets(sessionId);
+        for (final s in sets) {
+          s['session_date'] = session['date'];
+          s['workout_type'] = session['workout_type'];
+        }
+        allSets.addAll(sets);
+      }
+
+      // 3. Build per-exercise aggregates
+      final exerciseStats = <String, Map<String, dynamic>>{};
+      for (final s in allSets) {
+        final name = s['exercise_name']?.toString() ?? 'Unknown';
+        final stats = exerciseStats.putIfAbsent(
+          name,
+          () => ({
+            'count': 0,
+            'total_reps': 0,
+            'total_volume': 0.0,
+            'max_load': 0.0,
+            'rpe_sum': 0.0,
+            'rpe_count': 0,
+            'dates': <String>[],
+          }),
+        );
+        stats['count'] = (stats['count'] as int) + 1;
+        final reps = (s['reps_performed'] as num?)?.toInt() ?? 0;
+        final load = (s['load_used'] as num?)?.toDouble() ?? 0.0;
+        final rpe = (s['actual_rpe'] as num?)?.toDouble() ?? 0.0;
+        stats['total_reps'] = (stats['total_reps'] as int) + reps;
+        stats['total_volume'] =
+            (stats['total_volume'] as double) + (load * reps);
+        if (load > (stats['max_load'] as double)) {
+          stats['max_load'] = load;
+        }
+        if (rpe > 0) {
+          stats['rpe_sum'] = (stats['rpe_sum'] as double) + rpe;
+          stats['rpe_count'] = (stats['rpe_count'] as int) + 1;
+        }
+        final date = s['session_date']?.toString() ?? '';
+        if (date.isNotEmpty &&
+            !(stats['dates'] as List<String>).contains(date)) {
+          (stats['dates'] as List<String>).add(date);
+        }
+      }
+
+      // Compute averages
+      final exerciseSummaries = <Map<String, dynamic>>[];
+      for (final entry in exerciseStats.entries) {
+        final stats = entry.value;
+        final avgRpe = (stats['rpe_count'] as int) > 0
+            ? (stats['rpe_sum'] as double) / (stats['rpe_count'] as int)
+            : 0.0;
+        exerciseSummaries.add({
+          'exercise': entry.key,
+          'sets_logged': stats['count'],
+          'total_reps': stats['total_reps'],
+          'total_volume': (stats['total_volume'] as double).toStringAsFixed(1),
+          'max_load': stats['max_load'],
+          'avg_rpe': double.parse(avgRpe.toStringAsFixed(1)),
+          'sessions_appeared': (stats['dates'] as List<String>).length,
+        });
+      }
+
+      // Sort by frequency
+      exerciseSummaries.sort(
+        (a, b) => (b['sets_logged'] as int).compareTo(a['sets_logged'] as int),
+      );
+
+      // 4. Fetch recent weekly progress
+      final weeklyData = <Map<String, dynamic>>[];
+      final now = DateTime.now();
+      for (int i = 0; i < weeklyProgressWeeks; i++) {
+        final weekStart = now.subtract(
+          Duration(days: now.weekday - 1 + (i * 7)),
+        );
+        final progress = await getWeeklyProgress(weekStart);
+        if (progress != null) {
+          weeklyData.add(progress);
+        }
+      }
+
+      // 5. Compute session-level trends
+      double totalSessionRpe = 0;
+      int sessionRpeCount = 0;
+      for (final session in sessions) {
+        final notes = session['notes']?.toString() ?? '';
+        final rpeMatch = RegExp(r'averageRpe:([\d.]+)').firstMatch(notes);
+        if (rpeMatch != null) {
+          totalSessionRpe += double.tryParse(rpeMatch.group(1)!) ?? 0;
+          sessionRpeCount++;
+        }
+      }
+
+      return {
+        'empty': false,
+        'sessions_analyzed': sessions.length,
+        'total_sets_analyzed': allSets.length,
+        'exercise_summaries': exerciseSummaries.take(15).toList(),
+        'weekly_progress': weeklyData
+            .map(
+              (w) => {
+                'week': w['week_starting'],
+                'workouts_completed': w['workouts_completed'],
+                'average_rpe': w['average_rpe'],
+                'total_volume': w['total_volume'],
+                'average_readiness': w['average_readiness'],
+              },
+            )
+            .toList(),
+        'overall_avg_rpe': sessionRpeCount > 0
+            ? double.parse(
+                (totalSessionRpe / sessionRpeCount).toStringAsFixed(1),
+              )
+            : null,
+        'most_recent_session_date': sessions.first['date'],
+      };
+    } catch (e) {
+      debugPrint('Error building performance summary: $e');
+      return {'empty': true, 'reason': 'error', 'error': e.toString()};
     }
   }
 

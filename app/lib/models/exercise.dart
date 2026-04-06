@@ -88,6 +88,74 @@ class Exercise {
     );
   }
 
+  /// Deserialize from Supabase database row
+  factory Exercise.fromSupabase(Map<String, dynamic> map) {
+    final rawCategory = map['category'] as String?;
+    final rawMinLevel = map['min_fitness_level'] as String?;
+    final rawMaxLevel = map['max_fitness_level'] as String?;
+    final rawGoals = map['ideal_goals'] as List<dynamic>?;
+
+    return Exercise(
+      id: map['id'] as String? ?? '',
+      name: map['name'] as String? ?? 'Unknown Exercise',
+      category: ExerciseCategory.values.firstWhere(
+        (e) => e.name == rawCategory,
+        orElse: () => ExerciseCategory.strength,
+      ),
+      youtubeId: map['youtube_id'] as String? ?? '',
+      targetMetaphor: map['target_metaphor'] as String? ?? '',
+      instructions: map['instructions'] as String? ?? '',
+      intensityLevel: map['intensity_level'] as int? ?? 5,
+      primaryMuscles:
+          (map['primary_muscles'] as List<dynamic>?)?.cast<String>() ??
+          const [],
+      jointStress:
+          (map['joint_stress'] as Map<String, dynamic>?)?.map(
+            (k, v) => MapEntry(k, v as int),
+          ) ??
+          const {},
+      idealGoals:
+          rawGoals
+              ?.map(
+                (g) => TrainingGoal.values.firstWhere(
+                  (tg) => tg.name == g,
+                  orElse: () => TrainingGoal.generalCombat,
+                ),
+              )
+              .toList() ??
+          const [],
+      minFitnessLevel: FitnessLevel.values.firstWhere(
+        (e) => e.name == rawMinLevel,
+        orElse: () => FitnessLevel.beginner,
+      ),
+      maxFitnessLevel: FitnessLevel.values.firstWhere(
+        (e) => e.name == rawMaxLevel,
+        orElse: () => FitnessLevel.advanced,
+      ),
+      workoutTags:
+          (map['workout_tags'] as List<dynamic>?)?.cast<String>() ?? const [],
+    );
+  }
+
+  /// Serialize to Supabase database format
+  Map<String, dynamic> toSupabase() {
+    return {
+      'id': id,
+      'name': name,
+      'category': category.name,
+      'youtube_id': youtubeId,
+      'target_metaphor': targetMetaphor,
+      'instructions': instructions,
+      'intensity_level': intensityLevel,
+      'primary_muscles': primaryMuscles,
+      'joint_stress': jointStress,
+      'ideal_goals': idealGoals.map((g) => g.name).toList(),
+      'min_fitness_level': minFitnessLevel.name,
+      'max_fitness_level': maxFitnessLevel.name,
+      'workout_tags': workoutTags,
+    };
+  }
+
   /// Find exercise by ID from library
   static Exercise? findById(String id) {
     try {

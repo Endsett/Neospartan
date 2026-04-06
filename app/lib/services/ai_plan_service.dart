@@ -4,12 +4,14 @@ import '../models/ai_memory.dart';
 import '../models/user_profile.dart';
 import '../models/workout_protocol.dart';
 import '../models/workout_tracking.dart';
+import '../models/workout_preferences.dart';
 import '../models/exercise.dart';
 import '../models/session_readiness_input.dart';
 import '../config/ai_config.dart';
 import 'ai_memory_service.dart';
 import 'context_ingestion_service.dart';
 import 'gemini_client.dart';
+import 'supabase_database_service.dart';
 
 /// Weekly plan structure for AI-generated training plans
 class WeeklyPlan {
@@ -148,6 +150,65 @@ class AIPlanService {
   bool _initialized = false;
   final AIMemoryService _memoryService = AIMemoryService();
   final ContextIngestionService _contextService = ContextIngestionService();
+  final SupabaseDatabaseService _database = SupabaseDatabaseService();
+
+  /// Fetch recent workout analytics from Supabase and format as a prompt-ready string.
+  /// Returns null if no data is available so callers can degrade gracefully.
+  Future<String?> buildPerformanceContext() async {
+    try {
+      final summary = await _database.getRecentPerformanceSummary();
+      if (summary['empty'] == true) return null;
+
+      final buf = StringBuffer();
+      buf.writeln(
+        'PREVIOUS PERFORMANCE DATA (last ${summary['sessions_analyzed']} sessions, ${summary['total_sets_analyzed']} sets logged):',
+      );
+
+      // Per-exercise breakdown
+      final exercises = summary['exercise_summaries'] as List<dynamic>? ?? [];
+      if (exercises.isNotEmpty) {
+        buf.writeln('\nExercise History (most frequent first):');
+        for (final ex in exercises) {
+          buf.writeln(
+            '- ${ex['exercise']}: ${ex['sets_logged']} sets, '
+            '${ex['total_reps']} total reps, '
+            'max load ${ex['max_load']}kg, '
+            'avg RPE ${ex['avg_rpe']}, '
+            'volume ${ex['total_volume']}kg',
+          );
+        }
+      }
+
+      // Weekly trends
+      final weeks = summary['weekly_progress'] as List<dynamic>? ?? [];
+      if (weeks.isNotEmpty) {
+        buf.writeln('\nWeekly Progress Trend (most recent first):');
+        for (final w in weeks) {
+          buf.writeln(
+            '- Week ${w['week']}: '
+            '${w['workouts_completed']} workouts, '
+            'avg RPE ${w['average_rpe']}, '
+            'volume ${w['total_volume']}kg, '
+            'readiness ${w['average_readiness']}/100',
+          );
+        }
+      }
+
+      if (summary['overall_avg_rpe'] != null) {
+        buf.writeln(
+          '\nOverall average RPE across sessions: ${summary['overall_avg_rpe']}',
+        );
+      }
+      buf.writeln(
+        'Most recent session: ${summary['most_recent_session_date']}',
+      );
+
+      return buf.toString();
+    } catch (e) {
+      debugPrint('Error building performance context: $e');
+      return null;
+    }
+  }
 
   /// Initialize the service with Gemini 2.5 Flash and memory system
   Future<void> initialize() async {
@@ -192,6 +253,9 @@ class AIPlanService {
         debugPrint('Memory storage failed, continuing without memory: $e');
       }
 
+      // Fetch recent performance analytics for personalization
+      final performanceContext = await buildPerformanceContext();
+
       // Build context-aware prompt
       String prompt;
       try {
@@ -199,11 +263,17 @@ class AIPlanService {
           userId: profile.userId,
           contextType: 'training_plan_generation',
           userProfile: profile,
+          additionalContext: performanceContext != null
+              ? {'performance_history': performanceContext}
+              : null,
           maxTokens: 8000,
         );
       } catch (e) {
         debugPrint('Context building failed, using basic prompt: $e');
-        prompt = _buildBasicPrompt(profile);
+        prompt = _buildBasicPrompt(
+          profile,
+          performanceContext: performanceContext,
+        );
       }
 
       final planText = await _geminiClient.generateContent(
@@ -238,7 +308,20 @@ class AIPlanService {
   }
 
   /// Build basic prompt when memory system fails
-  String _buildBasicPrompt(UserProfile profile) {
+  String _buildBasicPrompt(UserProfile profile, {String? performanceContext}) {
+    final perfBlock = performanceContext != null
+        ? '''
+
+$performanceContext
+
+IMPORTANT: Use the above performance data to:
+- Apply progressive overload on exercises the athlete has been doing (increase load/reps slightly)
+- Avoid over-programming exercises with high RPE trends (risk of overtraining)
+- Introduce variety where the athlete has plateaued
+- Adjust intensity based on recent readiness trends
+'''
+        : '';
+
     return '''
 You are an elite combat sports conditioning coach. Create a detailed weekly training plan for a ${profile.fitnessLevelText} level athlete training for ${profile.trainingGoalText}.
 
@@ -251,7 +334,7 @@ ATHLETE PROFILE:
 - Goal: ${profile.trainingGoalText}
 - Days per week: ${profile.trainingDaysPerWeek}
 - Session duration: ${profile.preferredWorkoutDuration} minutes
-
+$perfBlock
 RESPONSE FORMAT:
 Return a JSON object with the following structure:
 {
@@ -301,6 +384,9 @@ Return a JSON object with the following structure:
         debugPrint('Failed to store progress in memory: $e');
       }
 
+      // Fetch recent performance analytics for personalization
+      final performanceContext = await buildPerformanceContext();
+
       // Build context-aware prompt
       String prompt;
       try {
@@ -308,11 +394,19 @@ Return a JSON object with the following structure:
           userId: profile.userId,
           contextType: 'plan_adjustment',
           userProfile: profile,
+          additionalContext: performanceContext != null
+              ? {'performance_history': performanceContext}
+              : null,
           maxTokens: 8000,
         );
       } catch (e) {
         debugPrint('Context building failed, using basic prompt: $e');
-        prompt = _buildAdjustmentPrompt(profile, currentPlan, progress);
+        prompt = _buildAdjustmentPrompt(
+          profile,
+          currentPlan,
+          progress,
+          performanceContext: performanceContext,
+        );
       }
 
       final planText = await _geminiClient.generateContent(
@@ -462,6 +556,265 @@ ${recommendation.recoveryGuidance.map((line) => '- $line').join('\n')}
     );
   }
 
+  /// Generate a customized daily workout protocol based on user preferences
+  /// Uses enhanced AI prompting with exercise validation
+  Future<WorkoutProtocol?> generateCustomProtocol(
+    UserProfile profile,
+    WorkoutPreferences preferences, {
+    List<Exercise>? availableExercises,
+  }) async {
+    if (!_initialized) {
+      debugPrint('AI Plan Service not initialized');
+      return null;
+    }
+
+    try {
+      // Fetch recent performance analytics for personalization
+      final performanceContext = await buildPerformanceContext();
+
+      // Build enhanced prompt with preferences and analytics
+      final prompt = _buildCustomWorkoutPrompt(
+        profile,
+        preferences,
+        availableExercises,
+        performanceContext: performanceContext,
+      );
+
+      debugPrint(
+        'Generating custom workout with preferences: ${preferences.toMap()}',
+      );
+
+      final response = await _geminiClient.generateContent(
+        prompt,
+        maxRetries: AIConfig.maxRetries,
+        delay: AIConfig.baseDelay,
+      );
+
+      if (response != null) {
+        final protocol = _parseCustomWorkoutResponse(
+          response,
+          profile,
+          preferences,
+        );
+
+        // Store in memory
+        try {
+          await _memoryService.storeMemory(
+            userId: profile.userId,
+            type: AIMemoryType.workoutHistory,
+            priority: MemoryPriority.high,
+            data: protocol.toMap(),
+            summary:
+                'Custom AI workout: ${protocol.title} (${protocol.estimatedDurationMinutes}min, ${protocol.entries.length} exercises)',
+            tags: ['custom', 'ai_generated', preferences.trainingFocus.name],
+          );
+        } catch (e) {
+          debugPrint('Failed to store custom workout in memory: $e');
+        }
+
+        return protocol;
+      }
+    } catch (e) {
+      debugPrint('Error generating custom protocol: $e');
+    }
+
+    // Fallback to template generation
+    return _generateFallbackCustomProtocol(profile, preferences);
+  }
+
+  /// Build enhanced prompt for custom workout generation
+  String _buildCustomWorkoutPrompt(
+    UserProfile profile,
+    WorkoutPreferences preferences,
+    List<Exercise>? availableExercises, {
+    String? performanceContext,
+  }) {
+    final exerciseList =
+        availableExercises != null && availableExercises.isNotEmpty
+        ? availableExercises
+              .map((e) => '- ${e.name} (${e.category.name})')
+              .join('\n')
+        : 'Use standard strength and conditioning exercises';
+
+    final perfBlock = performanceContext != null
+        ? '''
+
+$performanceContext
+
+IMPORTANT: Use the above performance data to:
+- Apply progressive overload on exercises the athlete has done before (increase load or reps slightly)
+- Avoid repeating exercises with very high recent RPE (risk of overtraining)
+- Introduce variety for exercises the athlete has plateaued on
+- Prioritise exercises the athlete hasn't done recently to balance development
+'''
+        : '';
+
+    return '''
+You are an elite combat sports conditioning coach. Create a personalized single-session workout plan tailored to the athlete's specific preferences.
+
+ATHLETE PROFILE:
+- Name: ${profile.displayName ?? 'Athlete'}
+- Level: ${profile.fitnessLevelText}
+- Goal: ${profile.trainingGoalText}
+
+WORKOUT PREFERENCES:
+- Target Intensity: ${preferences.targetIntensity}/10 (${preferences.intensityLabel})
+- Target Duration: ${preferences.targetDurationMinutes} minutes
+- Training Focus: ${preferences.trainingFocusLabel}
+- Preferred Categories: ${preferences.preferredCategories.map((c) => c.name).join(', ')}
+- Number of Exercises: ${preferences.preferredExerciseCount}
+- Sets per Exercise: ${preferences.setsPerExercise}
+${preferences.specificFocus != null ? '- Specific Focus: ${preferences.specificFocus}' : ''}
+${preferences.includeCardio ? '- Include cardiovascular conditioning' : ''}
+${preferences.includeMobility ? '- Include mobility work' : ''}
+$perfBlock
+AVAILABLE EXERCISES:
+$exerciseList
+
+INSTRUCTIONS:
+1. Select exactly ${preferences.preferredExerciseCount} exercises that match the focus and categories
+2. Design sets/reps to achieve intensity level ${preferences.targetIntensity}/10
+3. Target total duration: ${preferences.targetDurationMinutes} minutes (include appropriate rest)
+4. Provide a motivational title and mindset prompt
+5. If performance data is available, use it to set progressive targets (slightly higher load/reps than last session)
+
+RESPONSE FORMAT:
+Return a JSON object:
+{
+  "title": "Creative workout name",
+  "subtitle": "Brief description",
+  "exercises": [
+    {
+      "name": "Exercise name from available list",
+      "sets": ${preferences.setsPerExercise},
+      "reps": number or "MAX",
+      "rpe": ${preferences.targetIntensity - 2} to ${preferences.targetIntensity + 1},
+      "rest_seconds": 30-180
+    }
+  ],
+  "mindset_prompt": "Motivational message"
+}
+''';
+  }
+
+  /// Parse AI response for custom workout
+  WorkoutProtocol _parseCustomWorkoutResponse(
+    String response,
+    UserProfile profile,
+    WorkoutPreferences preferences,
+  ) {
+    try {
+      final jsonStart = response.indexOf('{');
+      final jsonEnd = response.lastIndexOf('}');
+
+      if (jsonStart == -1 || jsonEnd == -1) {
+        throw Exception('No JSON found in response');
+      }
+
+      final jsonString = response.substring(jsonStart, jsonEnd + 1);
+      final data = jsonDecode(jsonString);
+
+      final entries = <ProtocolEntry>[];
+
+      for (final ex in data['exercises']) {
+        final exercise = _matchExercise(
+          ex['name'],
+          profile: profile,
+          workoutType: preferences.trainingFocus.name,
+        );
+
+        entries.add(
+          ProtocolEntry(
+            exercise: exercise,
+            sets: ex['sets'] ?? preferences.setsPerExercise,
+            reps: int.tryParse(ex['reps'].toString()) ?? 10,
+            intensityRpe:
+                (ex['rpe'] as num?)?.toDouble() ??
+                preferences.targetIntensity.toDouble(),
+            restSeconds: ex['rest_seconds'] ?? 60,
+          ),
+        );
+      }
+
+      return WorkoutProtocol(
+        title:
+            data['title'] ?? 'Custom ${preferences.trainingFocusLabel} Workout',
+        subtitle:
+            data['subtitle'] ??
+            'AI-Personalized (${preferences.intensityLabel} Intensity)',
+        tier: _intensityToTier(preferences.targetIntensity),
+        entries: entries,
+        estimatedDurationMinutes: preferences.targetDurationMinutes,
+        mindsetPrompt:
+            data['mindset_prompt'] ?? 'Train with purpose and discipline.',
+      );
+    } catch (e) {
+      debugPrint('Error parsing custom workout response: $e');
+      return _generateFallbackCustomProtocol(profile, preferences);
+    }
+  }
+
+  /// Generate fallback protocol when AI is unavailable
+  WorkoutProtocol _generateFallbackCustomProtocol(
+    UserProfile profile,
+    WorkoutPreferences preferences,
+  ) {
+    final exercises = <ProtocolEntry>[];
+
+    // Select exercises based on preferences
+    final candidates = preferences.preferredCategories.isNotEmpty
+        ? Exercise.library
+              .where(
+                (e) => preferences.preferredCategories.contains(e.category),
+              )
+              .toList()
+        : Exercise.library;
+
+    final selected = candidates
+        .take(preferences.preferredExerciseCount)
+        .toList();
+
+    if (selected.isEmpty) {
+      selected.addAll(
+        Exercise.library.take(preferences.preferredExerciseCount),
+      );
+    }
+
+    for (var i = 0; i < selected.length; i++) {
+      final exercise = selected[i];
+
+      exercises.add(
+        ProtocolEntry(
+          exercise: exercise,
+          sets: preferences.setsPerExercise,
+          reps: preferences.targetIntensity > 7
+              ? 6
+              : (preferences.targetIntensity < 4 ? 15 : 10),
+          intensityRpe: preferences.targetIntensity.toDouble(),
+          restSeconds: preferences.targetIntensity > 7 ? 120 : 60,
+        ),
+      );
+    }
+
+    return WorkoutProtocol(
+      title:
+          '${preferences.trainingFocusLabel} - ${preferences.intensityLabel}',
+      subtitle: '${preferences.targetDurationMinutes}min personalized workout',
+      tier: _intensityToTier(preferences.targetIntensity),
+      entries: exercises,
+      estimatedDurationMinutes: preferences.targetDurationMinutes,
+      mindsetPrompt: 'Adapt and overcome. This workout is tailored for you.',
+    );
+  }
+
+  /// Convert intensity level to protocol tier
+  ProtocolTier _intensityToTier(int intensity) {
+    if (intensity >= 9) return ProtocolTier.elite;
+    if (intensity >= 6) return ProtocolTier.ready;
+    if (intensity >= 4) return ProtocolTier.fatigued;
+    return ProtocolTier.recovery;
+  }
+
   DailyLog _applyReadinessInputToLog(
     DailyLog log,
     SessionReadinessInput? readinessInput,
@@ -572,8 +925,17 @@ ${recommendation.recoveryGuidance.map((line) => '- $line').join('\n')}
   String _buildAdjustmentPrompt(
     UserProfile profile,
     WeeklyPlan currentPlan,
-    WeeklyProgress progress,
-  ) {
+    WeeklyProgress progress, {
+    String? performanceContext,
+  }) {
+    final perfBlock = performanceContext != null
+        ? '''
+
+$performanceContext
+
+'''
+        : '';
+
     return '''
 You are an elite combat sports conditioning coach. Based on the athlete's weekly progress, adjust their training plan for the upcoming week.
 
@@ -588,7 +950,7 @@ WEEKLY PROGRESS:
 - Average Readiness: ${progress.averageReadiness}/100
 - Total Volume: ${progress.totalVolume}kg
 - Goals Achieved: ${progress.achievedGoals ? 'Yes' : 'No'}
-
+$perfBlock
 CURRENT PLAN:
 ${currentPlan.dailyWorkouts.map((d) => '- ${d.day}: ${d.workoutType} - ${d.focus}').join('\n')}
 
@@ -597,6 +959,8 @@ INSTRUCTIONS:
 2. Modify exercises if needed to address weaknesses
 3. Ensure proper recovery between intense sessions
 4. Keep the same structure (days per week)
+5. Use per-exercise history to apply progressive overload where appropriate
+6. Reduce volume on exercises showing high RPE trends
 
 RESPONSE FORMAT:
 Return a JSON object with the same structure as before:
@@ -625,7 +989,13 @@ Return a JSON object with the same structure as before:
     }
 
     try {
-      final prompt = _buildBasicPrompt(profile);
+      // Fetch recent performance analytics for personalization
+      final performanceContext = await buildPerformanceContext();
+
+      final prompt = _buildBasicPrompt(
+        profile,
+        performanceContext: performanceContext,
+      );
 
       debugPrint('Generating plan with thinking model...');
 
@@ -724,7 +1094,116 @@ Return a JSON object with the same structure as before:
     }
   }
 
-  /// Match exercise name to library
+  /// Get today's workout protocol - either from weekly plan or generate on-demand
+  /// Returns a fully populated WorkoutProtocol with exercises, sets, reps, rest periods
+  Future<WorkoutProtocol?> getTodaysProtocol({
+    required UserProfile profile,
+    WeeklyPlan? existingWeeklyPlan,
+    SessionReadinessInput? readinessInput,
+  }) async {
+    final today = _getDayOfWeek(_getDayName(DateTime.now().weekday - 1));
+
+    // Option 1: Use existing weekly plan if available
+    if (existingWeeklyPlan != null) {
+      final todaysWorkout = existingWeeklyPlan.dailyWorkouts
+          .where((d) => d.day.toLowerCase() == today.toLowerCase())
+          .firstOrNull;
+
+      if (todaysWorkout != null) {
+        debugPrint(
+          'Loading workout from weekly plan: ${todaysWorkout.protocol.title}',
+        );
+        return todaysWorkout.protocol;
+      }
+    }
+
+    // Option 2: Generate on-demand using AI
+    debugPrint(
+      'No weekly plan found for $today, generating AI workout on-demand',
+    );
+
+    // Create default preferences based on profile
+    final now = DateTime.now();
+    final preferences = WorkoutPreferences(
+      userId: profile.userId,
+      targetIntensity: readinessInput != null
+          ? (readinessInput.applyToReadiness(70) / 10).round().clamp(3, 10)
+          : 7,
+      targetDurationMinutes: profile.preferredWorkoutDuration ?? 45,
+      trainingFocus: _mapGoalToTrainingFocus(profile.trainingGoal),
+      preferredCategories: _getCategoriesForGoal(profile.trainingGoal),
+      preferredExerciseCount: 4,
+      setsPerExercise: 3,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    // Try AI generation first
+    if (_initialized) {
+      final aiProtocol = await generateCustomProtocol(profile, preferences);
+      if (aiProtocol != null) {
+        debugPrint(
+          'AI generated workout: ${aiProtocol.title} with ${aiProtocol.entries.length} exercises',
+        );
+        return aiProtocol;
+      }
+    }
+
+    // Fallback: Generate template protocol
+    debugPrint('Using fallback template workout');
+    return _generateFallbackCustomProtocol(profile, preferences);
+  }
+
+  /// Map training goal to training focus
+  TrainingFocus _mapGoalToTrainingFocus(TrainingGoal goal) {
+    switch (goal) {
+      case TrainingGoal.mma:
+      case TrainingGoal.boxing:
+      case TrainingGoal.muayThai:
+        return TrainingFocus.power;
+      case TrainingGoal.wrestling:
+      case TrainingGoal.bjj:
+        return TrainingFocus.strength;
+      case TrainingGoal.strength:
+        return TrainingFocus.strength;
+      case TrainingGoal.conditioning:
+        return TrainingFocus.conditioning;
+      case TrainingGoal.generalCombat:
+        return TrainingFocus.mixed;
+    }
+  }
+
+  /// Get exercise categories based on training goal
+  List<ExerciseCategory> _getCategoriesForGoal(TrainingGoal goal) {
+    switch (goal) {
+      case TrainingGoal.mma:
+      case TrainingGoal.boxing:
+      case TrainingGoal.muayThai:
+        return [
+          ExerciseCategory.strength,
+          ExerciseCategory.combat,
+          ExerciseCategory.plyometric,
+        ];
+      case TrainingGoal.wrestling:
+      case TrainingGoal.bjj:
+        return [
+          ExerciseCategory.strength,
+          ExerciseCategory.isometric,
+          ExerciseCategory.combat,
+        ];
+      case TrainingGoal.strength:
+        return [ExerciseCategory.strength, ExerciseCategory.plyometric];
+      case TrainingGoal.conditioning:
+        return [ExerciseCategory.plyometric, ExerciseCategory.sprint];
+      case TrainingGoal.generalCombat:
+        return [
+          ExerciseCategory.strength,
+          ExerciseCategory.combat,
+          ExerciseCategory.mobility,
+        ];
+    }
+  }
+
   Exercise _matchExercise(
     String name, {
     required UserProfile profile,

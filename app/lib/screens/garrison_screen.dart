@@ -3,6 +3,7 @@ import '../theme.dart';
 import '../services/armor_analytics_service.dart';
 import '../models/armor_analytics.dart';
 import '../models/workout_tracking.dart';
+import '../repositories/weekly_directive_repository.dart';
 
 class GarrisonScreen extends StatefulWidget {
   const GarrisonScreen({super.key});
@@ -13,7 +14,7 @@ class GarrisonScreen extends StatefulWidget {
 
 class _GarrisonScreenState extends State<GarrisonScreen> {
   final ArmorAnalyticsService _armorService = ArmorAnalyticsService();
-  // final FirebaseSyncService _firebase = FirebaseSyncService(); // Removed
+  final WeeklyDirectiveRepository _directiveRepo = WeeklyDirectiveRepository();
 
   Map<String, dynamic> _data = {
     'hrv': 0.0,
@@ -32,28 +33,40 @@ class _GarrisonScreenState extends State<GarrisonScreen> {
 
   Future<void> _refreshData() async {
     setState(() => _isLoading = true);
-    // TODO: Implement health service
-    // await _healthService.requestPermissions();
-    // final data = await _healthService.fetchReadinessData();
 
-    // Use mock data for now
-    final data = {'hrv': 65.0, 'sleep': 7.5, 'rhr': 55, 'score': 85};
+    try {
+      // Load weekly directive for context (for future use)
+      await _directiveRepo.getCurrentWeeklyDirective();
 
-    // Load Armor Analytics
-    // final microCycle = await _firebase.buildMicroCycle(); // TODO: Implement with Supabase
-    final microCycle = MicroCycle(
-      days: [],
-      startDate: DateTime.now(),
-      endDate: DateTime.now().add(const Duration(days: 7)),
-    );
-    final armorResult = _armorService.analyze(microCycle);
+      // For now use mock data - health service integration would provide real data
+      final data = {'hrv': 65.0, 'sleep': 7.5, 'rhr': 55, 'score': 85};
 
-    if (mounted) {
-      setState(() {
-        _data = data;
-        _armorResult = armorResult;
-        _isLoading = false;
-      });
+      // Load Armor Analytics with empty microCycle for now
+      final microCycle = MicroCycle(
+        days: [],
+        startDate: DateTime.now().subtract(const Duration(days: 7)),
+        endDate: DateTime.now(),
+      );
+
+      final armorResult = _armorService.analyze(microCycle);
+
+      if (mounted) {
+        setState(() {
+          _data = data;
+          _armorResult = armorResult;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading garrison data: $e');
+      // Fallback to mock data on error
+      if (mounted) {
+        setState(() {
+          _data = {'hrv': 65.0, 'sleep': 7.5, 'rhr': 55, 'score': 85};
+          _armorResult = null;
+          _isLoading = false;
+        });
+      }
     }
   }
 

@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../providers/ingestion_provider.dart';
 import '../providers/workout_provider.dart';
+import '../providers/auth_provider.dart';
 import '../models/fuel_log.dart';
 import '../models/workout_protocol.dart';
 import '../models/workout_tracking.dart';
+import '../models/user_profile.dart';
 import '../services/phalanx_ingestion_service.dart';
 import '../services/dom_rl_engine.dart';
 
@@ -108,15 +110,25 @@ class _PhalanxScreenState extends State<PhalanxScreen> {
       listen: false,
     );
 
+    // Get user profile from auth provider
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userProfile = authProvider.userProfile;
+
+    if (userProfile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please complete your profile first')),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => PreBattlePrimerScreen(
-          onAcknowledged: () {
-            workoutProvider.startWorkout(
-              finalProtocol,
-              80,
-            ); // Default readiness score
+          userProfile: userProfile,
+          readinessScore: 80,
+          onWorkoutLoaded: (protocol, readinessScore) {
+            workoutProvider.startWorkout(protocol, readinessScore);
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(

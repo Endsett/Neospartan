@@ -7,11 +7,7 @@ class WarriorLoadingScreen extends StatefulWidget {
   final String? message;
   final double progress;
 
-  const WarriorLoadingScreen({
-    super.key,
-    this.message,
-    this.progress = 0.0,
-  });
+  const WarriorLoadingScreen({super.key, this.message, this.progress = 0.0});
 
   @override
   State<WarriorLoadingScreen> createState() => _WarriorLoadingScreenState();
@@ -29,20 +25,16 @@ class _WarriorLoadingScreenState extends State<WarriorLoadingScreen>
   @override
   void initState() {
     super.initState();
-    
+
     // Shield rotation animation
     _shieldController = AnimationController(
       duration: const Duration(seconds: 3),
       vsync: this,
     )..repeat();
 
-    _shieldRotation = Tween<double>(
-      begin: 0,
-      end: 2 * math.pi,
-    ).animate(CurvedAnimation(
-      parent: _shieldController,
-      curve: Curves.easeInOut,
-    ));
+    _shieldRotation = Tween<double>(begin: 0, end: 2 * math.pi).animate(
+      CurvedAnimation(parent: _shieldController, curve: Curves.easeInOut),
+    );
 
     // Pulse animation
     _pulseController = AnimationController(
@@ -50,13 +42,9 @@ class _WarriorLoadingScreenState extends State<WarriorLoadingScreen>
       vsync: this,
     )..repeat(reverse: true);
 
-    _pulseAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.2,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
+    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
 
     // Spark animation
     _sparkController = AnimationController(
@@ -64,13 +52,9 @@ class _WarriorLoadingScreenState extends State<WarriorLoadingScreen>
       vsync: this,
     )..repeat(reverse: true);
 
-    _sparkAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _sparkController,
-      curve: Curves.easeInOut,
-    ));
+    _sparkAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _sparkController, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -108,9 +92,9 @@ class _WarriorLoadingScreenState extends State<WarriorLoadingScreen>
                 );
               },
             ),
-            
+
             const SizedBox(height: 40),
-            
+
             // Loading text
             Text(
               widget.message ?? 'PREPARING FOR BATTLE',
@@ -121,9 +105,9 @@ class _WarriorLoadingScreenState extends State<WarriorLoadingScreen>
                 fontWeight: FontWeight.bold,
               ),
             ),
-            
+
             const SizedBox(height: 20),
-            
+
             // Progress indicator with warrior styling
             SizedBox(
               width: 200,
@@ -131,7 +115,7 @@ class _WarriorLoadingScreenState extends State<WarriorLoadingScreen>
                 borderRadius: BorderRadius.circular(2),
                 child: LinearProgressIndicator(
                   value: widget.progress > 0 ? widget.progress : null,
-                  backgroundColor: LaconicTheme.ironGray.withOpacity(0.3),
+                  backgroundColor: LaconicTheme.ironGray.withValues(alpha: 0.3),
                   valueColor: const AlwaysStoppedAnimation<Color>(
                     LaconicTheme.spartanBronze,
                   ),
@@ -139,9 +123,9 @@ class _WarriorLoadingScreenState extends State<WarriorLoadingScreen>
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Animated dots
             _AnimatedDots(),
           ],
@@ -156,31 +140,24 @@ class _ShieldPainter extends CustomPainter {
   final double rotation;
   final double sparkIntensity;
 
-  _ShieldPainter({
-    required this.rotation,
-    required this.sparkIntensity,
-  });
+  _ShieldPainter({required this.rotation, required this.sparkIntensity});
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    
+
     // Shield outline
     final shieldPath = Path()
       ..moveTo(center.dx, 10)
       ..lineTo(size.width - 10, 30)
       ..quadraticBezierTo(
-        size.width - 5, size.height / 2,
-        size.width - 10, size.height - 20,
+        size.width - 5,
+        size.height / 2,
+        size.width - 10,
+        size.height - 20,
       )
-      ..quadraticBezierTo(
-        center.dx, size.height - 5,
-        10, size.height - 20,
-      )
-      ..quadraticBezierTo(
-        5, size.height / 2,
-        10, 30,
-      )
+      ..quadraticBezierTo(center.dx, size.height - 5, 10, size.height - 20)
+      ..quadraticBezierTo(5, size.height / 2, 10, 30)
       ..close();
 
     // Shield gradient
@@ -188,9 +165,9 @@ class _ShieldPainter extends CustomPainter {
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [
-        LaconicTheme.spartanBronze.withOpacity(0.8),
-        LaconicTheme.spartanBronze.withOpacity(0.4),
-        LaconicTheme.ironGray.withOpacity(0.6),
+        LaconicTheme.spartanBronze.withValues(alpha: 0.8),
+        LaconicTheme.spartanBronze.withValues(alpha: 0.4),
+        LaconicTheme.ironGray.withValues(alpha: 0.6),
       ],
     );
 
@@ -223,7 +200,7 @@ class _ShieldPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
     );
-    
+
     textPainter.layout();
     textPainter.paint(
       canvas,
@@ -236,7 +213,7 @@ class _ShieldPainter extends CustomPainter {
     // Spark effects
     if (sparkIntensity > 0.5) {
       final sparkPaint = Paint()
-        ..color = LaconicTheme.spartanBronze.withOpacity(sparkIntensity)
+        ..color = LaconicTheme.spartanBronze.withValues(alpha: sparkIntensity)
         ..strokeWidth = 2
         ..style = PaintingStyle.stroke;
 
@@ -245,17 +222,13 @@ class _ShieldPainter extends CustomPainter {
         final angle = (i / 8) * 2 * math.pi + rotation;
         final startRadius = 70.0;
         final endRadius = 80.0 + (sparkIntensity * 10);
-        
+
         final startX = center.dx + math.cos(angle) * startRadius;
         final startY = center.dy + math.sin(angle) * startRadius;
         final endX = center.dx + math.cos(angle) * endRadius;
         final endY = center.dy + math.sin(angle) * endRadius;
 
-        canvas.drawLine(
-          Offset(startX, startY),
-          Offset(endX, endY),
-          sparkPaint,
-        );
+        canvas.drawLine(Offset(startX, startY), Offset(endX, endY), sparkPaint);
       }
     }
   }
@@ -263,7 +236,7 @@ class _ShieldPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ShieldPainter oldDelegate) {
     return oldDelegate.rotation != rotation ||
-           oldDelegate.sparkIntensity != sparkIntensity;
+        oldDelegate.sparkIntensity != sparkIntensity;
   }
 }
 
@@ -302,8 +275,8 @@ class _AnimatedDotsState extends State<_AnimatedDots>
           children: List.generate(3, (index) {
             final delay = index * 0.3;
             final animationValue = (_controller.value + delay) % 1.0;
-            final opacity = animationValue < 0.5 
-                ? animationValue * 2 
+            final opacity = animationValue < 0.5
+                ? animationValue * 2
                 : (1 - animationValue) * 2;
 
             return Container(
@@ -311,7 +284,7 @@ class _AnimatedDotsState extends State<_AnimatedDots>
               width: 8,
               height: 8,
               decoration: BoxDecoration(
-                color: LaconicTheme.spartanBronze.withOpacity(opacity),
+                color: LaconicTheme.spartanBronze.withValues(alpha: opacity),
                 shape: BoxShape.circle,
               ),
             );
@@ -327,50 +300,48 @@ class CombatPageTransition extends PageRouteBuilder {
   final Widget child;
 
   CombatPageTransition({required this.child})
-      : super(
-          pageBuilder: (context, animation, secondaryAnimation) => child,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            // Slide from right with fade
-            final slideAnimation = Tween<Offset>(
-              begin: const Offset(1.0, 0.0),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic),
-            ));
+    : super(
+        pageBuilder: (context, animation, secondaryAnimation) => child,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          // Slide from right with fade
+          final slideAnimation =
+              Tween<Offset>(
+                begin: const Offset(1.0, 0.0),
+                end: Offset.zero,
+              ).animate(
+                CurvedAnimation(
+                  parent: animation,
+                  curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic),
+                ),
+              );
 
-            // Fade animation
-            final fadeAnimation = Tween<double>(
-              begin: 0.0,
-              end: 1.0,
-            ).animate(CurvedAnimation(
+          // Fade animation
+          final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+            CurvedAnimation(
               parent: animation,
               curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
-            ));
+            ),
+          );
 
-            // Scale animation for impact
-            final scaleAnimation = Tween<double>(
-              begin: 0.95,
-              end: 1.0,
-            ).animate(CurvedAnimation(
+          // Scale animation for impact
+          final scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+            CurvedAnimation(
               parent: animation,
               curve: const Interval(0.0, 0.7, curve: Curves.easeOutBack),
-            ));
+            ),
+          );
 
-            return FadeTransition(
-              opacity: fadeAnimation,
-              child: SlideTransition(
-                position: slideAnimation,
-                child: ScaleTransition(
-                  scale: scaleAnimation,
-                  child: child,
-                ),
-              ),
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 500),
-          reverseTransitionDuration: const Duration(milliseconds: 400),
-        );
+          return FadeTransition(
+            opacity: fadeAnimation,
+            child: SlideTransition(
+              position: slideAnimation,
+              child: ScaleTransition(scale: scaleAnimation, child: child),
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 500),
+        reverseTransitionDuration: const Duration(milliseconds: 400),
+      );
 }
 
 /// Battle-ready button with press animations
@@ -435,15 +406,14 @@ class _BattleButtonState extends State<BattleButton>
                 color: widget.isPrimary
                     ? LaconicTheme.spartanBronze
                     : Colors.transparent,
-                border: Border.all(
-                  color: LaconicTheme.spartanBronze,
-                  width: 2,
-                ),
+                border: Border.all(color: LaconicTheme.spartanBronze, width: 2),
                 borderRadius: BorderRadius.circular(4),
                 boxShadow: widget.isPrimary
                     ? [
                         BoxShadow(
-                          color: LaconicTheme.spartanBronze.withOpacity(0.4),
+                          color: LaconicTheme.spartanBronze.withValues(
+                            alpha: 0.4,
+                          ),
                           blurRadius: 12,
                           spreadRadius: 2,
                         ),
@@ -456,7 +426,9 @@ class _BattleButtonState extends State<BattleButton>
                   if (widget.icon != null) ...[
                     Icon(
                       widget.icon,
-                      color: widget.isPrimary ? Colors.black : LaconicTheme.spartanBronze,
+                      color: widget.isPrimary
+                          ? Colors.black
+                          : LaconicTheme.spartanBronze,
                       size: 20,
                     ),
                     const SizedBox(width: 8),
@@ -464,7 +436,9 @@ class _BattleButtonState extends State<BattleButton>
                   Text(
                     widget.text,
                     style: TextStyle(
-                      color: widget.isPrimary ? Colors.black : LaconicTheme.spartanBronze,
+                      color: widget.isPrimary
+                          ? Colors.black
+                          : LaconicTheme.spartanBronze,
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 2.0,

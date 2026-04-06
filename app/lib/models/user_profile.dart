@@ -128,16 +128,61 @@ class UserProfile {
     }
   }
 
+  String get fitnessLevelKey {
+    switch (fitnessLevel) {
+      case FitnessLevel.beginner:
+        return 'beginner';
+      case FitnessLevel.intermediate:
+        return 'intermediate';
+      case FitnessLevel.advanced:
+        return 'advanced';
+    }
+  }
+
+  String? get experienceLevelKey {
+    if (experienceLevel == null) return null;
+    switch (experienceLevel!) {
+      case ExperienceLevel.novice:
+        return 'novice';
+      case ExperienceLevel.hoplite:
+        return 'hoplite';
+      case ExperienceLevel.spartan:
+        return 'spartan';
+      case ExperienceLevel.legend:
+        return 'legend';
+    }
+  }
+
+  String get trainingGoalKey {
+    switch (trainingGoal) {
+      case TrainingGoal.mma:
+        return 'mma';
+      case TrainingGoal.boxing:
+        return 'boxing';
+      case TrainingGoal.muayThai:
+        return 'muayThai';
+      case TrainingGoal.wrestling:
+        return 'wrestling';
+      case TrainingGoal.bjj:
+        return 'bjj';
+      case TrainingGoal.generalCombat:
+        return 'generalCombat';
+      case TrainingGoal.strength:
+        return 'strength';
+      case TrainingGoal.conditioning:
+        return 'conditioning';
+    }
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': userId,
-      'user_id': userId,
       'display_name': displayName,
       'photo_url': photoUrl,
       'body_composition': bodyComposition.toMap(),
-      'fitness_level': fitnessLevel.name,
-      'experience_level': experienceLevel?.name,
-      'training_goal': trainingGoal.name,
+      'fitness_level': fitnessLevelKey,
+      'experience_level': experienceLevelKey,
+      'training_goal': trainingGoalKey,
       'philosophical_baseline': philosophicalBaseline,
       'training_days_per_week': trainingDaysPerWeek,
       'preferred_workout_duration': preferredWorkoutDuration,

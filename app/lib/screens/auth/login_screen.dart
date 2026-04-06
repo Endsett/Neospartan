@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme.dart';
+import '../../widgets/glass_card.dart';
+import '../../widgets/gradient_button.dart';
 import 'forgot_password_screen.dart';
 import 'signup_screen.dart';
 
 /// Login Screen - Spartan themed authentication
 class LoginScreen extends StatefulWidget {
-  final VoidCallback? onAnonymousSignIn;
-
-  const LoginScreen({super.key, this.onAnonymousSignIn});
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -20,7 +20,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  bool _isAnonymousLoading = false;
 
   @override
   void dispose() {
@@ -39,61 +38,58 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(32.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Logo/Title
-                  _buildTitle(),
-                  const SizedBox(height: 48),
+            child: GlassCard(
+              elevated: true,
+              padding: const EdgeInsets.all(32),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Logo/Title
+                    _buildTitle(),
+                    const SizedBox(height: 32),
 
-                  // Error message
-                  if (authProvider.error != null) ...[
-                    _buildErrorMessage(authProvider.error!),
+                    // Error message
+                    if (authProvider.error != null) ...[
+                      _buildErrorMessage(authProvider.error!),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Email field
+                    _buildEmailField(),
                     const SizedBox(height: 16),
-                  ],
 
-                  // Email field
-                  _buildEmailField(),
-                  const SizedBox(height: 16),
-
-                  // Password field
-                  _buildPasswordField(),
-                  const SizedBox(height: 8),
-
-                  // Forgot password
-                  _buildForgotPasswordLink(),
-                  const SizedBox(height: 24),
-
-                  // Sign in button
-                  _buildSignInButton(authProvider),
-                  const SizedBox(height: 24),
-
-                  // Divider
-                  _buildDivider(),
-                  const SizedBox(height: 24),
-
-                  // Google Sign in
-                  _buildGoogleSignInButton(authProvider),
-                  const SizedBox(height: 16),
-
-                  // Anonymous preview
-                  if (widget.onAnonymousSignIn != null) ...[
-                    _buildAnonymousButton(authProvider),
+                    // Password field
+                    _buildPasswordField(),
                     const SizedBox(height: 8),
-                    Text(
-                      'No account required - your data is stored locally only',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                      textAlign: TextAlign.center,
+
+                    // Forgot password
+                    _buildForgotPasswordLink(),
+                    const SizedBox(height: 24),
+
+                    // Sign in button
+                    GradientButton(
+                      label: 'SIGN IN',
+                      onPressed: authProvider.isLoading ? null : _handleSignIn,
+                      isLoading: authProvider.isLoading,
+                      width: double.infinity,
                     ),
+                    const SizedBox(height: 24),
+
+                    // Divider
+                    _buildDivider(),
+                    const SizedBox(height: 24),
+
+                    // Google Sign in
+                    _buildGoogleSignInButton(authProvider),
+
+                    const SizedBox(height: 24),
+
+                    // Sign up link
+                    _buildSignUpLink(),
                   ],
-
-                  const SizedBox(height: 32),
-
-                  // Sign up link
-                  _buildSignUpLink(),
-                ],
+                ),
               ),
             ),
           ),
@@ -105,29 +101,40 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildTitle() {
     return Column(
       children: [
-        const Icon(
-          Icons.shield_outlined,
-          size: 80,
-          color: LaconicTheme.spartanBronze,
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [LaconicTheme.spartanBronze, LaconicTheme.warmGold],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: LaconicTheme.spartanBronze.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.shield_outlined,
+            size: 48,
+            color: LaconicTheme.deepBlack,
+          ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         Text(
           'NEOSPARTAN',
-          style: TextStyle(
-            color: LaconicTheme.spartanBronze,
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 8,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.displaySmall?.copyWith(letterSpacing: 6),
         ),
         const SizedBox(height: 8),
         Text(
           'Forge Your Discipline',
-          style: TextStyle(
-            color: Colors.grey[400],
-            fontSize: 14,
-            letterSpacing: 2,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: LaconicTheme.mistGray),
         ),
       ],
     );
@@ -262,41 +269,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildSignInButton(AuthProvider authProvider) {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: authProvider.isLoading ? null : _handleSignIn,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: LaconicTheme.spartanBronze,
-          foregroundColor: Colors.black,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 0,
-        ),
-        child: authProvider.isLoading
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
-                ),
-              )
-            : const Text(
-                'SIGN IN',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                ),
-              ),
-      ),
-    );
-  }
-
   Widget _buildDivider() {
     return Row(
       children: [
@@ -345,40 +317,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24),
         ),
-      ),
-    );
-  }
-
-  Widget _buildAnonymousButton(AuthProvider authProvider) {
-    return Container(
-      width: double.infinity,
-      child: OutlinedButton(
-        onPressed: authProvider.isLoading || _isAnonymousLoading
-            ? null
-            : _handleAnonymousSignIn,
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: LaconicTheme.spartanBronze),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-        ),
-        child: _isAnonymousLoading
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    LaconicTheme.spartanBronze,
-                  ),
-                ),
-              )
-            : const Text(
-                'Continue as Guest',
-                style: TextStyle(
-                  color: LaconicTheme.spartanBronze,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
       ),
     );
   }
@@ -433,17 +371,5 @@ class _LoginScreenState extends State<LoginScreen> {
     if (success && mounted) {
       // AuthProvider will handle navigation via auth state
     }
-  }
-
-  Future<void> _handleAnonymousSignIn() async {
-    setState(() => _isAnonymousLoading = true);
-
-    final success = await context.read<AuthProvider>().signInAnonymously();
-
-    if (success && mounted) {
-      widget.onAnonymousSignIn?.call();
-    }
-
-    setState(() => _isAnonymousLoading = false);
   }
 }

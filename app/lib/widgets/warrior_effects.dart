@@ -340,7 +340,7 @@ class _VictoryAnimationState extends State<VictoryAnimation>
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: LaconicTheme.spartanBronze.withOpacity(0.6),
+                      color: LaconicTheme.spartanBronze.withValues(alpha: 0.6),
                       blurRadius: 30,
                       spreadRadius: 10,
                     ),
