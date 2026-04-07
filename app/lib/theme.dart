@@ -2,136 +2,283 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+/// The Digital Agoge Design System
+/// Blood & Bronze color palette with zero-radius brutalist aesthetics
 class LaconicTheme {
   LaconicTheme._();
 
-  // ============ CORE COLORS ============
-  static const Color deepBlack = Color(0xFF0A0A0A);
-  static const Color surfaceBlack = Color(0xFF141414);
-  static const Color surfaceElevated = Color(0xFF1E1E1E);
-  static const Color surfaceOverlay = Color(0xFF2A2A2A);
+  // ============ BLOOD & BRONZE PALETTE ============
 
-  // Bronze/Gold Evolution
-  static const Color spartanBronze = Color(0xFFCD7F32);
-  static const Color warmGold = Color(0xFFD4A84B);
-  static const Color brightGold = Color(0xFFE8C547);
-  static const Color darkGold = Color(0xFF8B6914);
+  // Surface Hierarchy (Dark to Light)
+  static const Color surface = Color(0xFF131313);
+  static const Color surfaceContainerLowest = Color(0xFF0e0e0e);
+  static const Color surfaceContainerLow = Color(0xFF1b1b1b);
+  static const Color surfaceContainer = Color(0xFF1f1f1f);
+  static const Color surfaceContainerHigh = Color(0xFF2a2a2a);
+  static const Color surfaceContainerHighest = Color(0xFF353535);
+  static const Color surfaceBright = Color(0xFF393939);
+  static const Color surfaceVariant = Color(0xFF353535);
+  static const Color surfaceDim = Color(0xFF131313);
 
-  // Accent Colors
-  static const Color emberRed = Color(0xFFFF4500);
-  static const Color iceBlue = Color(0xFF4FC3F7);
-  static const Color mossGreen = Color(0xFF7CB342);
+  // Primary - Blood (Actions, Path of Action)
+  static const Color primary = Color(0xFFffb4ac);
+  static const Color onPrimary = Color(0xFF690006);
+  static const Color primaryContainer = Color(0xFF9e1b1b);
+  static const Color onPrimaryContainer = Color(0xFFffafa7);
+  static const Color primaryFixed = Color(0xFFffdad6);
+  static const Color primaryFixedDim = Color(0xFFffb4ac);
+  static const Color onPrimaryFixed = Color(0xFF410002);
+  static const Color onPrimaryFixedVariant = Color(0xFF8f0e12);
+  static const Color inversePrimary = Color(0xFFb22a27);
 
-  // Neutrals
-  static const Color ironGray = Color(0xFF333333);
-  static const Color steelGray = Color(0xFF555555);
-  static const Color mistGray = Color(0xFF888888);
-  static const Color boneWhite = Color(0xFFE5E5E5);
-  static const Color pureWhite = Color(0xFFFFFFFF);
+  // Secondary - Bronze (Optimal State)
+  static const Color secondary = Color(0xFFffb779);
+  static const Color onSecondary = Color(0xFF4c2700);
+  static const Color secondaryContainer = Color(0xFF955200);
+  static const Color onSecondaryContainer = Color(0xFFffd9bc);
+  static const Color secondaryFixed = Color(0xFFffdcc1);
+  static const Color secondaryFixedDim = Color(0xFFffb779);
+  static const Color onSecondaryFixed = Color(0xFF2e1500);
+  static const Color onSecondaryFixedVariant = Color(0xFF6c3a00);
 
-  // ============ GRADIENTS ============
-  static const LinearGradient goldGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [spartanBronze, warmGold, brightGold],
-    stops: [0.0, 0.5, 1.0],
-  );
+  // Tertiary - Warm Accent
+  static const Color tertiary = Color(0xFFffb4aa);
+  static const Color onTertiary = Color(0xFF5f1410);
+  static const Color tertiaryContainer = Color(0xFF8b342c);
+  static const Color onTertiaryContainer = Color(0xFFffafa5);
+  static const Color tertiaryFixed = Color(0xFFffdad5);
+  static const Color tertiaryFixedDim = Color(0xFFffb4aa);
+  static const Color onTertiaryFixed = Color(0xFF410001);
+  static const Color onTertiaryFixedVariant = Color(0xFF7e2b23);
 
-  static const LinearGradient goldGradientHorizontal = LinearGradient(
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-    colors: [darkGold, spartanBronze, warmGold],
-  );
+  // Background & Surface
+  static const Color background = Color(0xFF131313);
+  static const Color onBackground = Color(0xFFe2e2e2);
+  static const Color onSurface = Color(0xFFe2e2e2);
+  static const Color onSurfaceVariant = Color(0xFFe1bebb);
+  static const Color inverseSurface = Color(0xFFe2e2e2);
+  static const Color inverseOnSurface = Color(0xFF303030);
+  static const Color surfaceTint = Color(0xFFffb4ac);
 
-  static const LinearGradient surfaceGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [surfaceBlack, deepBlack],
-  );
+  // Outlines (Ghost Borders)
+  static const Color outline = Color(0xFFa98986);
+  static const Color outlineVariant = Color(0xFF59413e);
 
-  static const LinearGradient glassGradient = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF2A2A2A), Color(0xFF1E1E1E), Color(0xFF141414)],
-    stops: [0.0, 0.5, 1.0],
-  );
+  // Error
+  static const Color error = Color(0xFFffb4ab);
+  static const Color onError = Color(0xFF690005);
+  static const Color errorContainer = Color(0xFF93000a);
+  static const Color onErrorContainer = Color(0xFFffdad6);
 
-  // ============ GLASSMORPHISM ============
-  static BoxDecoration glassCard({double radius = 16}) => BoxDecoration(
-    borderRadius: BorderRadius.circular(radius),
-    gradient: LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        const Color(0xFF2A2A2A).withOpacity(0.8),
-        const Color(0xFF1A1A1A).withOpacity(0.6),
-      ],
-    ),
-    border: Border.all(
-      color: const Color(0xFF3A3A3A).withOpacity(0.5),
-      width: 1,
-    ),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withOpacity(0.3),
-        blurRadius: 20,
-        offset: const Offset(0, 8),
+  // Legacy aliases for backward compatibility
+  static const Color deepBlack = surfaceContainerLowest;
+  static const Color surfaceBlack = surface;
+  static const Color surfaceElevated = surfaceContainerHigh;
+  static const Color surfaceOverlay = surfaceContainerHighest;
+  static const Color spartanBronze = secondary;
+  static const Color warmGold = secondary;
+  static const Color brightGold = secondary;
+  static const Color darkGold = secondaryContainer;
+  static const Color emberRed = primary;
+  static const Color ironGray = surfaceContainerHigh;
+  static const Color steelGray = outline;
+  static const Color mistGray = outlineVariant;
+  static const Color boneWhite = onSurface;
+  static const Color pureWhite = onSurface;
+  static const Color iceBlue = tertiary;
+  static const Color mossGreen = secondary;
+
+  // ============ TYPOGRAPHY ============
+  static TextTheme _buildTextTheme(TextTheme base) {
+    final headlineFont = GoogleFonts.spaceGrotesk();
+    final bodyFont = GoogleFonts.inter();
+    final labelFont = GoogleFonts.workSans();
+
+    return base.copyWith(
+      // Display - Aggressive, wide, modern (Space Grotesk)
+      displayLarge: headlineFont.copyWith(
+        fontSize: 57,
+        fontWeight: FontWeight.w900,
+        color: onSurface,
+        letterSpacing: -0.02,
+        height: 1.0,
       ),
-      BoxShadow(
-        color: spartanBronze.withOpacity(0.05),
-        blurRadius: 40,
-        offset: const Offset(0, 4),
+      displayMedium: headlineFont.copyWith(
+        fontSize: 45,
+        fontWeight: FontWeight.w700,
+        color: onSurface,
+        letterSpacing: -0.02,
+        height: 1.0,
       ),
-    ],
-  );
+      displaySmall: headlineFont.copyWith(
+        fontSize: 36,
+        fontWeight: FontWeight.w700,
+        color: onSurface,
+        letterSpacing: -0.02,
+        height: 1.0,
+      ),
 
-  static BoxDecoration glassCardElevated({double radius = 20}) => BoxDecoration(
-    borderRadius: BorderRadius.circular(radius),
-    gradient: LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        const Color(0xFF323232).withOpacity(0.9),
-        const Color(0xFF202020).withOpacity(0.7),
-      ],
-    ),
-    border: Border.all(color: warmGold.withOpacity(0.2), width: 1),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withOpacity(0.4),
-        blurRadius: 30,
-        offset: const Offset(0, 12),
+      // Headlines - Space Grotesk
+      headlineLarge: headlineFont.copyWith(
+        fontSize: 32,
+        fontWeight: FontWeight.w700,
+        color: onSurface,
+        letterSpacing: -0.02,
+        height: 1.2,
       ),
-      BoxShadow(
-        color: spartanBronze.withOpacity(0.1),
-        blurRadius: 60,
-        offset: const Offset(0, 8),
+      headlineMedium: headlineFont.copyWith(
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+        color: onSurface,
+        letterSpacing: -0.02,
+        height: 1.2,
       ),
-    ],
-  );
+      headlineSmall: headlineFont.copyWith(
+        fontSize: 24,
+        fontWeight: FontWeight.w700,
+        color: onSurface,
+        letterSpacing: -0.02,
+        height: 1.2,
+      ),
 
-  static BoxDecoration glassButton({bool isActive = true}) => BoxDecoration(
-    borderRadius: BorderRadius.circular(12),
-    gradient: isActive
-        ? const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [spartanBronze, warmGold],
+      // Titles - Space Grotesk
+      titleLarge: headlineFont.copyWith(
+        fontSize: 22,
+        fontWeight: FontWeight.w600,
+        color: onSurface,
+        letterSpacing: -0.01,
+      ),
+      titleMedium: headlineFont.copyWith(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: onSurface,
+        letterSpacing: -0.01,
+      ),
+      titleSmall: headlineFont.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: onSurfaceVariant,
+        letterSpacing: -0.01,
+      ),
+
+      // Body - Inter (Scientific, neutral, precise)
+      bodyLarge: bodyFont.copyWith(
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        color: onSurface,
+        height: 1.6,
+        letterSpacing: 0,
+      ),
+      bodyMedium: bodyFont.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: onSurfaceVariant,
+        height: 1.5,
+        letterSpacing: 0,
+      ),
+      bodySmall: bodyFont.copyWith(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: outline,
+        height: 1.4,
+        letterSpacing: 0,
+      ),
+
+      // Labels - Work Sans (Analytical, uppercase, +5% letter-spacing)
+      labelLarge: labelFont.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        color: onSurface,
+        letterSpacing: 0.05,
+      ),
+      labelMedium: labelFont.copyWith(
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        color: onSurfaceVariant,
+        letterSpacing: 0.05,
+      ),
+      labelSmall: labelFont.copyWith(
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        color: outline,
+        letterSpacing: 0.1,
+      ),
+    );
+  }
+
+  // ============ COMPONENT DECORATIONS ============
+
+  /// Zero-radius card decoration with tonal layering
+  static BoxDecoration agogeCard({
+    Color? color,
+    bool elevated = false,
+    bool hasBorder = false,
+    Color? borderColor,
+  }) => BoxDecoration(
+    color: color ?? surfaceContainer,
+    borderRadius: BorderRadius.zero,
+    border: hasBorder || borderColor != null
+        ? Border.all(
+            color: borderColor ?? outlineVariant.withValues(alpha: 0.15),
+            width: 1,
           )
-        : LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [const Color(0xFF3A3A3A), const Color(0xFF2A2A2A)],
-          ),
-    boxShadow: isActive
+        : null,
+    boxShadow: elevated
         ? [
             BoxShadow(
-              color: spartanBronze.withOpacity(0.3),
-              blurRadius: 15,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 48,
+              offset: const Offset(0, 24),
             ),
           ]
         : null,
+  );
+
+  /// Surface container hierarchy levels
+  static BoxDecoration surfaceLowest() => BoxDecoration(
+    color: surfaceContainerLowest,
+    borderRadius: BorderRadius.zero,
+  );
+
+  static BoxDecoration surfaceLow() => BoxDecoration(
+    color: surfaceContainerLow,
+    borderRadius: BorderRadius.zero,
+  );
+
+  static BoxDecoration surfaceContainerDeco() =>
+      BoxDecoration(color: surfaceContainer, borderRadius: BorderRadius.zero);
+
+  static BoxDecoration surfaceHigh() => BoxDecoration(
+    color: surfaceContainerHigh,
+    borderRadius: BorderRadius.zero,
+  );
+
+  static BoxDecoration surfaceHighest() => BoxDecoration(
+    color: surfaceContainerHighest,
+    borderRadius: BorderRadius.zero,
+  );
+
+  /// Ghost border decoration
+  static BoxDecoration ghostBorder({Color? color}) => BoxDecoration(
+    border: Border.all(
+      color: (color ?? outlineVariant).withValues(alpha: 0.15),
+      width: 1,
+    ),
+    borderRadius: BorderRadius.zero,
+  );
+
+  /// Smoldering gradient for CTAs
+  static const LinearGradient primaryGradient = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [primary, primaryContainer],
+  );
+
+  /// Secondary gradient
+  static const LinearGradient secondaryGradient = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [secondary, secondaryContainer],
   );
 
   // ============ SPACING SYSTEM ============
@@ -144,248 +291,221 @@ class LaconicTheme {
   static const double space2xl = 48;
   static const double space3xl = 64;
 
-  // ============ TYPOGRAPHY ============
-  static TextTheme _buildTextTheme(TextTheme base) {
-    final displayFont = GoogleFonts.oswald();
-    final bodyFont = GoogleFonts.inter();
-
-    return base.copyWith(
-      displayLarge: displayFont.copyWith(
-        fontSize: 48,
-        fontWeight: FontWeight.w700,
-        color: brightGold,
-        letterSpacing: 2,
-        height: 1.1,
-      ),
-      displayMedium: displayFont.copyWith(
-        fontSize: 36,
-        fontWeight: FontWeight.w600,
-        color: warmGold,
-        letterSpacing: 1.5,
-        height: 1.2,
-      ),
-      displaySmall: displayFont.copyWith(
-        fontSize: 28,
-        fontWeight: FontWeight.w600,
-        color: spartanBronze,
-        letterSpacing: 1,
-        height: 1.3,
-      ),
-      headlineLarge: bodyFont.copyWith(
-        fontSize: 24,
-        fontWeight: FontWeight.w700,
-        color: boneWhite,
-        letterSpacing: 0.5,
-      ),
-      headlineMedium: bodyFont.copyWith(
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-        color: boneWhite,
-      ),
-      headlineSmall: bodyFont.copyWith(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: mistGray,
-      ),
-      titleLarge: bodyFont.copyWith(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: boneWhite,
-      ),
-      titleMedium: bodyFont.copyWith(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: boneWhite,
-      ),
-      titleSmall: bodyFont.copyWith(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: mistGray,
-        letterSpacing: 0.5,
-      ),
-      bodyLarge: bodyFont.copyWith(
-        fontSize: 16,
-        fontWeight: FontWeight.w400,
-        color: boneWhite,
-        height: 1.6,
-      ),
-      bodyMedium: bodyFont.copyWith(
-        fontSize: 14,
-        fontWeight: FontWeight.w400,
-        color: mistGray,
-        height: 1.5,
-      ),
-      bodySmall: bodyFont.copyWith(
-        fontSize: 12,
-        fontWeight: FontWeight.w400,
-        color: steelGray,
-        height: 1.4,
-      ),
-      labelLarge: bodyFont.copyWith(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: boneWhite,
-        letterSpacing: 1,
-      ),
-      labelMedium: bodyFont.copyWith(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: mistGray,
-        letterSpacing: 0.5,
-      ),
-      labelSmall: bodyFont.copyWith(
-        fontSize: 10,
-        fontWeight: FontWeight.w600,
-        color: steelGray,
-        letterSpacing: 1,
-      ),
-    );
-  }
-
   // ============ THEME DATA ============
   static ThemeData get theme {
     final base = ThemeData.dark();
 
     return ThemeData.dark().copyWith(
-      useMaterial3: true,
-      scaffoldBackgroundColor: deepBlack,
-      primaryColor: spartanBronze,
+      // Material 3 is default in newer Flutter versions
+      scaffoldBackgroundColor: background,
+      primaryColor: primary,
       colorScheme: const ColorScheme.dark(
-        primary: spartanBronze,
-        secondary: warmGold,
-        surface: surfaceBlack,
-        surfaceContainerHighest: surfaceElevated,
-        onPrimary: deepBlack,
-        onSecondary: deepBlack,
-        onSurface: boneWhite,
-        error: emberRed,
-        onError: pureWhite,
+        primary: primary,
+        onPrimary: onPrimary,
+        primaryContainer: primaryContainer,
+        onPrimaryContainer: onPrimaryContainer,
+        secondary: secondary,
+        onSecondary: onSecondary,
+        secondaryContainer: secondaryContainer,
+        onSecondaryContainer: onSecondaryContainer,
+        tertiary: tertiary,
+        onTertiary: onTertiary,
+        tertiaryContainer: tertiaryContainer,
+        onTertiaryContainer: onTertiaryContainer,
+        surface: surface,
+        onSurface: onSurface,
+        surfaceContainerLowest: surfaceContainerLowest,
+        surfaceContainerLow: surfaceContainerLow,
+        surfaceContainer: surfaceContainer,
+        surfaceContainerHigh: surfaceContainerHigh,
+        surfaceContainerHighest: surfaceContainerHighest,
+        error: error,
+        onError: onError,
+        errorContainer: errorContainer,
+        onErrorContainer: onErrorContainer,
+        outline: outline,
+        outlineVariant: outlineVariant,
+        inverseSurface: inverseSurface,
+        onInverseSurface: inverseOnSurface,
+        inversePrimary: inversePrimary,
+        surfaceTint: surfaceTint,
+        brightness: Brightness.dark,
       ),
       textTheme: _buildTextTheme(base.textTheme),
+
       appBarTheme: AppBarTheme(
-        backgroundColor: deepBlack.withOpacity(0.95),
+        backgroundColor: background.withValues(alpha: 0.95),
         elevation: 0,
-        centerTitle: true,
+        centerTitle: false,
         systemOverlayStyle: const SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: Brightness.light,
-          systemNavigationBarColor: deepBlack,
+          systemNavigationBarColor: surfaceContainerLowest,
           systemNavigationBarIconBrightness: Brightness.light,
         ),
-        titleTextStyle: GoogleFonts.oswald(
+        titleTextStyle: GoogleFonts.spaceGrotesk(
           fontSize: 24,
-          fontWeight: FontWeight.w600,
-          color: brightGold,
-          letterSpacing: 2,
+          fontWeight: FontWeight.w900,
+          color: primary,
+          letterSpacing: -0.02,
         ),
-        iconTheme: const IconThemeData(color: boneWhite),
+        iconTheme: const IconThemeData(color: primary),
+        actionsIconTheme: const IconThemeData(color: primary),
       ),
+
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: surfaceBlack,
-        selectedItemColor: warmGold,
-        unselectedItemColor: mistGray,
+        backgroundColor: surfaceContainerLowest,
+        selectedItemColor: secondary,
+        unselectedItemColor: surfaceBright,
         type: BottomNavigationBarType.fixed,
-        elevation: 8,
+        elevation: 0,
         showSelectedLabels: true,
         showUnselectedLabels: true,
-      ),
-      cardTheme: CardThemeData(
-        color: surfaceBlack.withOpacity(0.8),
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: ironGray.withOpacity(0.3), width: 1),
+        selectedLabelStyle: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.05,
+        ),
+        unselectedLabelStyle: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.05,
         ),
       ),
+
+      cardTheme: const CardThemeData(
+        color: surfaceContainer,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      ),
+
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: spartanBronze,
-          foregroundColor: deepBlack,
+          backgroundColor: primary,
+          foregroundColor: onPrimary,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          textStyle: GoogleFonts.inter(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+          textStyle: GoogleFonts.spaceGrotesk(
             fontSize: 14,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.1,
           ),
         ),
       ),
+
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: boneWhite,
-          side: const BorderSide(color: ironGray, width: 1),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+          foregroundColor: onSurface,
+          side: const BorderSide(color: outlineVariant, width: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+          textStyle: GoogleFonts.workSans(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.1,
           ),
         ),
       ),
+
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: warmGold,
+          foregroundColor: secondary,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          textStyle: GoogleFonts.workSans(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.05,
+          ),
         ),
       ),
+
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surfaceOverlay.withOpacity(0.5),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: ironGray, width: 1),
+        fillColor: surfaceContainerHighest,
+        border: const OutlineInputBorder(
+          borderRadius: BorderRadius.zero,
+          borderSide: BorderSide(color: outlineVariant, width: 1),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: ironGray.withOpacity(0.5), width: 1),
+        enabledBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.zero,
+          borderSide: BorderSide(color: outlineVariant, width: 1),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: warmGold, width: 2),
+        focusedBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.zero,
+          borderSide: BorderSide(color: secondary, width: 2),
         ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: emberRed, width: 1),
+        errorBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.zero,
+          borderSide: BorderSide(color: error, width: 1),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
         ),
-        labelStyle: const TextStyle(color: mistGray, fontSize: 14),
-        hintStyle: const TextStyle(color: steelGray, fontSize: 14),
+        labelStyle: const TextStyle(color: onSurfaceVariant, fontSize: 14),
+        hintStyle: const TextStyle(color: outline, fontSize: 14),
       ),
+
       sliderTheme: SliderThemeData(
-        activeTrackColor: spartanBronze,
-        inactiveTrackColor: ironGray.withOpacity(0.3),
-        thumbColor: brightGold,
-        overlayColor: spartanBronze.withOpacity(0.2),
-        trackHeight: 6,
-        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
+        activeTrackColor: secondary,
+        inactiveTrackColor: surfaceContainerHighest,
+        thumbColor: secondary,
+        overlayColor: secondary.withValues(alpha: 0.2),
+        trackHeight: 4,
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
       ),
+
       chipTheme: ChipThemeData(
-        backgroundColor: surfaceOverlay,
-        selectedColor: spartanBronze.withOpacity(0.2),
-        labelStyle: const TextStyle(color: boneWhite, fontSize: 12),
-        secondaryLabelStyle: const TextStyle(color: warmGold, fontSize: 12),
+        backgroundColor: surfaceContainer,
+        selectedColor: secondary,
+        labelStyle: const TextStyle(
+          color: onSurface,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        secondaryLabelStyle: const TextStyle(
+          color: onSecondary,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: ironGray.withOpacity(0.3)),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.zero,
+          side: BorderSide(color: outlineVariant),
         ),
       ),
-      dividerTheme: DividerThemeData(
-        color: ironGray.withOpacity(0.3),
+
+      dividerTheme: const DividerThemeData(
+        color: surfaceContainerHigh,
         thickness: 1,
         space: 24,
       ),
-      dialogTheme: DialogThemeData(
-        backgroundColor: surfaceElevated,
-        elevation: 24,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: warmGold.withOpacity(0.2)),
-        ),
+
+      dialogTheme: const DialogThemeData(
+        backgroundColor: surfaceContainer,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      ),
+
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: surfaceContainer,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      ),
+
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: surfaceContainerHigh,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        behavior: SnackBarBehavior.floating,
+        contentTextStyle: GoogleFonts.inter(color: onSurface, fontSize: 14),
+      ),
+
+      listTileTheme: const ListTileThemeData(
+        tileColor: Colors.transparent,
+        selectedTileColor: surfaceContainerHigh,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       ),
     );
   }

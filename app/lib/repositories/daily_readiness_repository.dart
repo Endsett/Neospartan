@@ -1,12 +1,15 @@
 import 'dart:developer' as developer;
 import '../models/daily_readiness.dart';
+import '../services/supabase_database_service.dart';
 
 /// Repository for Daily Readiness data using Supabase
 class DailyReadinessRepository {
+  final SupabaseDatabaseService _database = SupabaseDatabaseService();
+
   /// Save daily readiness
   Future<bool> saveDailyReadiness(DailyReadiness readiness) async {
     try {
-      // Store in user_profiles as part of daily_readiness_scores array
+      await _database.saveDailyReadiness(readiness);
       developer.log('Daily readiness saved', name: 'DailyReadinessRepository');
       return true;
     } catch (e) {
@@ -24,12 +27,8 @@ class DailyReadinessRepository {
     int days = 7,
   }) async {
     try {
-      // TODO: Implement with actual Supabase query
-      developer.log(
-        'Getting recent readiness for $userId',
-        name: 'DailyReadinessRepository',
-      );
-      return [];
+      final data = await _database.getRecentReadiness(userId, days: days);
+      return data.map((m) => DailyReadiness.fromMap(m)).toList();
     } catch (e) {
       developer.log(
         'Error getting recent readiness: $e',
@@ -45,14 +44,48 @@ class DailyReadinessRepository {
     int limit = 30,
   }) async {
     try {
-      // Fetch from user_profiles daily_readiness_scores
-      return [];
+      final data = await _database.getReadinessHistory(userId, limit: limit);
+      return data.map((m) => DailyReadiness.fromMap(m)).toList();
     } catch (e) {
       developer.log(
         'Error getting readiness history: $e',
         name: 'DailyReadinessRepository',
       );
       return [];
+    }
+  }
+
+  /// Get readiness for specific date
+  Future<DailyReadiness?> getReadinessForDate(
+    String userId,
+    DateTime date,
+  ) async {
+    try {
+      final data = await _database.getReadinessForDate(userId, date);
+      if (data != null) {
+        return DailyReadiness.fromMap(data);
+      }
+      return null;
+    } catch (e) {
+      developer.log(
+        'Error getting readiness for date: $e',
+        name: 'DailyReadinessRepository',
+      );
+      return null;
+    }
+  }
+
+  /// Get latest readiness score
+  Future<int?> getLatestReadinessScore(String userId) async {
+    try {
+      final readiness = await getReadinessForDate(userId, DateTime.now());
+      return readiness?.readinessScore;
+    } catch (e) {
+      developer.log(
+        'Error getting latest readiness score: $e',
+        name: 'DailyReadinessRepository',
+      );
+      return null;
     }
   }
 }

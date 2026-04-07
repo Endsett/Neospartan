@@ -47,7 +47,8 @@ class WeeklyDirectiveRepository {
   }
 
   /// Get weekly directive for current week
-  Future<AdaptiveWeeklyPeriodizationDecision?> getCurrentWeeklyDirective() async {
+  Future<AdaptiveWeeklyPeriodizationDecision?>
+  getCurrentWeeklyDirective() async {
     try {
       final data = await _database.getCurrentWeeklyDirective();
 
@@ -105,12 +106,32 @@ class WeeklyDirectiveRepository {
     return data != null;
   }
 
+  /// Get recent directives as raw data (for DOM-RL log)
+  Future<List<Map<String, dynamic>>> getRecentDirectives(
+    String userId, {
+    int limit = 7,
+  }) async {
+    try {
+      final data = await _database.getWeeklyDirectiveHistory(limit: limit);
+      return data;
+    } catch (e) {
+      developer.log(
+        'Error getting recent directives: $e',
+        name: 'WeeklyDirectiveRepository',
+      );
+      return [];
+    }
+  }
+
   /// Helper: Get the start of current week (Monday)
   DateTime _getWeekStart() {
     final now = DateTime.now();
     // Weekday is 1-7 (Monday-Sunday), subtract to get to Monday
-    return DateTime(now.year, now.month, now.day)
-        .subtract(Duration(days: now.weekday - 1));
+    return DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday - 1));
   }
 
   /// Helper: Map database row to AdaptiveWeeklyPeriodizationDecision
@@ -123,7 +144,8 @@ class WeeklyDirectiveRepository {
       orElse: () => WeeklyDirective.maintain,
     );
 
-    final reasons = (data['reasons'] as List<dynamic>?)
+    final reasons =
+        (data['reasons'] as List<dynamic>?)
             ?.map((r) => r.toString())
             .toList() ??
         [];

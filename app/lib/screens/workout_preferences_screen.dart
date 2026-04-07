@@ -1,3 +1,4 @@
+// ignore_for_file: unused_field, use_build_context_synchronously
 import 'package:flutter/material.dart';
 import '../models/workout_preferences.dart';
 import '../models/exercise.dart';
@@ -20,12 +21,14 @@ class WorkoutPreferencesScreen extends StatefulWidget {
   });
 
   @override
-  State<WorkoutPreferencesScreen> createState() => _WorkoutPreferencesScreenState();
+  State<WorkoutPreferencesScreen> createState() =>
+      _WorkoutPreferencesScreenState();
 }
 
 class _WorkoutPreferencesScreenState extends State<WorkoutPreferencesScreen> {
-  final WorkoutPreferencesRepository _prefsRepo = WorkoutPreferencesRepository();
-  
+  final WorkoutPreferencesRepository _prefsRepo =
+      WorkoutPreferencesRepository();
+
   late int _intensity;
   late int _duration;
   late int _exerciseCount;
@@ -35,7 +38,7 @@ class _WorkoutPreferencesScreenState extends State<WorkoutPreferencesScreen> {
   late bool _includeCardio;
   late bool _includeMobility;
   late String? _specificFocus;
-  
+
   final TextEditingController _focusController = TextEditingController();
   bool _isLoading = false;
 
@@ -78,7 +81,7 @@ class _WorkoutPreferencesScreenState extends State<WorkoutPreferencesScreen> {
 
     final userId = SupabaseConfig.userId ?? widget.profile.userId;
     final now = DateTime.now();
-    
+
     final preferences = WorkoutPreferences(
       userId: userId,
       targetIntensity: _intensity,
@@ -89,7 +92,9 @@ class _WorkoutPreferencesScreenState extends State<WorkoutPreferencesScreen> {
       setsPerExercise: _setsPerExercise,
       includeCardio: _includeCardio,
       includeMobility: _includeMobility,
-      specificFocus: _focusController.text.isNotEmpty ? _focusController.text : null,
+      specificFocus: _focusController.text.isNotEmpty
+          ? _focusController.text
+          : null,
       createdAt: now,
       updatedAt: now,
     );
@@ -164,10 +169,7 @@ class _WorkoutPreferencesScreenState extends State<WorkoutPreferencesScreen> {
                 ),
                 Text(
                   _getIntensityLabel(_intensity),
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Colors.grey[400], fontSize: 14),
                 ),
               ],
             ),
@@ -192,14 +194,22 @@ class _WorkoutPreferencesScreenState extends State<WorkoutPreferencesScreen> {
                 return ChoiceChip(
                   label: Text('${duration}min'),
                   selected: isSelected,
-                  selectedColor: LaconicTheme.spartanBronze.withValues(alpha: 0.3),
+                  selectedColor: LaconicTheme.spartanBronze.withValues(
+                    alpha: 0.3,
+                  ),
                   backgroundColor: LaconicTheme.ironGray.withValues(alpha: 0.3),
                   labelStyle: TextStyle(
-                    color: isSelected ? LaconicTheme.spartanBronze : Colors.grey[400],
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected
+                        ? LaconicTheme.spartanBronze
+                        : Colors.grey[400],
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
                   side: BorderSide(
-                    color: isSelected ? LaconicTheme.spartanBronze : Colors.transparent,
+                    color: isSelected
+                        ? LaconicTheme.spartanBronze
+                        : Colors.transparent,
                   ),
                   onSelected: (_) => setState(() => _duration = duration),
                 );
@@ -218,14 +228,22 @@ class _WorkoutPreferencesScreenState extends State<WorkoutPreferencesScreen> {
                 return ChoiceChip(
                   label: Text(_getFocusLabel(focus)),
                   selected: isSelected,
-                  selectedColor: LaconicTheme.spartanBronze.withValues(alpha: 0.3),
+                  selectedColor: LaconicTheme.spartanBronze.withValues(
+                    alpha: 0.3,
+                  ),
                   backgroundColor: LaconicTheme.ironGray.withValues(alpha: 0.3),
                   labelStyle: TextStyle(
-                    color: isSelected ? LaconicTheme.spartanBronze : Colors.grey[400],
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected
+                        ? LaconicTheme.spartanBronze
+                        : Colors.grey[400],
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
                   side: BorderSide(
-                    color: isSelected ? LaconicTheme.spartanBronze : Colors.transparent,
+                    color: isSelected
+                        ? LaconicTheme.spartanBronze
+                        : Colors.transparent,
                   ),
                   onSelected: (_) => setState(() => _trainingFocus = focus),
                 );
@@ -310,11 +328,15 @@ class _WorkoutPreferencesScreenState extends State<WorkoutPreferencesScreen> {
                 return FilterChip(
                   label: Text(_getCategoryLabel(category)),
                   selected: isSelected,
-                  selectedColor: LaconicTheme.spartanBronze.withValues(alpha: 0.3),
+                  selectedColor: LaconicTheme.spartanBronze.withValues(
+                    alpha: 0.3,
+                  ),
                   backgroundColor: LaconicTheme.ironGray.withValues(alpha: 0.3),
                   checkmarkColor: LaconicTheme.spartanBronze,
                   labelStyle: TextStyle(
-                    color: isSelected ? LaconicTheme.spartanBronze : Colors.grey[400],
+                    color: isSelected
+                        ? LaconicTheme.spartanBronze
+                        : Colors.grey[400],
                   ),
                   onSelected: (selected) {
                     setState(() {
@@ -337,14 +359,14 @@ class _WorkoutPreferencesScreenState extends State<WorkoutPreferencesScreen> {
               title: const Text('Include Cardio'),
               subtitle: const Text('Add cardiovascular conditioning'),
               value: _includeCardio,
-              activeColor: LaconicTheme.spartanBronze,
+              activeThumbColor: LaconicTheme.spartanBronze,
               onChanged: (value) => setState(() => _includeCardio = value),
             ),
             SwitchListTile(
               title: const Text('Include Mobility'),
               subtitle: const Text('Add mobility and recovery work'),
               value: _includeMobility,
-              activeColor: LaconicTheme.spartanBronze,
+              activeThumbColor: LaconicTheme.spartanBronze,
               onChanged: (value) => setState(() => _includeMobility = value),
             ),
             const SizedBox(height: 24),
@@ -395,18 +417,12 @@ class _WorkoutPreferencesScreenState extends State<WorkoutPreferencesScreen> {
                   const SizedBox(height: 12),
                   Text(
                     '${_exerciseCount * _setsPerExercise} total sets • ~${_duration}min • ${_getIntensityLabel(_intensity)} intensity',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Focus: ${_getFocusLabel(_trainingFocus)}',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.grey[400], fontSize: 12),
                   ),
                 ],
               ),

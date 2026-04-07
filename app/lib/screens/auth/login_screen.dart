@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme.dart';
-import '../../widgets/glass_card.dart';
-import '../../widgets/gradient_button.dart';
 import 'forgot_password_screen.dart';
 import 'signup_screen.dart';
 
-/// Login Screen - Spartan themed authentication
+/// Login Screen - Blood & Bronze themed authentication
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -33,14 +32,16 @@ class _LoginScreenState extends State<LoginScreen> {
     final authProvider = context.watch<AuthProvider>();
 
     return Scaffold(
-      backgroundColor: LaconicTheme.deepBlack,
+      backgroundColor: LaconicTheme.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(32.0),
-            child: GlassCard(
-              elevated: true,
+            padding: const EdgeInsets.all(24.0),
+            child: Container(
               padding: const EdgeInsets.all(32),
+              decoration: const BoxDecoration(
+                color: LaconicTheme.surfaceContainerLow,
+              ),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -69,12 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 24),
 
                     // Sign in button
-                    GradientButton(
-                      label: 'SIGN IN',
-                      onPressed: authProvider.isLoading ? null : _handleSignIn,
-                      isLoading: authProvider.isLoading,
-                      width: double.infinity,
-                    ),
+                    _buildSignInButton(authProvider),
                     const SizedBox(height: 24),
 
                     // Divider
@@ -102,39 +98,32 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [LaconicTheme.spartanBronze, LaconicTheme.warmGold],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: LaconicTheme.spartanBronze.withOpacity(0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(color: LaconicTheme.secondary),
           child: const Icon(
-            Icons.shield_outlined,
+            Icons.shield,
             size: 48,
-            color: LaconicTheme.deepBlack,
+            color: LaconicTheme.onSecondary,
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         Text(
           'NEOSPARTAN',
-          style: Theme.of(
-            context,
-          ).textTheme.displaySmall?.copyWith(letterSpacing: 6),
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 28,
+            fontWeight: FontWeight.w900,
+            color: LaconicTheme.onSurface,
+            letterSpacing: 4,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
           'Forge Your Discipline',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: LaconicTheme.mistGray),
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: LaconicTheme.onSurfaceVariant,
+            letterSpacing: 0.5,
+          ),
         ),
       ],
     );
@@ -142,20 +131,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildErrorMessage(String error) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+        color: LaconicTheme.error.withValues(alpha: 0.1),
+        border: Border.all(color: LaconicTheme.error.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: Colors.red, size: 20),
-          const SizedBox(width: 8),
+          Icon(Icons.error_outline, color: LaconicTheme.error, size: 20),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               error,
-              style: const TextStyle(color: Colors.red, fontSize: 14),
+              style: GoogleFonts.inter(color: LaconicTheme.error, fontSize: 14),
             ),
           ),
         ],
@@ -167,25 +155,30 @@ class _LoginScreenState extends State<LoginScreen> {
     return TextFormField(
       controller: _emailController,
       keyboardType: TextInputType.emailAddress,
-      style: const TextStyle(color: Colors.white),
+      style: GoogleFonts.inter(color: LaconicTheme.onSurface),
       decoration: InputDecoration(
         labelText: 'EMAIL',
-        labelStyle: const TextStyle(color: Colors.grey),
-        prefixIcon: const Icon(Icons.email_outlined, color: Colors.grey),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[800]!),
+        labelStyle: GoogleFonts.inter(
+          color: LaconicTheme.onSurfaceVariant,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.1,
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: LaconicTheme.spartanBronze),
+        prefixIcon: const Icon(
+          Icons.email_outlined,
+          color: LaconicTheme.outline,
         ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: LaconicTheme.outlineVariant),
+        ),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: LaconicTheme.secondary, width: 2),
+        ),
+        errorBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: LaconicTheme.error),
         ),
         filled: true,
-        fillColor: Colors.grey[900],
+        fillColor: LaconicTheme.surfaceContainer,
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
@@ -203,15 +196,20 @@ class _LoginScreenState extends State<LoginScreen> {
     return TextFormField(
       controller: _passwordController,
       obscureText: _obscurePassword,
-      style: const TextStyle(color: Colors.white),
+      style: GoogleFonts.inter(color: LaconicTheme.onSurface),
       decoration: InputDecoration(
         labelText: 'PASSWORD',
-        labelStyle: const TextStyle(color: Colors.grey),
-        prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
+        labelStyle: GoogleFonts.inter(
+          color: LaconicTheme.onSurfaceVariant,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.1,
+        ),
+        prefixIcon: const Icon(Icons.lock_outline, color: LaconicTheme.outline),
         suffixIcon: IconButton(
           icon: Icon(
             _obscurePassword ? Icons.visibility_off : Icons.visibility,
-            color: Colors.grey,
+            color: LaconicTheme.outline,
           ),
           onPressed: () {
             setState(() {
@@ -219,20 +217,17 @@ class _LoginScreenState extends State<LoginScreen> {
             });
           },
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[800]!),
+        enabledBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: LaconicTheme.outlineVariant),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: LaconicTheme.spartanBronze),
+        focusedBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: LaconicTheme.secondary, width: 2),
         ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red),
+        errorBorder: const UnderlineInputBorder(
+          borderSide: BorderSide(color: LaconicTheme.error),
         ),
         filled: true,
-        fillColor: Colors.grey[900],
+        fillColor: LaconicTheme.surfaceContainer,
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
@@ -259,12 +254,50 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         },
         child: Text(
-          'Forgot Password?',
-          style: TextStyle(
-            color: LaconicTheme.spartanBronze.withValues(alpha: 0.8),
-            fontSize: 14,
+          'FORGOT PASSWORD?',
+          style: GoogleFonts.workSans(
+            color: LaconicTheme.secondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.1,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSignInButton(AuthProvider authProvider) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: authProvider.isLoading ? null : _handleSignIn,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: LaconicTheme.secondary,
+          foregroundColor: LaconicTheme.onSecondary,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        ),
+        child: authProvider.isLoading
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    LaconicTheme.onSecondary,
+                  ),
+                ),
+              )
+            : Text(
+                'SIGN IN',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.1,
+                ),
+              ),
       ),
     );
   }
@@ -272,19 +305,28 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildDivider() {
     return Row(
       children: [
-        Expanded(child: Divider(color: Colors.grey[800])),
+        Expanded(
+          child: Divider(
+            color: LaconicTheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'OR',
-            style: TextStyle(
-              color: Colors.grey[600],
+            style: GoogleFonts.workSans(
+              color: LaconicTheme.outline,
               fontSize: 12,
+              fontWeight: FontWeight.w700,
               letterSpacing: 2,
             ),
           ),
         ),
-        Expanded(child: Divider(color: Colors.grey[800])),
+        Expanded(
+          child: Divider(
+            color: LaconicTheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
       ],
     );
   }
@@ -295,26 +337,23 @@ class _LoginScreenState extends State<LoginScreen> {
       height: 56,
       child: OutlinedButton.icon(
         onPressed: authProvider.isLoading ? null : _handleGoogleSignIn,
-        icon: Image.asset(
-          'assets/google_logo.png',
-          height: 24,
-          errorBuilder: (context, error, stackTrace) {
-            return const Icon(Icons.g_mobiledata, color: Colors.white);
-          },
+        icon: const Icon(
+          Icons.g_mobiledata,
+          color: LaconicTheme.onSurface,
+          size: 24,
         ),
-        label: const Text(
-          'Sign in with Google',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
+        label: Text(
+          'SIGN IN WITH GOOGLE',
+          style: GoogleFonts.spaceGrotesk(
+            color: LaconicTheme.onSurface,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.1,
           ),
         ),
         style: OutlinedButton.styleFrom(
-          side: BorderSide(color: Colors.grey[700]!),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          side: const BorderSide(color: LaconicTheme.outlineVariant),
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
           padding: const EdgeInsets.symmetric(horizontal: 24),
         ),
       ),
@@ -327,7 +366,10 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         Text(
           "Don't have an account? ",
-          style: TextStyle(color: Colors.grey[400]),
+          style: GoogleFonts.inter(
+            color: LaconicTheme.onSurfaceVariant,
+            fontSize: 14,
+          ),
         ),
         TextButton(
           onPressed: () {
@@ -337,10 +379,11 @@ class _LoginScreenState extends State<LoginScreen> {
             );
           },
           child: Text(
-            'SIGN UP',
-            style: TextStyle(
-              color: LaconicTheme.spartanBronze,
-              fontWeight: FontWeight.bold,
+            'JOIN THE AGŌGĒ',
+            style: GoogleFonts.spaceGrotesk(
+              color: LaconicTheme.primary,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.05,
             ),
           ),
         ),

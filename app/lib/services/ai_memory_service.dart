@@ -42,7 +42,7 @@ class AIMemoryService {
         'data': memory.data,
         'tags': memory.tags,
         'summary': memory.summary,
-        'expires_at': memory.expiresAt?.toIso8601String(),
+        'expires_at': memory.expiresAt.toIso8601String(),
       });
 
       developer.log('AI memory stored successfully', name: 'AIMemoryService');
@@ -62,7 +62,7 @@ class AIMemoryService {
         'data': memory.data,
         'tags': memory.tags,
         'summary': memory.summary,
-        'expires_at': memory.expiresAt?.toIso8601String(),
+        'expires_at': memory.expiresAt.toIso8601String(),
       });
 
       developer.log('AI memory stored successfully', name: 'AIMemoryService');
@@ -178,8 +178,6 @@ class AIMemoryService {
     try {
       // This would typically be done via a database trigger or scheduled job
       // For now, we'll fetch expired memories and delete them
-      final now = DateTime.now().toIso8601String();
-
       final expiredMemories = await _database.executeQuery(
         'ai_memories',
         select: ['id'],
@@ -188,7 +186,7 @@ class AIMemoryService {
       );
 
       int deletedCount = 0;
-      for (final memory in expiredMemories) {
+      for (final _ in expiredMemories) {
         // Check if expired
         // In a real implementation, you'd use a WHERE clause
         // For simplicity, we're just demonstrating the pattern

@@ -185,9 +185,7 @@ class GeminiClient {
     try {
       developer.log('Starting content stream', name: 'GeminiClient');
 
-      final response = await _model.generateContentStream([
-        Content.text(prompt),
-      ]);
+      final response = _model.generateContentStream([Content.text(prompt)]);
 
       await for (final chunk in response) {
         final text = chunk.text;

@@ -7,6 +7,9 @@ class DailyReadiness {
   final String userId;
   final double? sleepQuality; // 0-1
   final double? recoveryScore; // 0-1
+  final int? soreness; // 1-10
+  final int? motivation; // 1-10
+  final int? stress; // 1-10
 
   DailyReadiness({
     required this.date,
@@ -16,6 +19,9 @@ class DailyReadiness {
     required this.userId,
     this.sleepQuality,
     this.recoveryScore,
+    this.soreness,
+    this.motivation,
+    this.stress,
   });
 
   // Overall readiness combines readiness score with other factors
@@ -37,6 +43,11 @@ class DailyReadiness {
       'notes': notes,
       'factors': factors,
       'user_id': userId,
+      'sleep_quality': sleepQuality,
+      'recovery_score': recoveryScore,
+      'soreness': soreness,
+      'motivation': motivation,
+      'stress': stress,
     };
   }
 
@@ -49,6 +60,11 @@ class DailyReadiness {
           ? List<String>.from(map['factors'])
           : null,
       userId: map['user_id'] ?? '',
+      sleepQuality: map['sleep_quality']?.toDouble(),
+      recoveryScore: map['recovery_score']?.toDouble(),
+      soreness: map['soreness']?.toInt(),
+      motivation: map['motivation']?.toInt(),
+      stress: map['stress']?.toInt(),
     );
   }
 }

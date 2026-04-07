@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../models/exercise.dart';
 import '../providers/exercise_provider.dart';
 import '../theme.dart';
-import '../widgets/glass_card.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/error_state.dart';
 
 /// Exercise Library Screen - Browse and search exercises
+/// Blood & Bronze themed armory of exercises
 class ExerciseLibraryScreen extends StatefulWidget {
   const ExerciseLibraryScreen({super.key});
 
@@ -35,15 +36,15 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: LaconicTheme.deepBlack,
+      backgroundColor: LaconicTheme.background,
       appBar: AppBar(
-        backgroundColor: LaconicTheme.ironGray,
-        title: const Text(
+        backgroundColor: LaconicTheme.surfaceContainerLow,
+        title: Text(
           'EXERCISE LIBRARY',
-          style: TextStyle(
-            color: LaconicTheme.boneWhite,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
+          style: GoogleFonts.spaceGrotesk(
+            color: LaconicTheme.onSurface,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 3,
           ),
         ),
         centerTitle: true,
@@ -81,19 +82,19 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
   }
 
   Widget _buildSearchBar() {
-    return GlassCard(
+    return Container(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: const BoxDecoration(color: LaconicTheme.surfaceContainer),
       child: TextField(
         controller: _searchController,
-        style: const TextStyle(color: LaconicTheme.boneWhite),
+        style: GoogleFonts.inter(color: LaconicTheme.onSurface),
         decoration: InputDecoration(
           hintText: 'Search exercises...',
-          hintStyle: TextStyle(color: LaconicTheme.mistGray),
-          prefixIcon: const Icon(Icons.search, color: LaconicTheme.warmGold),
+          hintStyle: GoogleFonts.inter(color: LaconicTheme.onSurfaceVariant),
+          prefixIcon: const Icon(Icons.search, color: LaconicTheme.secondary),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.clear, color: LaconicTheme.mistGray),
+                  icon: const Icon(Icons.clear, color: LaconicTheme.outline),
                   onPressed: () {
                     _searchController.clear();
                     context.read<ExerciseProvider>().search('');
@@ -103,7 +104,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
-            vertical: 14,
+            vertical: 16,
           ),
         ),
         onChanged: (value) {
@@ -131,18 +132,22 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                   child: FilterChip(
                     selected: isSelected,
                     label: const Text('ALL'),
-                    labelStyle: TextStyle(
+                    labelStyle: GoogleFonts.workSans(
                       color: isSelected
-                          ? LaconicTheme.deepBlack
-                          : LaconicTheme.boneWhite,
-                      fontWeight: FontWeight.bold,
+                          ? LaconicTheme.onSecondary
+                          : LaconicTheme.onSurface,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
                     ),
-                    backgroundColor: LaconicTheme.ironGray,
-                    selectedColor: LaconicTheme.spartanBronze,
+                    backgroundColor: LaconicTheme.surfaceContainer,
+                    selectedColor: LaconicTheme.secondary,
                     side: BorderSide(
                       color: isSelected
-                          ? LaconicTheme.spartanBronze
-                          : LaconicTheme.boneWhite.withValues(alpha: 0.3),
+                          ? LaconicTheme.secondary
+                          : LaconicTheme.outlineVariant,
+                    ),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.zero,
                     ),
                     onSelected: (_) {
                       provider.filterByCategory(null);
@@ -161,22 +166,24 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                   selected: isSelected,
                   avatar: Icon(
                     provider.getCategoryIcon(category),
-                    color: isSelected ? LaconicTheme.deepBlack : color,
+                    color: isSelected ? LaconicTheme.onSecondary : color,
                     size: 18,
                   ),
                   label: Text(provider.getCategoryName(category)),
-                  labelStyle: TextStyle(
+                  labelStyle: GoogleFonts.workSans(
                     color: isSelected
-                        ? LaconicTheme.deepBlack
-                        : LaconicTheme.boneWhite,
-                    fontWeight: FontWeight.bold,
+                        ? LaconicTheme.onSecondary
+                        : LaconicTheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
                   ),
-                  backgroundColor: LaconicTheme.ironGray,
+                  backgroundColor: LaconicTheme.surfaceContainer,
                   selectedColor: color,
                   side: BorderSide(
-                    color: isSelected
-                        ? color
-                        : LaconicTheme.boneWhite.withValues(alpha: 0.3),
+                    color: isSelected ? color : LaconicTheme.outlineVariant,
+                  ),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.zero,
                   ),
                   onSelected: (_) {
                     provider.filterByCategory(isSelected ? null : category);
@@ -254,9 +261,9 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: LaconicTheme.ironGray,
+      backgroundColor: LaconicTheme.surfaceContainerLow,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.zero),
       ),
       builder: (context) {
         return Container(
@@ -273,8 +280,7 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                     decoration: BoxDecoration(
                       color: provider
                           .getCategoryColor(exercise.category)
-                          .withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
+                          .withValues(alpha: 0.1),
                     ),
                     child: Icon(
                       provider.getCategoryIcon(exercise.category),
@@ -288,16 +294,16 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                       children: [
                         Text(
                           exercise.name,
-                          style: TextStyle(
-                            color: LaconicTheme.boneWhite,
+                          style: GoogleFonts.spaceGrotesk(
+                            color: LaconicTheme.onSurface,
                             fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           provider.getCategoryName(exercise.category),
-                          style: TextStyle(
+                          style: GoogleFonts.inter(
                             color: provider.getCategoryColor(exercise.category),
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -313,24 +319,24 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: LaconicTheme.spartanBronze.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: LaconicTheme.secondary.withValues(alpha: 0.1),
                   border: Border.all(
-                    color: LaconicTheme.spartanBronze.withValues(alpha: 0.3),
+                    color: LaconicTheme.secondary.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
                   children: [
                     const Icon(
                       Icons.format_quote,
-                      color: LaconicTheme.spartanBronze,
+                      color: LaconicTheme.secondary,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         exercise.targetMetaphor,
-                        style: const TextStyle(
-                          color: LaconicTheme.spartanBronze,
+                        style: GoogleFonts.inter(
+                          color: LaconicTheme.secondary,
+                          fontSize: 14,
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -340,20 +346,20 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
               ),
               const SizedBox(height: 20),
               // Instructions
-              const Text(
+              Text(
                 'INSTRUCTIONS',
-                style: TextStyle(
-                  color: LaconicTheme.boneWhite,
+                style: GoogleFonts.spaceGrotesk(
+                  color: LaconicTheme.onSurface,
                   fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 3,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 exercise.instructions,
-                style: TextStyle(
-                  color: LaconicTheme.boneWhite.withValues(alpha: 0.8),
+                style: GoogleFonts.inter(
+                  color: LaconicTheme.onSurfaceVariant,
                   fontSize: 14,
                   height: 1.5,
                 ),
@@ -365,26 +371,26 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                   _buildDetailChip(
                     'Intensity',
                     provider.getIntensityStars(exercise.intensityLevel),
-                    Colors.amber,
+                    LaconicTheme.primary,
                   ),
                   const SizedBox(width: 12),
                   _buildDetailChip(
                     'Level',
                     '${exercise.minFitnessLevel.name}-${exercise.maxFitnessLevel.name}',
-                    Colors.blue,
+                    LaconicTheme.secondary,
                   ),
                 ],
               ),
               const SizedBox(height: 16),
               // Muscles
               if (exercise.primaryMuscles.isNotEmpty) ...[
-                const Text(
+                Text(
                   'MUSCLES',
-                  style: TextStyle(
-                    color: LaconicTheme.boneWhite,
+                  style: GoogleFonts.spaceGrotesk(
+                    color: LaconicTheme.onSurface,
                     fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 3,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -395,14 +401,18 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
                     return Chip(
                       label: Text(
                         muscle.toUpperCase(),
-                        style: const TextStyle(
+                        style: GoogleFonts.workSans(
                           fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w700,
+                          color: LaconicTheme.onSurface,
                         ),
                       ),
-                      backgroundColor: LaconicTheme.deepBlack,
-                      side: BorderSide(
-                        color: LaconicTheme.boneWhite.withValues(alpha: 0.3),
+                      backgroundColor: LaconicTheme.surfaceContainer,
+                      side: const BorderSide(
+                        color: LaconicTheme.outlineVariant,
+                      ),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.zero,
                       ),
                     );
                   }).toList(),
@@ -412,19 +422,23 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
               // Close button
               SizedBox(
                 width: double.infinity,
+                height: 56,
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: LaconicTheme.spartanBronze,
-                    foregroundColor: LaconicTheme.deepBlack,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    backgroundColor: LaconicTheme.secondary,
+                    foregroundColor: LaconicTheme.onSecondary,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.zero,
                     ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: const Text(
+                  child: Text(
                     'CLOSE',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: GoogleFonts.spaceGrotesk(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.1,
+                    ),
                   ),
                 ),
               ),
@@ -440,7 +454,6 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -448,17 +461,18 @@ class _ExerciseLibraryScreenState extends State<ExerciseLibraryScreen> {
         children: [
           Text(
             label.toUpperCase(),
-            style: TextStyle(
+            style: GoogleFonts.workSans(
               color: color,
               fontSize: 10,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(
-              color: LaconicTheme.boneWhite,
+            style: GoogleFonts.inter(
+              color: LaconicTheme.onSurface,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -485,8 +499,7 @@ class _ExerciseCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: LaconicTheme.ironGray,
-          borderRadius: BorderRadius.circular(16),
+          color: LaconicTheme.surfaceContainer,
           border: Border.all(color: categoryColor.withValues(alpha: 0.3)),
         ),
         child: Column(
@@ -497,8 +510,10 @@ class _ExerciseCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: categoryColor.withValues(alpha: 0.1),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
+                border: Border(
+                  bottom: BorderSide(
+                    color: categoryColor.withValues(alpha: 0.3),
+                  ),
                 ),
               ),
               child: Row(
@@ -511,10 +526,11 @@ class _ExerciseCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     provider.getCategoryName(exercise.category).toUpperCase(),
-                    style: TextStyle(
+                    style: GoogleFonts.workSans(
                       color: categoryColor,
                       fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ],
@@ -529,10 +545,10 @@ class _ExerciseCard extends StatelessWidget {
                   children: [
                     Text(
                       exercise.name,
-                      style: const TextStyle(
-                        color: LaconicTheme.boneWhite,
+                      style: GoogleFonts.spaceGrotesk(
+                        color: LaconicTheme.onSurface,
                         fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -540,8 +556,8 @@ class _ExerciseCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(
                       exercise.targetMetaphor,
-                      style: TextStyle(
-                        color: LaconicTheme.boneWhite.withValues(alpha: 0.5),
+                      style: GoogleFonts.inter(
+                        color: LaconicTheme.onSurfaceVariant,
                         fontSize: 11,
                         fontStyle: FontStyle.italic,
                       ),
@@ -554,15 +570,16 @@ class _ExerciseCard extends StatelessWidget {
                       children: [
                         const Icon(
                           Icons.local_fire_department,
-                          color: Colors.orange,
+                          color: LaconicTheme.primary,
                           size: 14,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           provider.getIntensityStars(exercise.intensityLevel),
-                          style: const TextStyle(
-                            color: Colors.orange,
+                          style: GoogleFonts.inter(
+                            color: LaconicTheme.primary,
                             fontSize: 10,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -578,17 +595,15 @@ class _ExerciseCard extends StatelessWidget {
                             horizontal: 6,
                             vertical: 2,
                           ),
-                          decoration: BoxDecoration(
-                            color: LaconicTheme.deepBlack,
-                            borderRadius: BorderRadius.circular(4),
+                          decoration: const BoxDecoration(
+                            color: LaconicTheme.surfaceContainerHigh,
                           ),
                           child: Text(
                             muscle.toUpperCase(),
-                            style: TextStyle(
-                              color: LaconicTheme.boneWhite.withValues(
-                                alpha: 0.7,
-                              ),
+                            style: GoogleFonts.workSans(
+                              color: LaconicTheme.onSurfaceVariant,
                               fontSize: 8,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         );

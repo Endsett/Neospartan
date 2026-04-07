@@ -26,26 +26,31 @@ class SuccessState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [LaconicTheme.spartanBronze, LaconicTheme.warmGold],
-                ),
-                borderRadius: BorderRadius.circular(50),
-                boxShadow: [
-                  BoxShadow(
-                    color: LaconicTheme.spartanBronze.withOpacity(0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        LaconicTheme.spartanBronze,
+                        LaconicTheme.warmGold,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(50),
+                    boxShadow: [
+                      BoxShadow(
+                        color: LaconicTheme.spartanBronze.withValues(
+                          alpha: 0.3,
+                        ),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: const Icon(
-                Icons.check,
-                size: 48,
-                color: LaconicTheme.deepBlack,
-              ),
-            )
+                  child: const Icon(
+                    Icons.check,
+                    size: 48,
+                    color: LaconicTheme.deepBlack,
+                  ),
+                )
                 .animate()
                 .scale(duration: 400.ms, curve: Curves.easeOutBack)
                 .then(delay: 100.ms)
@@ -62,9 +67,9 @@ class SuccessState extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 submessage!,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: LaconicTheme.mistGray,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: LaconicTheme.mistGray),
                 textAlign: TextAlign.center,
               ),
             ],

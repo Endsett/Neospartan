@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../providers/auth_provider.dart';
 import '../models/user_profile.dart';
-import '../widgets/glass_card.dart';
-import '../widgets/warrior_animations.dart';
 import 'auth/login_screen.dart';
 import 'workout_preferences_screen.dart';
 
 /// Profile Screen - User account, settings, and sign out
+/// Blood & Bronze themed Spartan profile management
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -27,7 +27,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(
-        CombatPageTransition(child: const LoginScreen()),
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
         (route) => false,
       );
     }
@@ -36,32 +36,83 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showSignOutConfirmDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: LaconicTheme.deepBlack,
-        title: const Text(
-          'LEAVE THE FIELD?',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'You will be signed out and returned to the login screen.',
-          style: TextStyle(color: Colors.grey),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'STAY',
-              style: TextStyle(color: LaconicTheme.spartanBronze),
-            ),
+      builder: (context) => Dialog(
+        backgroundColor: LaconicTheme.surfaceContainerLow,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'LEAVE THE FIELD?',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: LaconicTheme.onSurface,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'You will be signed out and returned to the login screen.',
+                style: GoogleFonts.inter(
+                  color: LaconicTheme.onSurfaceVariant,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(
+                          color: LaconicTheme.outlineVariant,
+                        ),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.zero,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: Text(
+                        'STAY',
+                        style: GoogleFonts.spaceGrotesk(
+                          color: LaconicTheme.outline,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _handleSignOut();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: LaconicTheme.error,
+                        foregroundColor: LaconicTheme.onError,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.zero,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: Text(
+                        'DEPART',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _handleSignOut();
-            },
-            child: const Text('DEPART', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -69,24 +120,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: LaconicTheme.deepBlack,
+      backgroundColor: LaconicTheme.background,
       appBar: AppBar(
-        backgroundColor: LaconicTheme.deepBlack,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        title: const Text(
-          'PROFILE',
-          style: TextStyle(color: LaconicTheme.spartanBronze, letterSpacing: 2),
+        title: Text(
+          'SPARTAN PROFILE',
+          style: GoogleFonts.spaceGrotesk(
+            color: LaconicTheme.secondary,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 3,
+          ),
         ),
       ),
       body: _isSigningOut
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(color: LaconicTheme.spartanBronze),
-                  SizedBox(height: 16),
-                  Text('Signing out...', style: TextStyle(color: Colors.grey)),
+                  const CircularProgressIndicator(
+                    color: LaconicTheme.secondary,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Signing out...',
+                    style: GoogleFonts.inter(color: LaconicTheme.outline),
+                  ),
                 ],
               ),
             )
@@ -100,36 +160,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Avatar with glass effect
-                      GlassCard(
-                        elevated: true,
-                        padding: const EdgeInsets.all(4),
-                        borderRadius: 60,
-                        child: Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: const LinearGradient(
-                              colors: [
-                                LaconicTheme.spartanBronze,
-                                LaconicTheme.warmGold,
-                              ],
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.person,
-                            size: 50,
-                            color: LaconicTheme.deepBlack,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
+                      // Avatar with bronze accent
+                      _buildAvatar(),
+                      const SizedBox(height: 24),
 
                       // Name
                       Text(
-                        profile?.displayName ?? user?.email ?? 'Warrior',
-                        style: Theme.of(context).textTheme.headlineMedium,
+                        profile?.displayName ?? user?.email ?? 'WARRIOR',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: LaconicTheme.onSurface,
+                          letterSpacing: 2,
+                        ),
                       ),
                       const SizedBox(height: 4),
 
@@ -137,8 +180,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       if (user?.email != null)
                         Text(
                           user!.email!,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: LaconicTheme.mistGray),
+                          style: GoogleFonts.inter(
+                            color: LaconicTheme.onSurfaceVariant,
+                            fontSize: 14,
+                          ),
                         ),
                       const SizedBox(height: 32),
 
@@ -157,15 +202,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       // Sign Out Button
                       SizedBox(
                         width: double.infinity,
+                        height: 56,
                         child: OutlinedButton.icon(
                           onPressed: _showSignOutConfirmDialog,
-                          icon: const Icon(Icons.logout, color: Colors.red),
-                          label: const Text(
+                          icon: const Icon(
+                            Icons.logout,
+                            color: LaconicTheme.error,
+                          ),
+                          label: Text(
                             'SIGN OUT',
-                            style: TextStyle(color: Colors.red),
+                            style: GoogleFonts.spaceGrotesk(
+                              color: LaconicTheme.error,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.1,
+                            ),
                           ),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.red),
+                            side: const BorderSide(color: LaconicTheme.error),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.zero,
+                            ),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
                         ),
@@ -175,8 +231,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       // Version
                       Text(
                         'Neospartan v1.0',
-                        style: TextStyle(
-                          color: Colors.grey.withValues(alpha: 0.5),
+                        style: GoogleFonts.inter(
+                          color: LaconicTheme.outline,
                           fontSize: 12,
                         ),
                       ),
@@ -188,25 +244,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildAvatar() {
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: const BoxDecoration(color: LaconicTheme.secondary),
+      child: const Icon(
+        Icons.shield_outlined,
+        size: 60,
+        color: LaconicTheme.onSecondary,
+      ),
+    );
+  }
+
   Widget _buildSectionTitle(String title) {
     return Align(
       alignment: Alignment.centerLeft,
       child: Text(
         title,
-        style: const TextStyle(
-          color: LaconicTheme.spartanBronze,
+        style: GoogleFonts.spaceGrotesk(
+          color: LaconicTheme.secondary,
           fontSize: 12,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 2,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 3,
         ),
       ),
     );
   }
 
   Widget _buildStatsCard(UserProfile? profile) {
-    return GlassCard(
-      elevated: true,
-      padding: const EdgeInsets.all(20),
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: const BoxDecoration(color: LaconicTheme.surfaceContainer),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
@@ -214,20 +283,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             profile?.trainingDaysPerWeek.toString() ?? '-',
             'Days/Week',
           ),
-          Container(
-            width: 1,
-            height: 40,
-            color: LaconicTheme.ironGray.withOpacity(0.5),
-          ),
+          Container(width: 1, height: 40, color: LaconicTheme.outlineVariant),
           _buildStatItem(
             profile?.preferredWorkoutDuration?.toString() ?? '-',
             'Min/Session',
           ),
-          Container(
-            width: 1,
-            height: 40,
-            color: LaconicTheme.ironGray.withOpacity(0.5),
-          ),
+          Container(width: 1, height: 40, color: LaconicTheme.outlineVariant),
           _buildStatItem(
             profile?.fitnessLevelText.toUpperCase() ?? '-',
             'Level',
@@ -242,16 +303,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         Text(
           value,
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(color: LaconicTheme.brightGold),
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: LaconicTheme.primary,
+          ),
         ),
         const SizedBox(height: 4),
         Text(
           label,
-          style: Theme.of(
-            context,
-          ).textTheme.labelSmall?.copyWith(color: LaconicTheme.mistGray),
+          style: GoogleFonts.inter(
+            color: LaconicTheme.onSurfaceVariant,
+            fontSize: 12,
+          ),
         ),
       ],
     );
@@ -276,9 +340,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onGenerate: (prefs) {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Preferences updated'),
-                          backgroundColor: LaconicTheme.spartanBronze,
+                        SnackBar(
+                          content: Text(
+                            'Preferences updated',
+                            style: GoogleFonts.inter(),
+                          ),
+                          backgroundColor: LaconicTheme.secondary,
                         ),
                       );
                     },
@@ -316,34 +383,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    return GlassCard(
+    return InkWell(
       onTap: onTap,
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [LaconicTheme.spartanBronze, LaconicTheme.warmGold],
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(color: LaconicTheme.surfaceContainer),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(
+                color: LaconicTheme.secondaryContainer,
               ),
-              borderRadius: BorderRadius.circular(10),
+              child: Icon(icon, color: LaconicTheme.secondary, size: 24),
             ),
-            child: Icon(icon, color: LaconicTheme.deepBlack, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 2),
-                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-              ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      color: LaconicTheme.onSurface,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.inter(
+                      color: LaconicTheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Icon(Icons.chevron_right, color: LaconicTheme.mistGray),
-        ],
+            const Icon(Icons.chevron_right, color: LaconicTheme.outline),
+          ],
+        ),
       ),
     );
   }

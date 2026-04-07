@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
+import '../models/biometrics.dart';
+import '../models/daily_readiness.dart';
 
 /// Supabase Database Service
 /// Handles all database operations using Supabase PostgreSQL
@@ -786,5 +788,737 @@ class SupabaseDatabaseService {
 
   String _dateOnly(DateTime date) {
     return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  // ==================== Biometrics ====================
+
+  /// Save biometrics data
+  Future<void> saveBiometrics(String userId, Biometrics biometrics) async {
+    try {
+      debugPrint('Saving biometrics for user: $userId');
+      await _supabase.from('biometrics').upsert({
+        'user_id': userId,
+        'date': _dateOnly(biometrics.date),
+        'weight': biometrics.weight,
+        'body_fat': biometrics.bodyFat,
+        'muscle_mass': biometrics.muscleMass,
+        'waist_circumference': biometrics.waistCircumference,
+        'chest_circumference': biometrics.chestCircumference,
+        'arm_circumference': biometrics.armCircumference,
+        'thigh_circumference': biometrics.thighCircumference,
+        'hrv': biometrics.hrv,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'user_id,date');
+      debugPrint('Biometrics saved successfully');
+    } catch (e) {
+      debugPrint('Error saving biometrics: $e');
+      rethrow;
+    }
+  }
+
+  /// Get biometrics for date range
+  Future<List<Map<String, dynamic>>> getBiometricsForRange(
+    String userId,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    try {
+      final response = await _supabase
+          .from('biometrics')
+          .select()
+          .eq('user_id', userId)
+          .gte('date', _dateOnly(startDate))
+          .lte('date', _dateOnly(endDate))
+          .order('date', ascending: true);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting biometrics for range: $e');
+      return [];
+    }
+  }
+
+  /// Get biometrics history
+  Future<List<Map<String, dynamic>>> getBiometricsHistory(
+    String userId, {
+    int limit = 30,
+  }) async {
+    try {
+      final response = await _supabase
+          .from('biometrics')
+          .select()
+          .eq('user_id', userId)
+          .order('date', ascending: false)
+          .limit(limit);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting biometrics history: $e');
+      return [];
+    }
+  }
+
+  /// Get latest biometrics entry
+  Future<Map<String, dynamic>?> getLatestBiometrics(String userId) async {
+    try {
+      final response = await _supabase
+          .from('biometrics')
+          .select()
+          .eq('user_id', userId)
+          .order('date', ascending: false)
+          .limit(1)
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      debugPrint('Error getting latest biometrics: $e');
+      return null;
+    }
+  }
+
+  /// Get biometrics for specific date
+  Future<Map<String, dynamic>?> getBiometricsForDate(
+    String userId,
+    DateTime date,
+  ) async {
+    try {
+      final response = await _supabase
+          .from('biometrics')
+          .select()
+          .eq('user_id', userId)
+          .eq('date', _dateOnly(date))
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      debugPrint('Error getting biometrics for date: $e');
+      return null;
+    }
+  }
+
+  // ==================== Daily Readiness ====================
+
+  /// Save daily readiness
+  Future<void> saveDailyReadiness(DailyReadiness readiness) async {
+    try {
+      debugPrint('Saving daily readiness for user: ${readiness.userId}');
+      await _supabase.from('daily_readiness').upsert({
+        'user_id': readiness.userId,
+        'date': _dateOnly(readiness.date),
+        'readiness_score': readiness.readinessScore,
+        'notes': readiness.notes,
+        'factors': readiness.factors,
+        'sleep_quality': readiness.sleepQuality,
+        'recovery_score': readiness.recoveryScore,
+        'soreness': readiness.soreness,
+        'motivation': readiness.motivation,
+        'stress': readiness.stress,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'user_id,date');
+      debugPrint('Daily readiness saved successfully');
+    } catch (e) {
+      debugPrint('Error saving daily readiness: $e');
+      rethrow;
+    }
+  }
+
+  /// Get recent readiness scores
+  Future<List<Map<String, dynamic>>> getRecentReadiness(
+    String userId, {
+    int days = 7,
+  }) async {
+    try {
+      final endDate = DateTime.now();
+      final startDate = endDate.subtract(Duration(days: days));
+      final response = await _supabase
+          .from('daily_readiness')
+          .select()
+          .eq('user_id', userId)
+          .gte('date', _dateOnly(startDate))
+          .lte('date', _dateOnly(endDate))
+          .order('date', ascending: true);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting recent readiness: $e');
+      return [];
+    }
+  }
+
+  /// Get readiness history
+  Future<List<Map<String, dynamic>>> getReadinessHistory(
+    String userId, {
+    int limit = 30,
+  }) async {
+    try {
+      final response = await _supabase
+          .from('daily_readiness')
+          .select()
+          .eq('user_id', userId)
+          .order('date', ascending: false)
+          .limit(limit);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting readiness history: $e');
+      return [];
+    }
+  }
+
+  /// Get readiness for specific date
+  Future<Map<String, dynamic>?> getReadinessForDate(
+    String userId,
+    DateTime date,
+  ) async {
+    try {
+      final response = await _supabase
+          .from('daily_readiness')
+          .select()
+          .eq('user_id', userId)
+          .eq('date', _dateOnly(date))
+          .maybeSingle();
+      return response;
+    } catch (e) {
+      debugPrint('Error getting readiness for date: $e');
+      return null;
+    }
+  }
+
+  // ==================== Achievements ====================
+
+  /// Get all achievements for user
+  Future<List<Map<String, dynamic>>> getUserAchievements(String userId) async {
+    try {
+      final response = await _supabase
+          .from('achievements')
+          .select()
+          .eq('user_id', userId)
+          .order('tier', ascending: true)
+          .order('created_at', ascending: true);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting user achievements: $e');
+      return [];
+    }
+  }
+
+  /// Get unlocked achievements
+  Future<List<Map<String, dynamic>>> getUnlockedAchievements(
+    String userId,
+  ) async {
+    try {
+      final response = await _supabase
+          .from('achievements')
+          .select()
+          .eq('user_id', userId)
+          .eq('is_unlocked', true)
+          .order('unlocked_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting unlocked achievements: $e');
+      return [];
+    }
+  }
+
+  /// Save or update achievement
+  Future<void> saveAchievement(
+    String userId,
+    Map<String, dynamic> achievement,
+  ) async {
+    try {
+      await _supabase.from('achievements').upsert({
+        'user_id': userId,
+        'achievement_id': achievement['achievement_id'],
+        'title': achievement['title'],
+        'description': achievement['description'],
+        'icon_name': achievement['icon_name'] ?? 'star',
+        'category': achievement['category'],
+        'tier': achievement['tier'] ?? 1,
+        'target_value': achievement['target_value'],
+        'current_value': achievement['current_value'] ?? 0,
+        'is_unlocked': achievement['is_unlocked'] ?? false,
+        'unlocked_at': achievement['unlocked_at'],
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'user_id,achievement_id');
+      debugPrint('Achievement saved successfully');
+    } catch (e) {
+      debugPrint('Error saving achievement: $e');
+      rethrow;
+    }
+  }
+
+  /// Update achievement progress
+  Future<void> updateAchievementProgress(
+    String userId,
+    String achievementId,
+    int currentValue,
+  ) async {
+    try {
+      await _supabase
+          .from('achievements')
+          .update({
+            'current_value': currentValue,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('user_id', userId)
+          .eq('achievement_id', achievementId);
+      debugPrint('Achievement progress updated');
+    } catch (e) {
+      debugPrint('Error updating achievement progress: $e');
+      rethrow;
+    }
+  }
+
+  /// Unlock achievement
+  Future<void> unlockAchievement(String userId, String achievementId) async {
+    try {
+      await _supabase
+          .from('achievements')
+          .update({
+            'is_unlocked': true,
+            'unlocked_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('user_id', userId)
+          .eq('achievement_id', achievementId);
+      debugPrint('Achievement unlocked');
+    } catch (e) {
+      debugPrint('Error unlocking achievement: $e');
+      rethrow;
+    }
+  }
+
+  /// Check if achievement exists
+  Future<bool> achievementExists(String userId, String achievementId) async {
+    try {
+      final response = await _supabase
+          .from('achievements')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('achievement_id', achievementId)
+          .maybeSingle();
+      return response != null;
+    } catch (e) {
+      debugPrint('Error checking achievement existence: $e');
+      return false;
+    }
+  }
+
+  // ==================== Stoic Entries ====================
+
+  /// Save stoic entry
+  Future<void> saveStoicEntry(Map<String, dynamic> entry) async {
+    try {
+      await _supabase.from('stoic_entries').insert(entry);
+      debugPrint('Stoic entry saved');
+    } catch (e) {
+      debugPrint('Error saving stoic entry: $e');
+      rethrow;
+    }
+  }
+
+  /// Get stoic entries by type
+  Future<List<Map<String, dynamic>>> getStoicEntriesByType(
+    String userId,
+    String type, {
+    int limit = 30,
+  }) async {
+    try {
+      final response = await _supabase
+          .from('stoic_entries')
+          .select()
+          .eq('user_id', userId)
+          .eq('entry_type', type)
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting stoic entries: $e');
+      return [];
+    }
+  }
+
+  /// Get stoic entries for date range
+  Future<List<Map<String, dynamic>>> getStoicEntriesForRange(
+    String userId,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    try {
+      final response = await _supabase
+          .from('stoic_entries')
+          .select()
+          .eq('user_id', userId)
+          .gte('session_date', _dateOnly(startDate))
+          .lte('session_date', _dateOnly(endDate))
+          .order('session_date', ascending: true);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting stoic entries for range: $e');
+      return [];
+    }
+  }
+
+  /// Delete stoic entry
+  Future<void> deleteStoicEntry(String entryId) async {
+    try {
+      await _supabase.from('stoic_entries').delete().eq('id', entryId);
+      debugPrint('Stoic entry deleted');
+    } catch (e) {
+      debugPrint('Error deleting stoic entry: $e');
+      rethrow;
+    }
+  }
+
+  // ==================== Fuel Logs ====================
+
+  /// Save fuel log entry
+  Future<void> saveFuelLogEntry(Map<String, dynamic> entry) async {
+    try {
+      await _supabase.from('fuel_logs').insert(entry);
+      debugPrint('Fuel log entry saved');
+    } catch (e) {
+      debugPrint('Error saving fuel log entry: $e');
+      rethrow;
+    }
+  }
+
+  /// Get fuel logs for date
+  Future<List<Map<String, dynamic>>> getFuelLogsForDate(
+    String userId,
+    DateTime date,
+  ) async {
+    try {
+      final response = await _supabase
+          .from('fuel_logs')
+          .select()
+          .eq('user_id', userId)
+          .eq('date', _dateOnly(date))
+          .order('timestamp', ascending: true);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting fuel logs for date: $e');
+      return [];
+    }
+  }
+
+  /// Get fuel logs for range
+  Future<List<Map<String, dynamic>>> getFuelLogsForRange(
+    String userId,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    try {
+      final response = await _supabase
+          .from('fuel_logs')
+          .select()
+          .eq('user_id', userId)
+          .gte('date', _dateOnly(startDate))
+          .lte('date', _dateOnly(endDate))
+          .order('date', ascending: true)
+          .order('timestamp', ascending: true);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting fuel logs for range: $e');
+      return [];
+    }
+  }
+
+  /// Delete fuel log entry
+  Future<void> deleteFuelLogEntry(String entryId) async {
+    try {
+      await _supabase.from('fuel_logs').delete().eq('id', entryId);
+      debugPrint('Fuel log entry deleted');
+    } catch (e) {
+      debugPrint('Error deleting fuel log entry: $e');
+      rethrow;
+    }
+  }
+
+  /// Get recent fuel logs
+  Future<List<Map<String, dynamic>>> getRecentFuelLogs(
+    String userId, {
+    int limit = 50,
+  }) async {
+    try {
+      final response = await _supabase
+          .from('fuel_logs')
+          .select()
+          .eq('user_id', userId)
+          .order('timestamp', ascending: false)
+          .limit(limit);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting recent fuel logs: $e');
+      return [];
+    }
+  }
+
+  // ==================== Imported Plans ====================
+
+  /// Save imported plan
+  Future<void> saveImportedPlan(Map<String, dynamic> plan) async {
+    try {
+      await _supabase.from('imported_plans').upsert({
+        'id': plan['id'],
+        'user_id': plan['user_id'],
+        'plan_name': plan['plan_name'],
+        'description': plan['description'],
+        'protocol_json': plan['protocol_json'],
+        'sport_focus': plan['sport_focus'],
+        'is_active': plan['is_active'] ?? false,
+        'autopilot_enabled': plan['autopilot_enabled'] ?? false,
+        'source': plan['source'] ?? 'manual',
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'id');
+      debugPrint('Imported plan saved');
+    } catch (e) {
+      debugPrint('Error saving imported plan: $e');
+      rethrow;
+    }
+  }
+
+  /// Get imported plans for user
+  Future<List<Map<String, dynamic>>> getImportedPlansForUser(
+    String userId,
+  ) async {
+    try {
+      final response = await _supabase
+          .from('imported_plans')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting imported plans: $e');
+      return [];
+    }
+  }
+
+  /// Deactivate all imported plans for user
+  Future<void> deactivateAllImportedPlans(String userId) async {
+    try {
+      await _supabase
+          .from('imported_plans')
+          .update({
+            'is_active': false,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('user_id', userId);
+      debugPrint('All imported plans deactivated');
+    } catch (e) {
+      debugPrint('Error deactivating imported plans: $e');
+      rethrow;
+    }
+  }
+
+  /// Activate a specific imported plan
+  Future<void> activateImportedPlan(String planId) async {
+    try {
+      await _supabase
+          .from('imported_plans')
+          .update({
+            'is_active': true,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', planId);
+      debugPrint('Imported plan activated: $planId');
+    } catch (e) {
+      debugPrint('Error activating imported plan: $e');
+      rethrow;
+    }
+  }
+
+  /// Update imported plan autopilot setting
+  Future<void> updateImportedPlanAutopilot(String planId, bool enabled) async {
+    try {
+      await _supabase
+          .from('imported_plans')
+          .update({
+            'autopilot_enabled': enabled,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', planId);
+      debugPrint('Imported plan autopilot updated: $planId = $enabled');
+    } catch (e) {
+      debugPrint('Error updating imported plan autopilot: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete imported plan
+  Future<void> deleteImportedPlan(String planId) async {
+    try {
+      await _supabase.from('imported_plans').delete().eq('id', planId);
+      debugPrint('Imported plan deleted: $planId');
+    } catch (e) {
+      debugPrint('Error deleting imported plan: $e');
+      rethrow;
+    }
+  }
+
+  // ==================== Analytics Events ====================
+
+  /// Get analytics events with optional filtering
+  Future<List<Map<String, dynamic>>> getAnalyticsEvents({
+    required String userId,
+    String? eventType,
+    DateTime? startDate,
+    DateTime? endDate,
+    int limit = 100,
+  }) async {
+    try {
+      PostgrestFilterBuilder query = _supabase
+          .from('analytics_events')
+          .select()
+          .eq('user_id', userId);
+
+      if (eventType != null) {
+        query = query.eq('event_type', eventType);
+      }
+      if (startDate != null) {
+        query = query.gte('created_at', startDate.toIso8601String());
+      }
+      if (endDate != null) {
+        query = query.lte('created_at', endDate.toIso8601String());
+      }
+
+      final response = await query
+          .order('created_at', ascending: false)
+          .limit(limit);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting analytics events: $e');
+      return [];
+    }
+  }
+
+  // ==================== AI Memory ====================
+
+  /// Get memory statistics
+  Future<Map<String, dynamic>> getMemoryStats(String userId) async {
+    try {
+      // Count total memories
+      final totalResult = await _supabase
+          .from('ai_memories')
+          .select('id')
+          .eq('user_id', userId);
+      final totalMemories = totalResult.length;
+
+      // Count by type
+      final typeResult = await _supabase
+          .from('ai_memories')
+          .select('type')
+          .eq('user_id', userId);
+      final byType = <String, int>{};
+      for (final row in typeResult) {
+        final type = row['type'] as String;
+        byType[type] = (byType[type] ?? 0) + 1;
+      }
+
+      // Count by priority
+      final priorityResult = await _supabase
+          .from('ai_memories')
+          .select('priority')
+          .eq('user_id', userId);
+      final byPriority = <String, int>{};
+      for (final row in priorityResult) {
+        final priority = row['priority'] as String;
+        byPriority[priority] = (byPriority[priority] ?? 0) + 1;
+      }
+
+      return {
+        'totalMemories': totalMemories,
+        'byType': byType,
+        'byPriority': byPriority,
+      };
+    } catch (e) {
+      debugPrint('Error getting memory stats: $e');
+      return {'totalMemories': 0, 'byType': {}, 'byPriority': {}};
+    }
+  }
+
+  /// Record memory access
+  Future<void> recordMemoryAccess(String userId, String memoryId) async {
+    try {
+      await _supabase
+          .from('ai_memories')
+          .update({
+            'access_count': _supabase.rpc(
+              'increment',
+              params: {'row_id': memoryId},
+            ),
+            'last_accessed': DateTime.now().toIso8601String(),
+          })
+          .eq('id', memoryId)
+          .eq('user_id', userId);
+      debugPrint('Memory access recorded: $memoryId');
+    } catch (e) {
+      // Fallback: simple increment without RPC
+      try {
+        final current = await _supabase
+            .from('ai_memories')
+            .select('access_count')
+            .eq('id', memoryId)
+            .eq('user_id', userId)
+            .single();
+        final newCount = (current['access_count'] as int? ?? 0) + 1;
+        await _supabase
+            .from('ai_memories')
+            .update({
+              'access_count': newCount,
+              'last_accessed': DateTime.now().toIso8601String(),
+            })
+            .eq('id', memoryId);
+      } catch (e2) {
+        debugPrint('Error recording memory access: $e2');
+      }
+    }
+  }
+
+  // ==================== Flow State Assessments ====================
+
+  /// Save flow state assessment
+  Future<void> saveFlowStateAssessment(Map<String, dynamic> data) async {
+    try {
+      await _supabase.from('flow_state_assessments').insert(data);
+      debugPrint('Flow state assessment saved successfully');
+    } catch (e) {
+      debugPrint('Error saving flow state assessment: $e');
+      rethrow;
+    }
+  }
+
+  /// Get flow state assessments for user
+  Future<List<Map<String, dynamic>>> getFlowStateAssessments(
+    String userId, {
+    int limit = 30,
+  }) async {
+    try {
+      final response = await _supabase
+          .from('flow_state_assessments')
+          .select()
+          .eq('user_id', userId)
+          .order('timestamp', ascending: false)
+          .limit(limit);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting flow state assessments: $e');
+      return [];
+    }
+  }
+
+  /// Update workout session with flow score
+  Future<void> updateWorkoutSessionWithFlow(
+    String sessionId,
+    int flowScore,
+  ) async {
+    try {
+      await _supabase
+          .from('workout_sessions')
+          .update({
+            'flow_score': flowScore,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', sessionId);
+      debugPrint('Workout session updated with flow score: $flowScore');
+    } catch (e) {
+      debugPrint('Error updating workout session with flow: $e');
+      rethrow;
+    }
   }
 }

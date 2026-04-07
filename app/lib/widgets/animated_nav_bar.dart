@@ -6,11 +6,7 @@ class NavItem {
   final String label;
   final Widget? screen;
 
-  const NavItem({
-    required this.icon,
-    required this.label,
-    this.screen,
-  });
+  const NavItem({required this.icon, required this.label, this.screen});
 }
 
 /// Animated Navigation Bar - Custom floating pill indicator nav bar
@@ -55,20 +51,20 @@ class _AnimatedNavBarState extends State<AnimatedNavBar>
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        color: LaconicTheme.surfaceBlack.withOpacity(0.95),
+        color: LaconicTheme.surfaceBlack.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: LaconicTheme.ironGray.withOpacity(0.3),
+          color: LaconicTheme.ironGray.withValues(alpha: 0.3),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha: 0.4),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
           BoxShadow(
-            color: LaconicTheme.spartanBronze.withOpacity(0.05),
+            color: LaconicTheme.spartanBronze.withValues(alpha: 0.05),
             blurRadius: 40,
             offset: const Offset(0, 4),
           ),
@@ -99,12 +95,12 @@ class _AnimatedNavBarState extends State<AnimatedNavBar>
         ),
         decoration: BoxDecoration(
           color: isSelected
-              ? LaconicTheme.spartanBronze.withOpacity(0.15)
+              ? LaconicTheme.spartanBronze.withValues(alpha: 0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: isSelected
               ? Border.all(
-                  color: LaconicTheme.spartanBronze.withOpacity(0.3),
+                  color: LaconicTheme.spartanBronze.withValues(alpha: 0.3),
                   width: 1,
                 )
               : null,

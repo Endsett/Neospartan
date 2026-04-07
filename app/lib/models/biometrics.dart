@@ -8,7 +8,10 @@ class Biometrics {
   final double? chestCircumference; // cm
   final double? armCircumference; // cm
   final double? thighCircumference; // cm
-  final double? hrv; // Heart Rate Variability
+  final int? hrv; // Heart Rate Variability
+  final int? rhr; // Resting Heart Rate
+  final double? sleepHours; // Sleep duration
+  final int? sleepQuality; // 1-10 scale
   final String userId;
 
   Biometrics({
@@ -21,6 +24,9 @@ class Biometrics {
     this.armCircumference,
     this.thighCircumference,
     this.hrv,
+    this.rhr,
+    this.sleepHours,
+    this.sleepQuality,
     required this.userId,
   });
 
@@ -35,6 +41,9 @@ class Biometrics {
       'arm_circumference': armCircumference,
       'thigh_circumference': thighCircumference,
       'hrv': hrv,
+      'rhr': rhr,
+      'sleep_hours': sleepHours,
+      'sleep_quality': sleepQuality,
       'user_id': userId,
     };
   }
@@ -49,7 +58,10 @@ class Biometrics {
       chestCircumference: map['chest_circumference']?.toDouble(),
       armCircumference: map['arm_circumference']?.toDouble(),
       thighCircumference: map['thigh_circumference']?.toDouble(),
-      hrv: map['hrv']?.toDouble(),
+      hrv: map['hrv']?.toInt(),
+      rhr: map['rhr']?.toInt(),
+      sleepHours: map['sleep_hours']?.toDouble(),
+      sleepQuality: map['sleep_quality']?.toInt(),
       userId: map['user_id'] ?? '',
     );
   }

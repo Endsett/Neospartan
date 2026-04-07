@@ -190,8 +190,9 @@ class ExerciseValidationService {
       return preferred.first;
     }
 
-    if (lower.contains('sprint') || lower.contains('run'))
+    if (lower.contains('sprint') || lower.contains('run')) {
       return ExerciseCategory.sprint;
+    }
     if (lower.contains('jump') ||
         lower.contains('plyo') ||
         lower.contains('box')) {
@@ -224,12 +225,14 @@ class ExerciseValidationService {
 
     if (lower.contains('max') ||
         lower.contains('heavy') ||
-        lower.contains('sprint'))
+        lower.contains('sprint')) {
       return 9;
+    }
     if (lower.contains('power') || lower.contains('explosive')) return 8;
     if (lower.contains('strength') || lower.contains('compound')) return 7;
-    if (lower.contains('hypertrophy') || lower.contains('bodybuilding'))
+    if (lower.contains('hypertrophy') || lower.contains('bodybuilding')) {
       return 6;
+    }
     if (lower.contains('conditioning') || lower.contains('circuit')) return 5;
     if (lower.contains('endurance') || lower.contains('moderate')) return 4;
     if (lower.contains('light') || lower.contains('recovery')) return 3;
@@ -262,8 +265,9 @@ class ExerciseValidationService {
       muscles.addAll(['Lats', 'Rhomboids', 'Biceps']);
     }
     if (lower.contains('curl')) muscles.add('Biceps');
-    if (lower.contains('extension') && !lower.contains('back'))
+    if (lower.contains('extension') && !lower.contains('back')) {
       muscles.add('Triceps');
+    }
     if (lower.contains('raise')) muscles.add('Shoulders');
     if (lower.contains('core') ||
         lower.contains('ab') ||

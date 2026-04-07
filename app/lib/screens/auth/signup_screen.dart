@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme.dart';
-import '../../widgets/glass_card.dart';
-import '../../widgets/gradient_button.dart';
 
-/// Signup Screen - Account creation with Spartan theme
+/// Signup Screen - Account creation with Blood & Bronze theme
 class SignupScreen extends StatefulWidget {
   final VoidCallback? onSignupComplete;
 
@@ -39,21 +38,23 @@ class _SignupScreenState extends State<SignupScreen> {
     final authProvider = context.watch<AuthProvider>();
 
     return Scaffold(
-      backgroundColor: LaconicTheme.deepBlack,
+      backgroundColor: LaconicTheme.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: LaconicTheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32.0),
-          child: GlassCard(
-            elevated: true,
+          padding: const EdgeInsets.all(24.0),
+          child: Container(
             padding: const EdgeInsets.all(32),
+            decoration: const BoxDecoration(
+              color: LaconicTheme.surfaceContainerLow,
+            ),
             child: Form(
               key: _formKey,
               child: Column(
@@ -90,14 +91,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   const SizedBox(height: 32),
 
                   // Sign up button
-                  GradientButton(
-                    label: 'CREATE ACCOUNT',
-                    onPressed: authProvider.isLoading || !_agreeToTerms
-                        ? null
-                        : _handleSignUp,
-                    isLoading: authProvider.isLoading,
-                    width: double.infinity,
-                  ),
+                  _buildSignUpButton(authProvider),
                   const SizedBox(height: 24),
 
                   // Divider
@@ -126,16 +120,21 @@ class _SignupScreenState extends State<SignupScreen> {
       children: [
         Text(
           'JOIN THE AGŌGĒ',
-          style: Theme.of(
-            context,
-          ).textTheme.displaySmall?.copyWith(letterSpacing: 4),
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 28,
+            fontWeight: FontWeight.w900,
+            color: LaconicTheme.onSurface,
+            letterSpacing: 4,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
           'Begin your transformation',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: LaconicTheme.mistGray),
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: LaconicTheme.onSurfaceVariant,
+            letterSpacing: 0.5,
+          ),
         ),
       ],
     );
@@ -143,20 +142,19 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Widget _buildErrorMessage(String error) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+        color: LaconicTheme.error.withValues(alpha: 0.1),
+        border: Border.all(color: LaconicTheme.error.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: Colors.red, size: 20),
-          const SizedBox(width: 8),
+          Icon(Icons.error_outline, color: LaconicTheme.error, size: 20),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               error,
-              style: const TextStyle(color: Colors.red, fontSize: 14),
+              style: GoogleFonts.inter(color: LaconicTheme.error, fontSize: 14),
             ),
           ),
         ],
@@ -167,7 +165,7 @@ class _SignupScreenState extends State<SignupScreen> {
   Widget _buildNameField() {
     return TextFormField(
       controller: _nameController,
-      style: const TextStyle(color: Colors.white),
+      style: GoogleFonts.inter(color: LaconicTheme.onSurface),
       decoration: _inputDecoration(
         label: 'SPARTAN NAME',
         icon: Icons.person_outline,
@@ -188,7 +186,7 @@ class _SignupScreenState extends State<SignupScreen> {
     return TextFormField(
       controller: _emailController,
       keyboardType: TextInputType.emailAddress,
-      style: const TextStyle(color: Colors.white),
+      style: GoogleFonts.inter(color: LaconicTheme.onSurface),
       decoration: _inputDecoration(label: 'EMAIL', icon: Icons.email_outlined),
       validator: (value) {
         if (value == null || value.isEmpty) {
@@ -206,14 +204,14 @@ class _SignupScreenState extends State<SignupScreen> {
     return TextFormField(
       controller: _passwordController,
       obscureText: _obscurePassword,
-      style: const TextStyle(color: Colors.white),
+      style: GoogleFonts.inter(color: LaconicTheme.onSurface),
       decoration: _inputDecoration(
         label: 'PASSWORD',
         icon: Icons.lock_outline,
         suffixIcon: IconButton(
           icon: Icon(
             _obscurePassword ? Icons.visibility_off : Icons.visibility,
-            color: Colors.grey,
+            color: LaconicTheme.outline,
           ),
           onPressed: () {
             setState(() {
@@ -244,14 +242,14 @@ class _SignupScreenState extends State<SignupScreen> {
     return TextFormField(
       controller: _confirmPasswordController,
       obscureText: _obscureConfirmPassword,
-      style: const TextStyle(color: Colors.white),
+      style: GoogleFonts.inter(color: LaconicTheme.onSurface),
       decoration: _inputDecoration(
         label: 'CONFIRM PASSWORD',
         icon: Icons.lock_outline,
         suffixIcon: IconButton(
           icon: Icon(
             _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
-            color: Colors.grey,
+            color: LaconicTheme.outline,
           ),
           onPressed: () {
             setState(() {
@@ -282,9 +280,9 @@ class _SignupScreenState extends State<SignupScreen> {
               _agreeToTerms = value ?? false;
             });
           },
-          activeColor: LaconicTheme.spartanBronze,
-          checkColor: Colors.black,
-          side: BorderSide(color: Colors.grey[600]!),
+          activeColor: LaconicTheme.secondary,
+          checkColor: LaconicTheme.onSecondary,
+          side: const BorderSide(color: LaconicTheme.outline),
         ),
         Expanded(
           child: GestureDetector(
@@ -296,21 +294,24 @@ class _SignupScreenState extends State<SignupScreen> {
             child: Text.rich(
               TextSpan(
                 text: 'I agree to the ',
-                style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                style: GoogleFonts.inter(
+                  color: LaconicTheme.onSurfaceVariant,
+                  fontSize: 14,
+                ),
                 children: [
                   TextSpan(
                     text: 'Terms of Service',
-                    style: TextStyle(
-                      color: LaconicTheme.spartanBronze,
-                      fontWeight: FontWeight.w600,
+                    style: GoogleFonts.inter(
+                      color: LaconicTheme.primary,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const TextSpan(text: ' and '),
                   TextSpan(
                     text: 'Privacy Policy',
-                    style: TextStyle(
-                      color: LaconicTheme.spartanBronze,
-                      fontWeight: FontWeight.w600,
+                    style: GoogleFonts.inter(
+                      color: LaconicTheme.primary,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
@@ -322,22 +323,70 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
+  Widget _buildSignUpButton(AuthProvider authProvider) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: authProvider.isLoading || !_agreeToTerms
+            ? null
+            : _handleSignUp,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: LaconicTheme.primary,
+          foregroundColor: LaconicTheme.onPrimary,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+          disabledBackgroundColor: LaconicTheme.surfaceContainerHighest,
+        ),
+        child: authProvider.isLoading
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    LaconicTheme.onPrimary,
+                  ),
+                ),
+              )
+            : Text(
+                'CREATE ACCOUNT',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.1,
+                ),
+              ),
+      ),
+    );
+  }
+
   Widget _buildDivider() {
     return Row(
       children: [
-        Expanded(child: Divider(color: Colors.grey[800])),
+        Expanded(
+          child: Divider(
+            color: LaconicTheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'OR',
-            style: TextStyle(
-              color: Colors.grey[600],
+            style: GoogleFonts.workSans(
+              color: LaconicTheme.outline,
               fontSize: 12,
+              fontWeight: FontWeight.w700,
               letterSpacing: 2,
             ),
           ),
         ),
-        Expanded(child: Divider(color: Colors.grey[800])),
+        Expanded(
+          child: Divider(
+            color: LaconicTheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
       ],
     );
   }
@@ -348,26 +397,23 @@ class _SignupScreenState extends State<SignupScreen> {
       height: 56,
       child: OutlinedButton.icon(
         onPressed: authProvider.isLoading ? null : _handleGoogleSignUp,
-        icon: Image.asset(
-          'assets/google_logo.png',
-          height: 24,
-          errorBuilder: (context, error, stackTrace) {
-            return const Icon(Icons.g_mobiledata, color: Colors.white);
-          },
+        icon: const Icon(
+          Icons.g_mobiledata,
+          color: LaconicTheme.onSurface,
+          size: 24,
         ),
-        label: const Text(
-          'Sign up with Google',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
+        label: Text(
+          'SIGN UP WITH GOOGLE',
+          style: GoogleFonts.spaceGrotesk(
+            color: LaconicTheme.onSurface,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.1,
           ),
         ),
         style: OutlinedButton.styleFrom(
-          side: BorderSide(color: Colors.grey[700]!),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          side: const BorderSide(color: LaconicTheme.outlineVariant),
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
           padding: const EdgeInsets.symmetric(horizontal: 24),
         ),
       ),
@@ -377,42 +423,49 @@ class _SignupScreenState extends State<SignupScreen> {
   Widget _buildLinkAnonymousButton(AuthProvider authProvider) {
     return Container(
       margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: LaconicTheme.spartanBronze.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: LaconicTheme.spartanBronze.withValues(alpha: 0.3),
-        ),
+        color: LaconicTheme.surfaceContainer,
+        border: Border.all(color: LaconicTheme.outlineVariant),
       ),
       child: Column(
         children: [
           Text(
             'You have a preview account',
-            style: TextStyle(
-              color: LaconicTheme.spartanBronze,
-              fontWeight: FontWeight.bold,
+            style: GoogleFonts.spaceGrotesk(
+              color: LaconicTheme.secondary,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Create a permanent account to save your progress',
-            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+            style: GoogleFonts.inter(
+              color: LaconicTheme.onSurfaceVariant,
+              fontSize: 12,
+            ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: authProvider.isLoading ? null : _handleLinkAnonymous,
               style: ElevatedButton.styleFrom(
-                backgroundColor: LaconicTheme.spartanBronze,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                backgroundColor: LaconicTheme.secondary,
+                foregroundColor: LaconicTheme.onSecondary,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.zero,
+                ),
+                elevation: 0,
+              ),
+              child: Text(
+                'SAVE PROGRESS',
+                style: GoogleFonts.spaceGrotesk(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.1,
                 ),
               ),
-              child: const Text('SAVE PROGRESS'),
             ),
           ),
         ],
@@ -427,27 +480,28 @@ class _SignupScreenState extends State<SignupScreen> {
   }) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.grey),
-      prefixIcon: Icon(icon, color: Colors.grey),
+      labelStyle: GoogleFonts.inter(
+        color: LaconicTheme.onSurfaceVariant,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.1,
+      ),
+      prefixIcon: Icon(icon, color: LaconicTheme.outline),
       suffixIcon: suffixIcon,
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey[800]!),
+      enabledBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: LaconicTheme.outlineVariant),
       ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: LaconicTheme.spartanBronze),
+      focusedBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: LaconicTheme.secondary, width: 2),
       ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.red),
+      errorBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: LaconicTheme.error),
       ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.red),
+      focusedErrorBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: LaconicTheme.error),
       ),
       filled: true,
-      fillColor: Colors.grey[900],
+      fillColor: LaconicTheme.surfaceContainer,
     );
   }
 
@@ -455,9 +509,12 @@ class _SignupScreenState extends State<SignupScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (!_agreeToTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please agree to the Terms of Service'),
-          backgroundColor: Colors.red,
+        SnackBar(
+          content: Text(
+            'Please agree to the Terms of Service',
+            style: GoogleFonts.inter(),
+          ),
+          backgroundColor: LaconicTheme.error,
         ),
       );
       return;
@@ -499,9 +556,12 @@ class _SignupScreenState extends State<SignupScreen> {
 
     if (success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Account created successfully!'),
-          backgroundColor: Colors.green,
+        SnackBar(
+          content: Text(
+            'Account created successfully!',
+            style: GoogleFonts.inter(),
+          ),
+          backgroundColor: LaconicTheme.secondary,
         ),
       );
     }

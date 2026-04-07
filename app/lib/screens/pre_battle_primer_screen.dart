@@ -4,7 +4,6 @@ import '../services/backend_api_service.dart';
 import '../services/ai_plan_service.dart';
 import '../models/user_profile.dart';
 import '../models/workout_protocol.dart';
-import '../services/ai_plan_service.dart' show WeeklyPlan;
 
 /// Pre-Battle Primer Screen
 /// Displays Stoic philosophy quotes and requires acknowledgment before workout

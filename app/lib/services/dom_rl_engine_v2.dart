@@ -121,7 +121,7 @@ class DomRlEngineV2 {
     // HRV trend impact
     if (hrvReadings.length >= 3) {
       final hrvTrend = _calculateTrend(
-        hrvReadings.map((r) => r.hrv ?? 0).toList(),
+        hrvReadings.map((r) => (r.hrv ?? 0).toDouble()).toList(),
       );
       if (hrvTrend < -0.1) {
         baseFatigue += 15; // Declining HRV = increasing fatigue
@@ -607,7 +607,7 @@ class DomRlEngineV2 {
       // Check 1: Declining HRV
       if (hrvReadings.length >= 3) {
         final hrvTrend = _calculateTrend(
-          hrvReadings.map((r) => r.hrv ?? 0).toList(),
+          hrvReadings.map((r) => (r.hrv ?? 0).toDouble()).toList(),
         );
         if (hrvTrend < -0.15) {
           indicators.add(

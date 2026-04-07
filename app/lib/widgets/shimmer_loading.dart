@@ -20,8 +20,8 @@ class ShimmerLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: LaconicTheme.ironGray.withOpacity(0.3),
-      highlightColor: LaconicTheme.surfaceOverlay.withOpacity(0.5),
+      baseColor: LaconicTheme.ironGray.withValues(alpha: 0.3),
+      highlightColor: LaconicTheme.surfaceOverlay.withValues(alpha: 0.5),
       child: Container(
         width: width,
         height: height,
@@ -40,16 +40,13 @@ class ShimmerLoading extends StatelessWidget {
 class CardSkeleton extends StatelessWidget {
   final int lines;
 
-  const CardSkeleton({
-    super.key,
-    this.lines = 3,
-  });
+  const CardSkeleton({super.key, this.lines = 3});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: LaconicTheme.glassCard(),
+      decoration: const BoxDecoration(color: LaconicTheme.surfaceContainerLow),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -63,7 +60,10 @@ class CardSkeleton extends StatelessWidget {
                   children: [
                     const ShimmerLoading(width: 120, height: 16),
                     const SizedBox(height: 8),
-                    ShimmerLoading(width: MediaQuery.of(context).size.width * 0.4, height: 12),
+                    ShimmerLoading(
+                      width: MediaQuery.of(context).size.width * 0.4,
+                      height: 12,
+                    ),
                   ],
                 ),
               ),
@@ -71,11 +71,7 @@ class CardSkeleton extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           for (var i = 0; i < lines; i++) ...[
-            ShimmerLoading(
-              width: double.infinity,
-              height: 12,
-              borderRadius: 6,
-            ),
+            ShimmerLoading(width: double.infinity, height: 12, borderRadius: 6),
             if (i < lines - 1) const SizedBox(height: 8),
           ],
         ],
@@ -89,11 +85,7 @@ class GridSkeleton extends StatelessWidget {
   final int itemCount;
   final int crossAxisCount;
 
-  const GridSkeleton({
-    super.key,
-    this.itemCount = 6,
-    this.crossAxisCount = 2,
-  });
+  const GridSkeleton({super.key, this.itemCount = 6, this.crossAxisCount = 2});
 
   @override
   Widget build(BuildContext context) {

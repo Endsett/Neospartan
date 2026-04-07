@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../theme.dart';
 
-/// Gradient Button - Themed gradient button with shadow
-class GradientButton extends StatelessWidget {
+/// Primary Button - Blood/Bronze themed button with zero-radius
+class PrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final bool isLoading;
@@ -12,7 +12,7 @@ class GradientButton extends StatelessWidget {
   final double height;
   final bool isSecondary;
 
-  const GradientButton({
+  const PrimaryButton({
     super.key,
     required this.label,
     this.onPressed,
@@ -25,56 +25,44 @@ class GradientButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: isLoading ? null : onPressed,
-      child: AnimatedContainer(
-        duration: 200.ms,
-        width: width,
-        height: height,
-        decoration: LaconicTheme.glassButton(isActive: !isSecondary && onPressed != null),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            decoration: isSecondary
-                ? null
-                : const BoxDecoration(
-                    gradient: LaconicTheme.goldGradient,
-                  ),
-            child: Center(
-              child: isLoading
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(LaconicTheme.deepBlack),
-                      ),
-                    )
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (icon != null) ...[
-                          Icon(
-                            icon,
-                            color: isSecondary ? LaconicTheme.boneWhite : LaconicTheme.deepBlack,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        Text(
-                          label,
-                          style: TextStyle(
-                            color: isSecondary ? LaconicTheme.boneWhite : LaconicTheme.deepBlack,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ),
+    return SizedBox(
+      width: width,
+      height: height,
+      child: ElevatedButton(
+        onPressed: isLoading ? null : onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isSecondary ? LaconicTheme.surfaceContainer : LaconicTheme.primary,
+          foregroundColor: isSecondary ? LaconicTheme.onSurface : LaconicTheme.onPrimary,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         ),
+        child: isLoading
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(LaconicTheme.onPrimary),
+                ),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, size: 20),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
+                    label,
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.1,
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

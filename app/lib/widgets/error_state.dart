@@ -24,11 +24,7 @@ class ErrorState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 64,
-              color: LaconicTheme.emberRed,
-            ),
+            Icon(icon, size: 64, color: LaconicTheme.emberRed),
             const SizedBox(height: 16),
             Text(
               'Something went wrong',
@@ -40,9 +36,9 @@ class ErrorState extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               message,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: LaconicTheme.mistGray,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: LaconicTheme.mistGray),
               textAlign: TextAlign.center,
             ),
             if (onRetry != null) ...[
@@ -88,23 +84,23 @@ class EmptyState extends StatelessWidget {
             Icon(
               icon,
               size: 64,
-              color: LaconicTheme.mistGray.withOpacity(0.5),
+              color: LaconicTheme.mistGray.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(
               title,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: LaconicTheme.mistGray,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(color: LaconicTheme.mistGray),
               textAlign: TextAlign.center,
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 8),
               Text(
                 subtitle!,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: LaconicTheme.steelGray,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: LaconicTheme.steelGray),
                 textAlign: TextAlign.center,
               ),
             ],

@@ -12,6 +12,7 @@ dependencies:
   flutter_dotenv: ^5.1.0  # For .env file support
   
   # Keep Firebase for analytics and crashlytics only
+  firebase_core: ^2.32.0
   firebase_analytics: ^10.10.0
   firebase_crashlytics: ^3.5.0
   

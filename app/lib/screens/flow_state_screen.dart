@@ -1,6 +1,67 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../models/workout_tracking.dart';
+import '../services/supabase_database_service.dart';
+import '../providers/auth_provider.dart';
+
+/// Flow State Assessment Model
+class FlowStateAssessment {
+  final String? id;
+  final String userId;
+  final String? workoutSessionId;
+  final int mentalEngagement;
+  final int focusClarity;
+  final int formDiscipline;
+  final int overallFlow;
+  final String? notes;
+  final DateTime timestamp;
+
+  FlowStateAssessment({
+    this.id,
+    required this.userId,
+    this.workoutSessionId,
+    required this.mentalEngagement,
+    required this.focusClarity,
+    required this.formDiscipline,
+    required this.overallFlow,
+    this.notes,
+    DateTime? timestamp,
+  }) : timestamp = timestamp ?? DateTime.now();
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'workout_session_id': workoutSessionId,
+      'mental_engagement': mentalEngagement,
+      'focus_clarity': focusClarity,
+      'form_discipline': formDiscipline,
+      'overall_flow': overallFlow,
+      'notes': notes,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+
+  factory FlowStateAssessment.fromMap(Map<String, dynamic> map) {
+    return FlowStateAssessment(
+      id: map['id']?.toString(),
+      userId: map['user_id'] ?? '',
+      workoutSessionId: map['workout_session_id']?.toString(),
+      mentalEngagement: map['mental_engagement'] ?? 5,
+      focusClarity: map['focus_clarity'] ?? 5,
+      formDiscipline: map['form_discipline'] ?? 5,
+      overallFlow: map['overall_flow'] ?? 5,
+      notes: map['notes'],
+      timestamp: map['timestamp'] != null
+          ? DateTime.parse(map['timestamp'])
+          : DateTime.now(),
+    );
+  }
+
+  double get averageScore =>
+      (mentalEngagement + focusClarity + formDiscipline + overallFlow) / 4;
+}
 
 /// Flow State Assessment Screen
 /// Post-workout mental engagement tracking
@@ -24,6 +85,8 @@ class _FlowStateScreenState extends State<FlowStateScreen> {
   int _formDiscipline = 5;
   int _overallFlow = 5;
   final TextEditingController _notesController = TextEditingController();
+  bool _isSubmitting = false;
+  final SupabaseDatabaseService _database = SupabaseDatabaseService();
 
   @override
   void dispose() {
@@ -179,17 +242,28 @@ class _FlowStateScreenState extends State<FlowStateScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _submitAssessment,
+                onPressed: _isSubmitting ? null : _submitAssessment,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: const Text(
-                  'LOG & COMPLETE',
-                  style: TextStyle(
-                    letterSpacing: 2.0,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : const Text(
+                        'LOG & COMPLETE',
+                        style: TextStyle(
+                          letterSpacing: 2.0,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
           ],
@@ -285,30 +359,53 @@ class _FlowStateScreenState extends State<FlowStateScreen> {
     return 'DISTRACTED';
   }
 
-  void _submitAssessment() {
-    // TODO: Implement FlowStateAssessment class
-    // final assessment = FlowStateAssessment(
-    //   mentalEngagement: _mentalEngagement,
-    //   focusClarity: _focusClarity,
-    //   formDiscipline: _formDiscipline,
-    //   overallFlow: _overallFlow,
-    //   notes: _notesController.text.isEmpty ? null : _notesController.text,
-    //   timestamp: DateTime.now(),
-    // );
+  void _submitAssessment() async {
+    if (_isSubmitting) return;
 
-    // Save to Firebase
-    // Create completed workout record
-    // final updatedWorkout = CompletedWorkout(
-    //   id: widget.workout.id,
-    //   protocolTitle: widget.workout.protocolTitle,
-    //   exercises: widget.workout.exercises,
-    //   startTime: widget.workout.startTime,
-    //   endTime: widget.workout.endTime,
-    //   totalDurationMinutes: widget.workout.totalDurationMinutes,
-    //   readinessScoreAtStart: widget.workout.readinessScoreAtStart,
-    // );
+    final userId = Provider.of<AuthProvider>(context, listen: false).userId;
+    if (userId == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('User not authenticated')));
+      return;
+    }
 
-    // FirebaseSyncService().saveCompletedWorkout(updatedWorkout); // TODO: Implement with Supabase
-    widget.onComplete();
+    setState(() => _isSubmitting = true);
+
+    try {
+      // Create assessment
+      final assessment = FlowStateAssessment(
+        userId: userId,
+        workoutSessionId: widget.workout.id,
+        mentalEngagement: _mentalEngagement,
+        focusClarity: _focusClarity,
+        formDiscipline: _formDiscipline,
+        overallFlow: _overallFlow,
+        notes: _notesController.text.isEmpty ? null : _notesController.text,
+      );
+
+      // Save to Supabase
+      await _database.saveFlowStateAssessment(assessment.toMap());
+
+      // Update workout session with flow data
+      await _database.updateWorkoutSessionWithFlow(
+        widget.workout.id,
+        _overallFlow,
+      );
+
+      debugPrint('Flow state assessment saved successfully');
+
+      if (mounted) {
+        widget.onComplete();
+      }
+    } catch (e) {
+      debugPrint('Error saving flow assessment: $e');
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save assessment: $e')),
+        );
+      }
+    }
   }
 }
