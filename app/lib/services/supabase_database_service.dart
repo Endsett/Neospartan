@@ -1521,4 +1521,88 @@ class SupabaseDatabaseService {
       rethrow;
     }
   }
+
+  /// Get previous session data for a specific exercise
+  Future<Map<String, dynamic>?> getPreviousExerciseSession(
+    String exerciseName,
+  ) async {
+    try {
+      debugPrint('Getting previous session for exercise: $exerciseName');
+
+      // Get recent completed sessions
+      final sessions = await getWorkoutSessions(limit: 10);
+
+      for (final session in sessions) {
+        final sessionId = session['id']?.toString();
+        if (sessionId == null) continue;
+
+        // Get sets for this session
+        final sets = await getWorkoutSets(sessionId);
+
+        // Find sets for this specific exercise
+        final exerciseSets = sets
+            .where(
+              (set) =>
+                  set['exercise_name']?.toString().toLowerCase() ==
+                  exerciseName.toLowerCase(),
+            )
+            .toList();
+
+        if (exerciseSets.isNotEmpty) {
+          // Calculate best set (by weight x reps)
+          final bestSet = exerciseSets.reduce((a, b) {
+            final volumeA =
+                (a['load_used'] as num? ?? 0) *
+                (a['reps_performed'] as num? ?? 0);
+            final volumeB =
+                (b['load_used'] as num? ?? 0) *
+                (b['reps_performed'] as num? ?? 0);
+            return volumeA > volumeB ? a : b;
+          });
+
+          // Calculate average RPE if available
+          final rpeValues = exerciseSets
+              .map((s) => s['actual_rpe'] as num?)
+              .where((rpe) => rpe != null)
+              .toList();
+          final avgRPE = rpeValues.isNotEmpty
+              ? rpeValues.reduce((a, b) => a! + b!)! / rpeValues.length
+              : null;
+
+          return {
+            'date': _formatDateRelative(session['date']),
+            'weight': bestSet['load_used'] as double? ?? 0.0,
+            'reps': bestSet['reps_performed'] as int? ?? 0,
+            'rpe': avgRPE?.toDouble(),
+            'sessionId': sessionId,
+          };
+        }
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('Error getting previous exercise session: $e');
+      return null;
+    }
+  }
+
+  /// Format date relative to now (e.g., "2 days ago")
+  String _formatDateRelative(String? dateStr) {
+    if (dateStr == null) return '';
+
+    try {
+      final date = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0) return 'Today';
+      if (difference.inDays == 1) return 'Yesterday';
+      if (difference.inDays < 7) return '${difference.inDays} days ago';
+      if (difference.inDays < 30)
+        return '${(difference.inDays / 7).floor()} weeks ago';
+      return '${(difference.inDays / 30).floor()} months ago';
+    } catch (e) {
+      return dateStr;
+    }
+  }
 }

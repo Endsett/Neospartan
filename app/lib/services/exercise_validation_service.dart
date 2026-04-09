@@ -14,11 +14,16 @@ class ExerciseValidationService {
   Future<List<Exercise>> validateAndResolveExercises(
     List<String> exerciseNames, {
     List<ExerciseCategory>? preferredCategories,
+    String? userId, // If provided, creates user-specific exercises
   }) async {
     final resolvedExercises = <Exercise>[];
 
     for (final name in exerciseNames) {
-      final exercise = await _resolveExercise(name, preferredCategories);
+      final exercise = await _resolveExercise(
+        name,
+        preferredCategories,
+        userId,
+      );
       if (exercise != null) {
         resolvedExercises.add(exercise);
       }
@@ -31,6 +36,7 @@ class ExerciseValidationService {
   Future<Exercise?> _resolveExercise(
     String name,
     List<ExerciseCategory>? preferredCategories,
+    String? userId,
   ) async {
     // First, try exact match
     final allExercises = await _exerciseRepo.getAllExercises();
@@ -80,16 +86,17 @@ class ExerciseValidationService {
 
     // Exercise not found - create it
     developer.log(
-      'Creating new exercise: $name',
+      'Creating new exercise: $name${userId != null ? ' (user-specific)' : ' (global)'}',
       name: 'ExerciseValidationService',
     );
-    return await _createNewExercise(name, preferredCategories);
+    return await _createNewExercise(name, preferredCategories, userId);
   }
 
   /// Create a new exercise in the database with AI-generated attributes
   Future<Exercise?> _createNewExercise(
     String name,
     List<ExerciseCategory>? preferredCategories,
+    String? userId,
   ) async {
     try {
       // Infer category from name or use preferred
@@ -113,6 +120,7 @@ class ExerciseValidationService {
         minFitnessLevel: FitnessLevel.beginner,
         maxFitnessLevel: FitnessLevel.advanced,
         workoutTags: _generateTags(name, category),
+        createdByUserId: userId, // null for global, user ID for custom
       );
 
       // Save to Supabase
@@ -298,6 +306,48 @@ class ExerciseValidationService {
   /// Generate basic instructions for the exercise
   String _generateBasicInstructions(String name) {
     return 'Perform $name with proper form and controlled movement. Maintain core engagement throughout. Adjust intensity based on your fitness level.';
+  }
+
+  /// Merge similar exercises across users to avoid duplicates
+  Future<Exercise?> findSimilarExerciseForMerge(
+    String name,
+    String userId,
+  ) async {
+    final allExercises = await _exerciseRepo.getAllExercises();
+    final searchLower = name.toLowerCase();
+
+    // Look for similar exercises created by other users
+    final similarExercises = allExercises.where((e) {
+      if (e.createdByUserId == null || e.createdByUserId == userId) {
+        return false; // Skip global exercises and user's own exercises
+      }
+
+      final nameLower = e.name.toLowerCase();
+      // Check for high similarity
+      if (nameLower == searchLower) {
+        return true;
+      }
+      if (nameLower.contains(searchLower) || searchLower.contains(nameLower)) {
+        return true;
+      }
+
+      // Check word overlap
+      final searchWords = searchLower.split(' ');
+      final exerciseWords = nameLower.split(' ');
+      final commonWords = searchWords.where(
+        (word) =>
+            word.length > 2 && exerciseWords.any((ew) => ew.contains(word)),
+      );
+
+      return commonWords.length >= 2; // At least 2 common words
+    }).toList();
+
+    if (similarExercises.isNotEmpty) {
+      // Return the most similar one
+      return similarExercises.first;
+    }
+
+    return null;
   }
 
   /// Generate workout tags based on name and category

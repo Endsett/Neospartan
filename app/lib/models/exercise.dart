@@ -23,6 +23,7 @@ class Exercise {
   final FitnessLevel minFitnessLevel;
   final FitnessLevel maxFitnessLevel;
   final List<String> workoutTags;
+  final String? createdByUserId; // null for global exercises
 
   const Exercise({
     required this.id,
@@ -38,6 +39,7 @@ class Exercise {
     this.minFitnessLevel = FitnessLevel.beginner,
     this.maxFitnessLevel = FitnessLevel.advanced,
     this.workoutTags = const [],
+    this.createdByUserId,
   });
 
   /// Serialize to Map for storage
@@ -56,6 +58,7 @@ class Exercise {
       'minFitnessLevel': minFitnessLevel.index,
       'maxFitnessLevel': maxFitnessLevel.index,
       'workoutTags': workoutTags,
+      'createdByUserId': createdByUserId,
     };
   }
 
@@ -85,6 +88,7 @@ class Exercise {
       maxFitnessLevel: FitnessLevel.values[map['maxFitnessLevel'] as int? ?? 2],
       workoutTags:
           (map['workoutTags'] as List<dynamic>?)?.cast<String>() ?? const [],
+      createdByUserId: map['createdByUserId'] as String?,
     );
   }
 
@@ -134,6 +138,7 @@ class Exercise {
       ),
       workoutTags:
           (map['workout_tags'] as List<dynamic>?)?.cast<String>() ?? const [],
+      createdByUserId: map['created_by_user_id'] as String?,
     );
   }
 
@@ -153,6 +158,7 @@ class Exercise {
       'min_fitness_level': minFitnessLevel.name,
       'max_fitness_level': maxFitnessLevel.name,
       'workout_tags': workoutTags,
+      'created_by_user_id': createdByUserId,
     };
   }
 

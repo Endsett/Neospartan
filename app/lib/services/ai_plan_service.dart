@@ -13,6 +13,7 @@ import 'ai_memory_service.dart';
 import 'context_ingestion_service.dart';
 import 'gemini_client.dart';
 import 'supabase_database_service.dart';
+import 'exercise_validation_service.dart';
 
 /// Weekly plan structure for AI-generated training plans
 class WeeklyPlan {
@@ -141,17 +142,16 @@ extension WorkoutProtocolMap on WorkoutProtocol {
   }
 }
 
-/// AI Plan Service using Gemini 2.5 Flash for intelligent training plans
+/// AI Plan Service
 class AIPlanService {
-  static final AIPlanService _instance = AIPlanService._internal();
-  factory AIPlanService() => _instance;
-  AIPlanService._internal();
-
   final GeminiClient _geminiClient = GeminiClient();
-  bool _initialized = false;
   final AIMemoryService _memoryService = AIMemoryService();
   final ContextIngestionService _contextService = ContextIngestionService();
+  final ExerciseValidationService _exerciseValidation =
+      ExerciseValidationService();
   final SupabaseDatabaseService _database = SupabaseDatabaseService();
+
+  bool _initialized = false;
 
   /// Fetch recent workout analytics from Supabase and format as a prompt-ready string.
   /// Returns null if no data is available so callers can degrade gracefully.
@@ -592,10 +592,22 @@ ${recommendation.recoveryGuidance.map((line) => '- $line').join('\n')}
       );
 
       if (response != null) {
+        // Extract exercise names from AI response
+        final exerciseNames = _extractExerciseNames(response);
+
+        // Validate and resolve exercises (this will create new ones if needed)
+        final validatedExercises = await _exerciseValidation
+            .validateAndResolveExercises(
+              exerciseNames,
+              userId: profile
+                  .userId, // Creates user-specific exercises for new ones
+            );
+
         final protocol = _parseCustomWorkoutResponse(
           response,
           profile,
           preferences,
+          validatedExercises,
         );
 
         // Store in memory
@@ -698,11 +710,39 @@ Return a JSON object:
 ''';
   }
 
+  /// Extract exercise names from AI response
+  List<String> _extractExerciseNames(String response) {
+    final exerciseNames = <String>[];
+
+    try {
+      final jsonStart = response.indexOf('{');
+      final jsonEnd = response.lastIndexOf('}');
+
+      if (jsonStart != -1 && jsonEnd != -1) {
+        final jsonString = response.substring(jsonStart, jsonEnd + 1);
+        final data = jsonDecode(jsonString);
+
+        if (data['exercises'] != null) {
+          for (final ex in data['exercises']) {
+            if (ex['name'] != null) {
+              exerciseNames.add(ex['name'].toString());
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error extracting exercise names: $e');
+    }
+
+    return exerciseNames;
+  }
+
   /// Parse AI response for custom workout
   WorkoutProtocol _parseCustomWorkoutResponse(
     String response,
     UserProfile profile,
     WorkoutPreferences preferences,
+    List<Exercise> validatedExercises,
   ) {
     try {
       final jsonStart = response.indexOf('{');
@@ -718,10 +758,14 @@ Return a JSON object:
       final entries = <ProtocolEntry>[];
 
       for (final ex in data['exercises']) {
-        final exercise = _matchExercise(
-          ex['name'],
-          profile: profile,
-          workoutType: preferences.trainingFocus.name,
+        // Find the validated exercise by name
+        final exercise = validatedExercises.firstWhere(
+          (e) => e.name.toLowerCase() == ex['name'].toString().toLowerCase(),
+          orElse: () => _matchExercise(
+            ex['name'],
+            profile: profile,
+            workoutType: preferences.trainingFocus.name,
+          ),
         );
 
         entries.add(
