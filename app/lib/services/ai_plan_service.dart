@@ -220,8 +220,10 @@ class AIPlanService {
       debugPrint(
         'AI Plan Service initialized with Gemini 2.0 Flash and memory system',
       );
-      if (AIConfig.isUsingDevKey) {
-        debugPrint('WARNING: Using development API key');
+      if (!AIConfig.isConfigured) {
+        debugPrint(
+          'WARNING: GEMINI_API_KEY not configured. AI features will be disabled.',
+        );
       }
     } catch (e) {
       debugPrint('Failed to initialize AI service: $e');

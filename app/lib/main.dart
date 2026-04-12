@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'theme.dart';
+import 'warrior_theme.dart';
 
 // Screen imports
 import 'screens/stadion_screen.dart';
@@ -36,6 +37,8 @@ import 'providers/exercise_provider.dart';
 import 'services/dom_rl_engine.dart';
 import 'services/ai_plan_service.dart';
 import 'services/state_persistence_service.dart';
+import 'services/warrior_progress_service.dart';
+import 'services/forge_master_service.dart';
 import 'config/supabase_config.dart';
 
 // Widgets
@@ -76,6 +79,8 @@ void main() async {
     await DomRlEngine().initialize();
     await AIPlanService().initialize();
     await StatePersistenceService().initialize();
+    await WarriorProgressService().initialize();
+    await ForgeMasterService().initialize();
 
     servicesInitialized = true;
     debugPrint('All required services initialized successfully');
@@ -117,7 +122,7 @@ class NeospartanApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Neospartan',
         debugShowCheckedModeBanner: false,
-        theme: LaconicTheme.theme,
+        theme: WarriorTheme.theme,
         home: servicesInitialized
             ? const AuthGate()
             : InitializationErrorScreen(error: initError),

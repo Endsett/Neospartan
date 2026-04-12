@@ -26,8 +26,8 @@ class Settings(BaseSettings):
     port: int = 8000
     workers: int = 1
     
-    # Security
-    secret_key: str = "your-secret-key-change-in-production"
+    # Security - Must be set via environment variable
+    secret_key: str = ""  # Set via SECRET_KEY env var
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
     

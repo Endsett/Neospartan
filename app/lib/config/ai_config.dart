@@ -1,17 +1,15 @@
-import 'package:flutter/foundation.dart';
-
 /// Centralized AI Configuration
 /// Contains Gemini API key and model configuration for all AI services
 /// Supports thinking models (Gemini 2.5 and 3.x series)
 class AIConfig {
-  // Gemini API Key - Use this for all AI tasks
-  // In production, use environment variables: String.fromEnvironment('GEMINI_API_KEY')
-  static const String geminiApiKey = kDebugMode
-      ? 'AIzaSyAp1gkplk30KQOPGenhjzcVnm_YQvz3Wyk' // Development key
-      : String.fromEnvironment(
-          'GEMINI_API_KEY',
-          defaultValue: 'AIzaSyAp1gkplk30KQOPGenhjzcVnm_YQvz3Wyk',
-        );
+  // Gemini API Key - Must be set via environment variables
+  // For development: Add GEMINI_API_KEY to your .env file
+  // For production: Set GEMINI_API_KEY environment variable
+  // ignore: do_not_use_environment
+  static const String geminiApiKey = String.fromEnvironment(
+    'GEMINI_API_KEY',
+    defaultValue: '',
+  );
 
   // Model configuration - Use thinking models for better reasoning
   // Available models:
@@ -40,9 +38,8 @@ class AIConfig {
   // Prevent instantiation
   AIConfig._();
 
-  /// Check if using development API key
-  static bool get isUsingDevKey =>
-      geminiApiKey == 'AIzaSyAp1gkplk30KQOPGenhjzcVnm_YQvz3Wyk';
+  /// Check if API key is configured
+  static bool get isConfigured => geminiApiKey.isNotEmpty;
 
   /// Check if current model supports thinking
   static bool get supportsThinking {
