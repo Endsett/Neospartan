@@ -8,6 +8,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application
 COPY main.py .
+COPY config.py .
+COPY database.py .
+COPY ai_engine.py .
+COPY auth.py .
+COPY websocket_manager.py .
 
 # Expose port
 EXPOSE 8000

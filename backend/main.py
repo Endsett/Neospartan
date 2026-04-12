@@ -1,37 +1,356 @@
-# NeoSpartan AI Backend - DOM-RL Engine
-# FastAPI server for workout optimization and AI recommendations
+"""NeoSpartan AI Backend - Full Deployment Version.
 
-from fastapi import FastAPI, HTTPException, Request
+Production-ready FastAPI server with:
+- Supabase PostgreSQL integration
+- Google Gemini AI for workout generation
+- JWT authentication
+- WebSocket real-time updates
+- Background task processing
+"""
+
+import os
+import json
+import asyncio
+from datetime import datetime, timedelta
+from typing import List, Dict, Optional, Any, Tuple
+from enum import Enum
+from dataclasses import dataclass, field
+from contextlib import asynccontextmanager
+
+import numpy as np
+from fastapi import FastAPI, HTTPException, Request, Depends, WebSocket, WebSocketDisconnect, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from pydantic import BaseModel
-from typing import List, Dict, Optional, Tuple
-from datetime import datetime, timedelta
-from enum import Enum
-import numpy as np
-from dataclasses import dataclass, field
-import json
-import os
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
-app = FastAPI(title="NeoSpartan AI", version="2.0.0")
+# Internal imports
+from config import settings
+from database import (
+    db, 
+    check_database_health,
+    ExerciseRepository, 
+    UserRepository, 
+    AIMemoryRepository,
+    DatabaseError
+)
+from ai_engine import (
+    GeminiAIEngine, 
+    DOMRLEngine, 
+    AIWorkoutRequest,
+    AIWorkoutProtocol,
+    AIEngineError,
+    gemini_engine,
+    dom_rl_engine
+)
+from auth import (
+    get_current_user,
+    get_current_active_user,
+    require_admin,
+    create_access_token,
+    verify_token,
+    get_current_user_supabase
+)
+from websocket_manager import manager
+
+# Initialize FastAPI with lifespan
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager."""
+    # Startup
+    print(f"🚀 Starting {settings.app_name} v{settings.app_version}")
+    
+    # Check database connection
+    health = await check_database_health()
+    if not health["connected"]:
+        print(f"⚠️  Database connection warning: {health.get('error')}")
+    else:
+        print("✅ Database connected")
+    
+    yield
+    
+    # Shutdown
+    print("🛑 Shutting down...")
+
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.app_version,
+    description="Production NeoSpartan AI Backend with Supabase and Gemini",
+    docs_url="/docs" if not settings.is_production else None,
+    redoc_url="/redoc" if not settings.is_production else None,
+    lifespan=lifespan
+)
 
 # CORS configuration
-CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:3000,https://neospartan.app').split(',')
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
 # Trusted host middleware
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'api.neospartan.ai,localhost').split(',')
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=settings.allowed_hosts_list
+)
 
-# Simple rate limiting storage
+# Rate limiting (simple in-memory, use Redis in production)
 request_counts: Dict[str, List[datetime]] = {}
-RATE_LIMIT = int(os.getenv('RATE_LIMIT', '100'))  # requests per minute
+
+async def check_rate_limit(client_ip: str) -> bool:
+    """Check if request is within rate limit."""
+    now = datetime.now()
+    if client_ip not in request_counts:
+        request_counts[client_ip] = []
+    
+    # Remove old requests
+    request_counts[client_ip] = [
+        t for t in request_counts[client_ip] 
+        if now - t < timedelta(seconds=settings.rate_limit_window)
+    ]
+    
+    if len(request_counts[client_ip]) >= settings.rate_limit:
+        return False
+    
+    request_counts[client_ip].append(now)
+    return True
+
+# ============== NEW ENDPOINTS ==============
+
+class GenerateWorkoutRequest(BaseModel):
+    """Request model for AI workout generation."""
+    fitness_level: str = "intermediate"
+    training_goal: str = "general combat readiness"
+    preferred_duration: int = 45
+    available_equipment: List[str] = ["dumbbells", "kettlebells", "bodyweight"]
+    injuries_or_limitations: List[str] = []
+    preferred_categories: List[str] = None
+
+class AIWorkoutResponse(BaseModel):
+    """Response model for AI workout generation."""
+    title: str
+    subtitle: str
+    tier: str
+    mindset_prompt: str
+    estimated_duration: int
+    exercises: List[Dict[str, Any]]
+    ai_generated: bool
+    fallback_used: bool
+
+@app.post("/ai/workout/generate", response_model=AIWorkoutResponse)
+async def ai_generate_workout(
+    request: GenerateWorkoutRequest,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """
+    Generate an AI-powered workout using Google Gemini.
+    Falls back to DOM-RL engine if AI is unavailable.
+    """
+    user_id = current_user["id"]
+    
+    # Build AI request
+    ai_request = AIWorkoutRequest(
+        user_id=user_id,
+        fitness_level=request.fitness_level,
+        training_goal=request.training_goal,
+        preferred_duration=request.preferred_duration,
+        available_equipment=request.available_equipment,
+        injuries_or_limitations=request.injuries_or_limitations,
+        preferred_categories=request.preferred_categories,
+    )
+    
+    try:
+        # Try Gemini AI first
+        protocol = await gemini_engine.generate_workout(ai_request)
+        ai_generated = True
+        fallback_used = False
+    except AIEngineError as e:
+        # Log error and fall back to DOM-RL
+        print(f"⚠️  Gemini AI failed: {e}, using DOM-RL fallback")
+        
+        # Use DOM-RL as fallback
+        readiness = 75  # Default to "ready" tier
+        if request.fitness_level == "beginner":
+            readiness = 60
+        elif request.fitness_level == "advanced":
+            readiness = 85
+            
+        action = dom_rl_engine.generate_action(readiness)
+        
+        # Create basic protocol from fallback
+        protocol = AIWorkoutProtocol(
+            title=f"DOM-RL: {request.training_goal.title()}",
+            subtitle=f"Fallback protocol for {request.fitness_level} level",
+            tier=action["focus_area"],
+            mindset_prompt="Train with discipline and purpose.",
+            estimated_duration=request.preferred_duration,
+            exercises=[]
+        )
+        ai_generated = False
+        fallback_used = True
+    
+    # Convert exercises to dict
+    exercises_list = []
+    for ex in protocol.exercises:
+        exercises_list.append({
+            "name": ex.name,
+            "category": ex.category,
+            "sets": ex.sets,
+            "reps": ex.reps,
+            "rpe": ex.rpe,
+            "rest_seconds": ex.rest_seconds,
+            "target_metaphor": ex.target_metaphor,
+            "instructions": ex.instructions,
+            "primary_muscles": ex.primary_muscles,
+        })
+    
+    # Store in AI memory
+    try:
+        await AIMemoryRepository.store(
+            user_id=user_id,
+            memory_type="workout_generation",
+            data={
+                "request": request.dict(),
+                "response": {
+                    "title": protocol.title,
+                    "tier": protocol.tier,
+                    "exercise_count": len(protocol.exercises),
+                },
+                "ai_generated": ai_generated,
+                "fallback_used": fallback_used,
+            },
+            priority="high",
+            tags=["workout", "ai", protocol.tier],
+        )
+    except Exception as e:
+        print(f"⚠️  Failed to store AI memory: {e}")
+    
+    return AIWorkoutResponse(
+        title=protocol.title,
+        subtitle=protocol.subtitle,
+        tier=protocol.tier,
+        mindset_prompt=protocol.mindset_prompt,
+        estimated_duration=protocol.estimated_duration,
+        exercises=exercises_list,
+        ai_generated=ai_generated,
+        fallback_used=fallback_used,
+    )
+
+
+@app.websocket("/ws/workout/{user_id}")
+async def workout_websocket(websocket: WebSocket, user_id: str):
+    """WebSocket endpoint for real-time workout updates."""
+    await manager.connect(websocket, user_id)
+    
+    try:
+        while True:
+            # Keep connection alive and handle client messages
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            
+            # Handle different message types
+            if message.get("type") == "ping":
+                await websocket.send_json({"type": "pong"})
+            elif message.get("type") == "workout_started":
+                await manager.send_to_user(user_id, {
+                    "type": "acknowledged",
+                    "message": "Workout session tracking started"
+                })
+            elif message.get("type") == "progress_update":
+                # Broadcast progress to user's other connections
+                await manager.send_to_user(user_id, {
+                    "type": "progress_sync",
+                    "data": message.get("data")
+                })
+                
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception as e:
+        print(f"WebSocket error for user {user_id}: {e}")
+        manager.disconnect(websocket)
+
+
+@app.get("/exercises/dynamic")
+async def get_exercises_dynamic(
+    category: Optional[str] = None,
+    search: Optional[str] = None,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """
+    Get exercises from Supabase database (dynamic library).
+    Returns global exercises + user's custom exercises.
+    """
+    user_id = current_user["id"]
+    
+    try:
+        if search:
+            # Search by name
+            exercises = await ExerciseRepository.search_by_name(search)
+        elif category:
+            # Filter by category
+            exercises = await ExerciseRepository.get_by_category(category)
+        else:
+            # Get all exercises for user
+            exercises = await ExerciseRepository.get_for_user(user_id)
+        
+        return {
+            "exercises": exercises,
+            "count": len(exercises),
+            "source": "supabase",
+            "user_id": user_id,
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
+
+@app.post("/exercises/create")
+async def create_exercise(
+    exercise_data: Dict[str, Any],
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Create a new custom exercise for the user."""
+    user_id = current_user["id"]
+    
+    # Add user ID to exercise
+    exercise_data["created_by_user_id"] = user_id
+    
+    try:
+        exercise = await ExerciseRepository.create(exercise_data)
+        return {
+            "exercise": exercise,
+            "message": "Exercise created successfully",
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create exercise: {e}")
+
+
+@app.get("/health/detailed")
+async def detailed_health_check():
+    """Detailed health check including database status."""
+    db_health = await check_database_health()
+    
+    return {
+        "status": "healthy" if db_health["connected"] else "degraded",
+        "version": settings.app_version,
+        "environment": settings.environment,
+        "timestamp": datetime.now().isoformat(),
+        "services": {
+            "database": db_health,
+            "ai_engine": {
+                "gemini_configured": bool(settings.gemini_api_key),
+                "model": settings.gemini_model if settings.gemini_api_key else None,
+            },
+            "websockets": {
+                "online_users": manager.get_online_users_count(),
+                "total_connections": manager.get_total_connections(),
+            },
+        },
+    }
+
+
+# ============== EXISTING ENDPOINTS (Updated) ==============
 
 # ============ DATA MODELS ============
 

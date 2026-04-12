@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # NeoSpartan Backend API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: neospartan-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-1.5-flash}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - SENTRY_DSN=${SENTRY_DSN}
+      - ENABLE_METRICS=true
+    depends_on:
+      - redis
+    networks:
+      - neospartan-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis for caching and background tasks
+  redis:
+    image: redis:7-alpine
+    container_name: neospartan-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - neospartan-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Background worker (ARQ)
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: neospartan-worker
+    environment:
+      - ENVIRONMENT=production
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - REDIS_URL=redis://redis:6379/0
+      - SENTRY_DSN=${SENTRY_DSN}
+    depends_on:
+      - redis
+      - api
+    networks:
+      - neospartan-network
+    restart: unless-stopped
+    command: arq worker.WorkerSettings
+
+volumes:
+  redis-data:
+
+networks:
+  neospartan-network:
+    driver: bridge

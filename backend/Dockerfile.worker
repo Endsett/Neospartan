@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application
+COPY config.py .
+COPY database.py .
+COPY ai_engine.py .
+COPY auth.py .
+COPY worker.py .
+
+# Run ARQ worker
+CMD ["arq", "worker.WorkerSettings"]
