@@ -1,0 +1,15 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Force shell scripts to use LF line endings (required for Railway/Linux)
+*.sh text eol=lf
+start.sh text eol=lf
+
+# Python files
+*.py text eol=lf
+
+# Config files
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
