@@ -213,7 +213,7 @@ class ForgeMasterService {
       return protocol.copyWith(
         title: 'Trial of Ascension: ${protocol.title}',
         mindsetPrompt:
-            '${protocol.mindsetPrompt}\n\n[FORGE MASTER]: You stand at the threshold of ${nextRankName}. Conquer this trial, and ascend.',
+            '${protocol.mindsetPrompt}\n\n[FORGE MASTER]: You stand at the threshold of $nextRankName. Conquer this trial, and ascend.',
       );
     }
 
@@ -234,14 +234,15 @@ class ForgeMasterService {
     // Adjust intensity based on readiness
     int intensityLevel = 3;
     if (readinessScore != null) {
-      if (readinessScore >= 85)
+      if (readinessScore >= 85) {
         intensityLevel = 5;
-      else if (readinessScore >= 70)
+      } else if (readinessScore >= 70) {
         intensityLevel = 4;
-      else if (readinessScore >= 50)
+      } else if (readinessScore >= 50) {
         intensityLevel = 3;
-      else
+      } else {
         intensityLevel = 2;
+      }
     }
 
     final preferences = WorkoutPreferences(
