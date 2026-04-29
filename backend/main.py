@@ -32,6 +32,9 @@ from database import (
     ExerciseRepository, 
     UserRepository, 
     AIMemoryRepository,
+    WarriorProfileRepository,
+    AchievementRepository,
+    BattleChronicleRepository,
     DatabaseError
 )
 from ai_engine import (
@@ -1269,6 +1272,143 @@ def generate_protocol(readiness_score: int, use_dom_rl: bool = False, micro_cycl
         "protocol": base_protocol,
         "optimization_applied": False
     }
+
+
+# ============== Warrior Progression API ==============
+
+class AddXPRequest(BaseModel):
+    xp_amount: int = Field(..., gt=0, description="Amount of XP to add")
+    activity: str = Field(..., description="Activity that earned the XP")
+
+class ChronicleEntryRequest(BaseModel):
+    trial_name: str = Field(..., description="Name of the trial/workout")
+    difficulty: str = Field(..., description="Difficulty level")
+    completion_rate: float = Field(..., ge=0.0, le=1.0, description="Completion percentage")
+    casualties: int = Field(..., description="Calories burned")
+    spoils: Dict[str, Any] = Field(default_factory=dict, description="Additional rewards/XP")
+    wounds: List[str] = Field(default_factory=list, description="Muscle groups worked")
+
+@app.get("/warrior/profile")
+async def get_warrior_profile(current_user: Dict = Depends(get_current_user_supabase)):
+    """Get the current user's warrior profile."""
+    try:
+        profile = await WarriorProfileRepository.get_by_user_id(current_user["id"])
+        if not profile:
+            # Create default profile
+            profile = await WarriorProfileRepository.create_or_update(
+                current_user["id"],
+                {
+                    "rank_level": 1,
+                    "total_xp": 0,
+                    "current_streak": 0,
+                    "longest_streak": 0,
+                    "total_workouts": 0,
+                }
+            )
+        return {"profile": profile}
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/warrior/xp")
+async def add_warrior_xp(
+    request: AddXPRequest,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Add XP to warrior profile and check for rank up."""
+    try:
+        result = await WarriorProfileRepository.add_xp(
+            current_user["id"],
+            request.xp_amount,
+            request.activity
+        )
+        return result
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/warrior/achievements")
+async def get_warrior_achievements(current_user: Dict = Depends(get_current_user_supabase)):
+    """Get all available achievements and user's unlocked achievements."""
+    try:
+        all_achievements = await AchievementRepository.get_all()
+        user_achievements = await AchievementRepository.get_by_user(current_user["id"])
+        unlocked_ids = {a["achievement_id"] for a in user_achievements}
+        
+        return {
+            "all_achievements": all_achievements,
+            "unlocked_achievements": user_achievements,
+            "unlocked_ids": list(unlocked_ids),
+            "total_unlocked": len(user_achievements),
+            "total_available": len(all_achievements),
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/warrior/achievements/{achievement_id}/unlock")
+async def unlock_achievement(
+    achievement_id: str,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Unlock an achievement for the current user."""
+    try:
+        result = await AchievementRepository.unlock(current_user["id"], achievement_id)
+        return {"unlocked": result}
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/warrior/chronicle")
+async def add_chronicle_entry(
+    request: ChronicleEntryRequest,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Add a battle chronicle entry for a completed workout."""
+    try:
+        entry = await BattleChronicleRepository.add_entry(
+            current_user["id"],
+            request.dict()
+        )
+        
+        # Also increment total workouts
+        profile = await WarriorProfileRepository.get_by_user_id(current_user["id"])
+        if profile:
+            await WarriorProfileRepository.create_or_update(
+                current_user["id"],
+                {
+                    "total_workouts": profile.get("total_workouts", 0) + 1,
+                }
+            )
+        
+        return {"entry": entry}
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/warrior/chronicle")
+async def get_chronicle(
+    limit: int = 50,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Get the user's battle chronicle entries."""
+    try:
+        entries = await BattleChronicleRepository.get_by_user(current_user["id"], limit)
+        return {"entries": entries, "count": len(entries)}
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/warrior/ranks")
+def get_warrior_ranks():
+    """Get all warrior ranks and their requirements."""
+    ranks = [
+        {"level": 1, "name": "Helot", "subtitle": "Raw Recruit", "required_xp": 0, "icon": "shield"},
+        {"level": 2, "name": "Perioikoi", "subtitle": "Trainee", "required_xp": 500, "icon": "fitness_center"},
+        {"level": 3, "name": "Hypomeion", "subtitle": "Aspirant", "required_xp": 1500, "icon": "sports_martial_arts"},
+        {"level": 4, "name": "Trophimoi", "subtitle": "Cadet", "required_xp": 3000, "icon": "local_fire_department"},
+        {"level": 5, "name": "Spartiate", "subtitle": "Warrior", "required_xp": 5000, "icon": "military_tech"},
+        {"level": 6, "name": "Harmost", "subtitle": "Squad Leader", "required_xp": 8000, "icon": "emoji_events"},
+        {"level": 7, "name": "Lochagos", "subtitle": "Captain", "required_xp": 12000, "icon": "workspace_premium"},
+        {"level": 8, "name": "Polemarch", "subtitle": "War Leader", "required_xp": 20000, "icon": "star"},
+        {"level": 9, "name": "Strategos", "subtitle": "General", "required_xp": 35000, "icon": "workspace_premium"},
+        {"level": 10, "name": "Archon", "subtitle": "Master", "required_xp": 60000, "icon": "military_tech"},
+    ]
+    return {"ranks": ranks}
 
 if __name__ == "__main__":
     import uvicorn

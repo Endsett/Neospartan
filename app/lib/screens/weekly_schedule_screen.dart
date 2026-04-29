@@ -24,15 +24,18 @@ class WeeklyScheduleScreen extends StatefulWidget {
 class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
   // final _firebase = FirebaseSyncService(); // Removed
   final SupabaseDatabaseService _database = SupabaseDatabaseService();
+  final AIPlanService _aiPlanService = AIPlanService();
   DateTime _currentWeekStart = _getWeekStart(DateTime.now());
   List<CalendarDay> _weekDays = [];
   List<CompletedWorkout> _workouts = [];
+  Map<String, dynamic>? _currentPlan;
   bool _isLoading = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    _aiPlanService.initialize();
     _loadWeekData();
   }
 
@@ -79,6 +82,17 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
       final scheduled = <String, dynamic>{
         for (final row in calendarEntries) row['date']?.toString() ?? '': row,
       };
+
+      // Load generated plan for this week
+      final planData = await _database.getGeneratedPlanForWeek(
+        _currentWeekStart,
+      );
+      if (planData != null) {
+        _currentPlan = planData;
+        debugPrint('Loaded plan: ${planData['plan_name']}');
+      } else {
+        _currentPlan = null;
+      }
 
       // Build calendar days
       final days = _buildCalendarDays(workouts, scheduled);
@@ -152,8 +166,10 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
 
       DayStatus status;
       String? workoutName;
+      String? workoutType;
       Duration? duration;
       double? volume;
+      bool isAiGenerated = false;
 
       if (workout.id.isNotEmpty) {
         // Completed workout
@@ -175,6 +191,21 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
         if (date.isAfter(DateTime.now()) || _isSameDay(date, DateTime.now())) {
           status = DayStatus.scheduled;
           workoutName = scheduledData['workout_name'];
+          // Extract workout type from workout_name (e.g., "Strength - Lower Body")
+          final name = workoutName?.toLowerCase() ?? '';
+          if (name.contains('strength')) {
+            workoutType = 'strength';
+          } else if (name.contains('conditioning')) {
+            workoutType = 'conditioning';
+          } else if (name.contains('power')) {
+            workoutType = 'power';
+          } else if (name.contains('recovery') || name.contains('rest')) {
+            workoutType = 'recovery';
+          } else {
+            workoutType = 'training';
+          }
+          // Check if this was auto-scheduled from a generated plan
+          isAiGenerated = _currentPlan != null;
         } else {
           // Missed (scheduled but not completed and date passed)
           status = DayStatus.missed;
@@ -189,8 +220,10 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
           date: date,
           status: status,
           workoutName: workoutName,
+          workoutType: workoutType,
           duration: duration,
           totalVolume: volume,
+          isAiGenerated: isAiGenerated,
         ),
       );
     }
@@ -823,6 +856,11 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
 
       Navigator.of(context).pop(); // Close loading dialog
 
+      // Refresh UI to show new plan and calendar entries
+      await _loadWeekData();
+
+      if (!mounted) return;
+
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -834,7 +872,8 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
           content: Text(
             'Your personalized ${profile.trainingGoalText} plan is ready!\n'
             'Duration: ${weeklyPlan?.dailyWorkouts.length ?? 0} days\n'
-            'Focus: ${weeklyPlan?.intensityRecommendation ?? 'N/A'}',
+            'Focus: ${weeklyPlan?.intensityRecommendation ?? 'N/A'}\n\n'
+            'The plan has been saved and added to your calendar.',
             style: const TextStyle(color: Colors.grey),
           ),
           actions: [
@@ -953,6 +992,12 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
                       ],
                     ),
                   ),
+
+                // Plan Summary Card (if plan exists)
+                if (_currentPlan != null && !_isLoading)
+                  _buildPlanSummaryCard(),
+                if (_currentPlan != null && !_isLoading)
+                  const SizedBox(height: 24),
 
                 // Calendar
                 WeeklyCalendar(
@@ -1103,6 +1148,153 @@ class _WeeklyScheduleScreenState extends State<WeeklyScheduleScreen> {
       }
     }
     return streak;
+  }
+
+  /// Build the plan summary card showing the active generated plan
+  Widget _buildPlanSummaryCard() {
+    final planName = _currentPlan?['plan_name'] ?? 'AI Training Plan';
+    final intensityRec = _currentPlan?['intensity_recommendation'] ?? '';
+    final weeklyNotes = _currentPlan?['weekly_notes'] ?? '';
+    final dailyWorkouts =
+        _currentPlan?['daily_workouts'] as List<dynamic>? ?? [];
+    final workoutCount = dailyWorkouts.length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            LaconicTheme.spartanBronze.withValues(alpha: 0.15),
+            LaconicTheme.spartanBronze.withValues(alpha: 0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: LaconicTheme.spartanBronze.withValues(alpha: 0.3),
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.auto_awesome,
+                color: LaconicTheme.spartanBronze,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  planName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: LaconicTheme.spartanBronze.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$workoutCount workouts',
+                  style: TextStyle(
+                    color: LaconicTheme.spartanBronze,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (intensityRec.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              intensityRec,
+              style: TextStyle(
+                color: LaconicTheme.spartanBronze.withValues(alpha: 0.8),
+                fontSize: 12,
+              ),
+            ),
+          ],
+          if (weeklyNotes.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              weeklyNotes,
+              style: const TextStyle(
+                color: Colors.grey,
+                fontSize: 11,
+                height: 1.4,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          const SizedBox(height: 12),
+          // Show daily workout preview
+          if (dailyWorkouts.isNotEmpty)
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: dailyWorkouts.take(5).map<Widget>((workout) {
+                final day = workout['day']?.toString().substring(0, 3) ?? '';
+                final type = workout['workout_type']?.toString() ?? '';
+                IconData icon;
+                Color color;
+                if (type.toLowerCase().contains('strength')) {
+                  icon = Icons.fitness_center;
+                  color = Colors.orange;
+                } else if (type.toLowerCase().contains('conditioning')) {
+                  icon = Icons.directions_run;
+                  color = Colors.blue;
+                } else if (type.toLowerCase().contains('power')) {
+                  icon = Icons.bolt;
+                  color = Colors.yellow;
+                } else if (type.toLowerCase().contains('recovery')) {
+                  icon = Icons.spa;
+                  color = Colors.green;
+                } else {
+                  icon = Icons.fitness_center;
+                  color = LaconicTheme.spartanBronze;
+                }
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    border: Border.all(color: color.withValues(alpha: 0.3)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 12, color: color),
+                      const SizedBox(width: 4),
+                      Text(
+                        day,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
   }
 }
 

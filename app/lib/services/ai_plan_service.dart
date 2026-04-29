@@ -301,6 +301,16 @@ class AIPlanService {
           debugPrint('Failed to store plan in memory: $e');
         }
 
+        // Auto-save plan to database and apply to calendar
+        try {
+          await savePlanToDatabase(plan, profile.userId);
+          await applyPlanToCalendar(plan, profile.userId);
+          debugPrint('Plan saved to database and applied to calendar');
+        } catch (e) {
+          debugPrint('Failed to save/apply plan: $e');
+          // Continue even if save fails - user can still use the plan
+        }
+
         return plan;
       }
     } catch (e) {
@@ -1594,5 +1604,247 @@ Return a JSON object with the same structure as before:
       userId: userId,
       query: query,
     );
+  }
+
+  // ==================== Plan Persistence & Calendar Integration ====================
+
+  /// Save a generated plan to the database
+  Future<String> savePlanToDatabase(WeeklyPlan plan, String userId) async {
+    try {
+      debugPrint('Saving generated plan to database');
+
+      // Convert daily workouts to JSON-compatible format
+      final dailyWorkoutsJson = plan.dailyWorkouts.map((workout) {
+        return {
+          'day': workout.day,
+          'workout_type': workout.workoutType,
+          'focus': workout.focus,
+          'protocol': workout.protocol.toMap(),
+        };
+      }).toList();
+
+      final planId = await _database.saveGeneratedPlan(
+        weekStarting: plan.weekStarting,
+        planName: 'AI Plan - ${plan.intensityRecommendation}',
+        dailyWorkouts: dailyWorkoutsJson,
+        weeklyNotes: plan.weeklyNotes,
+        intensityRecommendation: plan.intensityRecommendation,
+        isActive: true,
+      );
+
+      debugPrint('Plan saved with ID: $planId');
+      return planId;
+    } catch (e) {
+      debugPrint('Error saving plan to database: $e');
+      rethrow;
+    }
+  }
+
+  /// Apply a generated plan to the workout calendar
+  Future<void> applyPlanToCalendar(WeeklyPlan plan, String userId) async {
+    try {
+      debugPrint('Applying plan to calendar for week: ${plan.weekStarting}');
+
+      // Get the Monday of the week
+      final weekStart = plan.weekStarting;
+
+      // Map day names to day offsets (Monday = 0, Sunday = 6)
+      final dayOffsets = {
+        'monday': 0,
+        'mon': 0,
+        'tuesday': 1,
+        'tue': 1,
+        'wednesday': 2,
+        'wed': 2,
+        'thursday': 3,
+        'thu': 3,
+        'friday': 4,
+        'fri': 4,
+        'saturday': 5,
+        'sat': 5,
+        'sunday': 6,
+        'sun': 6,
+      };
+
+      // Track which days have workouts scheduled
+      final scheduledDays = <int>{};
+
+      // Create calendar entries for each workout day
+      for (final workout in plan.dailyWorkouts) {
+        final dayName = workout.day.toLowerCase().trim();
+        final offset = dayOffsets[dayName];
+
+        if (offset != null) {
+          final workoutDate = weekStart.add(Duration(days: offset));
+          scheduledDays.add(offset);
+
+          // Create workout name from type and focus
+          final workoutName = '${workout.workoutType} - ${workout.focus}';
+
+          await _database.saveWorkoutCalendarEntry(
+            date: workoutDate,
+            workoutName: workoutName,
+            isRestDay: false,
+          );
+
+          debugPrint(
+            'Scheduled $workoutName for ${workoutDate.toIso8601String().split('T')[0]}',
+          );
+        }
+      }
+
+      // Mark remaining days as rest days (optional - based on user preference)
+      // For now, we'll leave unscheduled days as empty
+
+      debugPrint(
+        'Plan applied to calendar: ${plan.dailyWorkouts.length} workouts scheduled',
+      );
+    } catch (e) {
+      debugPrint('Error applying plan to calendar: $e');
+      rethrow;
+    }
+  }
+
+  /// Load a saved plan for a specific week
+  Future<WeeklyPlan?> loadPlanForWeek(DateTime weekStart, String userId) async {
+    try {
+      debugPrint('Loading plan for week: $weekStart');
+
+      final planData = await _database.getGeneratedPlanForWeek(weekStart);
+
+      if (planData == null) {
+        debugPrint('No saved plan found for week');
+        return null;
+      }
+
+      // Parse daily workouts from JSON
+      final dailyWorkoutsJson =
+          planData['daily_workouts'] as List<dynamic>? ?? [];
+      final dailyWorkouts = dailyWorkoutsJson.map((w) {
+        final protocolMap = w['protocol'] as Map<String, dynamic>? ?? {};
+        return DailyWorkout(
+          day: w['day'] ?? 'Monday',
+          workoutType: w['workout_type'] ?? 'Training',
+          focus: w['focus'] ?? '',
+          protocol: _parseProtocolFromMap(protocolMap),
+        );
+      }).toList();
+
+      return WeeklyPlan(
+        weekStarting: DateTime.parse(planData['week_starting']),
+        dailyWorkouts: dailyWorkouts,
+        weeklyNotes: planData['weekly_notes'] ?? '',
+        intensityRecommendation: planData['intensity_recommendation'] ?? '',
+      );
+    } catch (e) {
+      debugPrint('Error loading plan: $e');
+      return null;
+    }
+  }
+
+  /// Parse protocol from map (helper for loading saved plans)
+  WorkoutProtocol _parseProtocolFromMap(Map<String, dynamic> map) {
+    try {
+      final entries = (map['entries'] as List<dynamic>? ?? []).map((e) {
+        final exerciseName = e['exercise_name'] ?? '';
+        // Try to find exercise in library, fallback to generic exercise
+        final exercise = Exercise.library.firstWhere(
+          (ex) => ex.name.toLowerCase() == exerciseName.toLowerCase(),
+          orElse: () => Exercise(
+            id: 'generic_exercise',
+            name: exerciseName.isNotEmpty ? exerciseName : 'Exercise',
+            category: ExerciseCategory.strength,
+            youtubeId: '',
+            targetMetaphor: 'The Foundation of Strength',
+            instructions: 'Perform with proper form and controlled movement.',
+            intensityLevel: 5,
+          ),
+        );
+        return ProtocolEntry(
+          exercise: exercise,
+          sets: e['sets'] ?? 3,
+          reps: e['reps'] ?? 10,
+          intensityRpe: (e['rpe'] as num?)?.toDouble() ?? 7.0,
+          restSeconds: e['rest_seconds'] ?? 120,
+        );
+      }).toList();
+
+      return WorkoutProtocol(
+        title: map['title'] ?? 'Training',
+        subtitle: map['subtitle'] ?? 'AI-generated workout',
+        tier: ProtocolTier.values.firstWhere(
+          (t) => t.toString() == map['tier'],
+          orElse: () => ProtocolTier.ready,
+        ),
+        entries: entries,
+        estimatedDurationMinutes: map['estimated_duration_minutes'] ?? 60,
+        mindsetPrompt: map['mindset_prompt'] ?? 'Focus on perfect form',
+      );
+    } catch (e) {
+      debugPrint('Error parsing protocol: $e');
+      // Return a default protocol
+      return WorkoutProtocol(
+        title: 'Training Session',
+        subtitle: 'Default workout',
+        tier: ProtocolTier.ready,
+        entries: [],
+        estimatedDurationMinutes: 60,
+        mindsetPrompt: 'Train with purpose',
+      );
+    }
+  }
+
+  /// Get all scheduled workout days for a week from the calendar
+  Future<List<Map<String, dynamic>>> getScheduledWorkoutsForWeek(
+    DateTime weekStart,
+  ) async {
+    try {
+      return await _database.getWorkoutCalendarForWeek(weekStart);
+    } catch (e) {
+      debugPrint('Error getting scheduled workouts: $e');
+      return [];
+    }
+  }
+
+  /// Regenerate plan for next week (preserving preferences)
+  Future<WeeklyPlan?> regeneratePlanForNextWeek(UserProfile profile) async {
+    final nextWeekStart = _getNextWeekStart();
+
+    try {
+      // Generate new plan with progression
+      final newPlan = await generateInitialTrainingPlan(profile);
+
+      if (newPlan != null) {
+        // Adjust week starting to next week
+        final adjustedPlan = WeeklyPlan(
+          weekStarting: nextWeekStart,
+          dailyWorkouts: newPlan.dailyWorkouts,
+          weeklyNotes: newPlan.weeklyNotes,
+          intensityRecommendation: newPlan.intensityRecommendation,
+        );
+
+        // Save and apply
+        await savePlanToDatabase(adjustedPlan, profile.userId);
+        await applyPlanToCalendar(adjustedPlan, profile.userId);
+
+        return adjustedPlan;
+      }
+    } catch (e) {
+      debugPrint('Error regenerating plan: $e');
+    }
+
+    return null;
+  }
+
+  /// Get the start of current week (Monday)
+  DateTime _getCurrentWeekStart() {
+    final now = DateTime.now();
+    return now.subtract(Duration(days: now.weekday - 1));
+  }
+
+  /// Get the start of next week (Monday)
+  DateTime _getNextWeekStart() {
+    final currentWeekStart = _getCurrentWeekStart();
+    return currentWeekStart.add(const Duration(days: 7));
   }
 }

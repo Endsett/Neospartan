@@ -3,12 +3,12 @@ import '../theme.dart';
 
 /// Day status for calendar
 enum DayStatus {
-  completed,    // Workout completed
-  partial,      // Partial completion
-  scheduled,    // Workout scheduled
-  rest,         // Rest day
-  missed,       // Scheduled but not done
-  empty,        // No activity
+  completed, // Workout completed
+  partial, // Partial completion
+  scheduled, // Workout scheduled
+  rest, // Rest day
+  missed, // Scheduled but not done
+  empty, // No activity
 }
 
 /// Calendar day data
@@ -16,24 +16,29 @@ class CalendarDay {
   final DateTime date;
   final DayStatus status;
   final String? workoutName;
+  final String?
+  workoutType; // e.g., 'strength', 'conditioning', 'power', 'recovery'
   final String? workoutId;
   final Duration? duration;
   final double? totalVolume;
+  final bool isAiGenerated; // Whether this was auto-scheduled from a plan
 
   CalendarDay({
     required this.date,
     this.status = DayStatus.empty,
     this.workoutName,
+    this.workoutType,
     this.workoutId,
     this.duration,
     this.totalVolume,
+    this.isAiGenerated = false,
   });
 
   bool get isToday {
     final now = DateTime.now();
-    return date.year == now.year && 
-           date.month == now.month && 
-           date.day == now.day;
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
   }
 }
 
@@ -64,28 +69,30 @@ class WeeklyCalendar extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
-              .map((day) => Expanded(
-                    child: Center(
-                      child: Text(
-                        day,
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 10,
-                          letterSpacing: 1.0,
-                          fontWeight: FontWeight.bold,
-                        ),
+              .map(
+                (day) => Expanded(
+                  child: Center(
+                    child: Text(
+                      day,
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 10,
+                        letterSpacing: 1.0,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ))
+                  ),
+                ),
+              )
               .toList(),
         ),
         const SizedBox(height: 8),
         // Day tiles
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: days.map((day) => Expanded(
-            child: _buildDayTile(day),
-          )).toList(),
+          children: days
+              .map((day) => Expanded(child: _buildDayTile(day)))
+              .toList(),
         ),
       ],
     );
@@ -96,32 +103,38 @@ class WeeklyCalendar extends StatelessWidget {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: List.generate(7, (_) => Expanded(
-            child: Center(
-              child: Container(
-                width: 30,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: LaconicTheme.ironGray.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
+          children: List.generate(
+            7,
+            (_) => Expanded(
+              child: Center(
+                child: Container(
+                  width: 30,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: LaconicTheme.ironGray.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
             ),
-          )),
+          ),
         ),
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: List.generate(7, (_) => Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              height: 60,
-              decoration: BoxDecoration(
-                color: LaconicTheme.ironGray.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
+          children: List.generate(
+            7,
+            (_) => Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                height: 60,
+                decoration: BoxDecoration(
+                  color: LaconicTheme.ironGray.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
-          )),
+          ),
         ),
       ],
     );
@@ -130,7 +143,34 @@ class WeeklyCalendar extends StatelessWidget {
   Widget _buildDayTile(CalendarDay day) {
     Color statusColor;
     IconData? statusIcon;
-    
+    IconData? workoutTypeIcon;
+    Color? workoutTypeColor;
+
+    // Determine workout type icon and color for scheduled workouts
+    if (day.status == DayStatus.scheduled && day.workoutType != null) {
+      switch (day.workoutType!.toLowerCase()) {
+        case 'strength':
+          workoutTypeIcon = Icons.fitness_center;
+          workoutTypeColor = Colors.orange;
+          break;
+        case 'conditioning':
+          workoutTypeIcon = Icons.directions_run;
+          workoutTypeColor = Colors.blue;
+          break;
+        case 'power':
+          workoutTypeIcon = Icons.bolt;
+          workoutTypeColor = Colors.yellow;
+          break;
+        case 'recovery':
+          workoutTypeIcon = Icons.spa;
+          workoutTypeColor = Colors.green;
+          break;
+        default:
+          workoutTypeIcon = Icons.fitness_center;
+          workoutTypeColor = LaconicTheme.spartanBronze;
+      }
+    }
+
     switch (day.status) {
       case DayStatus.completed:
         statusColor = Colors.green;
@@ -141,8 +181,8 @@ class WeeklyCalendar extends StatelessWidget {
         statusIcon = Icons.timelapse;
         break;
       case DayStatus.scheduled:
-        statusColor = LaconicTheme.spartanBronze;
-        statusIcon = Icons.schedule;
+        statusColor = workoutTypeColor ?? LaconicTheme.spartanBronze;
+        statusIcon = workoutTypeIcon ?? Icons.schedule;
         break;
       case DayStatus.rest:
         statusColor = Colors.blue;
@@ -165,13 +205,17 @@ class WeeklyCalendar extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 4),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: day.isToday 
+          color: day.isToday
               ? LaconicTheme.spartanBronze.withValues(alpha: 0.15)
-              : statusColor.withValues(alpha: day.status == DayStatus.empty ? 0.05 : 0.1),
+              : statusColor.withValues(
+                  alpha: day.status == DayStatus.empty ? 0.05 : 0.1,
+                ),
           border: Border.all(
-            color: day.isToday 
+            color: day.isToday
                 ? LaconicTheme.spartanBronze
-                : statusColor.withValues(alpha: day.status == DayStatus.empty ? 0.2 : 0.5),
+                : statusColor.withValues(
+                    alpha: day.status == DayStatus.empty ? 0.2 : 0.5,
+                  ),
             width: day.isToday ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(8),
@@ -189,13 +233,9 @@ class WeeklyCalendar extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            // Status indicator
+            // Status / Workout type indicator
             if (statusIcon != null)
-              Icon(
-                statusIcon,
-                color: statusColor,
-                size: 16,
-              )
+              Icon(statusIcon, color: statusColor, size: 16)
             else
               Container(
                 width: 8,
@@ -203,6 +243,16 @@ class WeeklyCalendar extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.3),
                   shape: BoxShape.circle,
+                ),
+              ),
+            // AI generated indicator
+            if (day.isAiGenerated && day.status == DayStatus.scheduled)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(
+                  Icons.auto_awesome,
+                  color: statusColor.withValues(alpha: 0.6),
+                  size: 8,
                 ),
               ),
           ],
@@ -233,9 +283,7 @@ class WeeklyStatsSummary extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: LaconicTheme.ironGray.withValues(alpha: 0.1),
-        border: Border.all(
-          color: LaconicTheme.ironGray.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: LaconicTheme.ironGray.withValues(alpha: 0.3)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

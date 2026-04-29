@@ -1605,4 +1605,159 @@ class SupabaseDatabaseService {
       return dateStr;
     }
   }
+
+  // ==================== Generated Plans ====================
+
+  /// Save a generated AI training plan to the database
+  Future<String> saveGeneratedPlan({
+    required DateTime weekStarting,
+    required String planName,
+    required List<Map<String, dynamic>> dailyWorkouts,
+    String? weeklyNotes,
+    String? intensityRecommendation,
+    bool isActive = true,
+  }) async {
+    try {
+      debugPrint('Saving generated plan for week: $weekStarting');
+
+      if (currentUserId == null) {
+        throw Exception('No authenticated user');
+      }
+
+      // First, deactivate any existing active plans for this week
+      if (isActive) {
+        await _deactivatePlansForWeek(weekStarting);
+      }
+
+      final response = await _supabase
+          .from('generated_plans')
+          .upsert({
+            'user_id': currentUserId,
+            'week_starting': _dateOnly(weekStarting),
+            'plan_name': planName,
+            'daily_workouts': dailyWorkouts,
+            'weekly_notes': weeklyNotes,
+            'intensity_recommendation': intensityRecommendation,
+            'is_active': isActive,
+            'updated_at': DateTime.now().toIso8601String(),
+          }, onConflict: 'user_id,week_starting')
+          .select('id')
+          .single();
+
+      debugPrint('Generated plan saved: ${response['id']}');
+      return response['id'];
+    } catch (e) {
+      debugPrint('Error saving generated plan: $e');
+      rethrow;
+    }
+  }
+
+  /// Get generated plan for a specific week
+  Future<Map<String, dynamic>?> getGeneratedPlanForWeek(
+    DateTime weekStart,
+  ) async {
+    try {
+      debugPrint('Getting generated plan for week: $weekStart');
+
+      if (currentUserId == null) {
+        return null;
+      }
+
+      final response = await _supabase
+          .from('generated_plans')
+          .select()
+          .eq('user_id', currentUserId!)
+          .eq('week_starting', _dateOnly(weekStart))
+          .maybeSingle();
+
+      debugPrint('Generated plan retrieved: ${response != null}');
+      return response;
+    } catch (e) {
+      debugPrint('Error getting generated plan: $e');
+      return null;
+    }
+  }
+
+  /// Get the currently active generated plan
+  Future<Map<String, dynamic>?> getActiveGeneratedPlan() async {
+    try {
+      debugPrint('Getting active generated plan');
+
+      if (currentUserId == null) {
+        return null;
+      }
+
+      final response = await _supabase
+          .from('generated_plans')
+          .select()
+          .eq('user_id', currentUserId!)
+          .eq('is_active', true)
+          .order('week_starting', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      debugPrint('Active generated plan retrieved: ${response != null}');
+      return response;
+    } catch (e) {
+      debugPrint('Error getting active generated plan: $e');
+      return null;
+    }
+  }
+
+  /// Get plan history
+  Future<List<Map<String, dynamic>>> getGeneratedPlanHistory({
+    int limit = 12,
+  }) async {
+    try {
+      debugPrint('Getting generated plan history');
+
+      if (currentUserId == null) {
+        return [];
+      }
+
+      final response = await _supabase
+          .from('generated_plans')
+          .select()
+          .eq('user_id', currentUserId!)
+          .order('week_starting', ascending: false)
+          .limit(limit);
+
+      debugPrint('Retrieved ${response.length} generated plans');
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Error getting generated plan history: $e');
+      return [];
+    }
+  }
+
+  /// Deactivate old plans for a week
+  Future<void> _deactivatePlansForWeek(DateTime weekStart) async {
+    try {
+      await _supabase
+          .from('generated_plans')
+          .update({'is_active': false})
+          .eq('user_id', currentUserId!)
+          .eq('week_starting', _dateOnly(weekStart));
+    } catch (e) {
+      debugPrint('Error deactivating old plans: $e');
+    }
+  }
+
+  /// Delete a generated plan
+  Future<void> deleteGeneratedPlan(String planId) async {
+    try {
+      debugPrint('Deleting generated plan: $planId');
+
+      await _supabase
+          .from('generated_plans')
+          .delete()
+          .eq('id', planId)
+          .eq('user_id', currentUserId!);
+
+      debugPrint('Generated plan deleted');
+    } catch (e) {
+      debugPrint('Error deleting generated plan: $e');
+      rethrow;
+    }
+  }
 }
