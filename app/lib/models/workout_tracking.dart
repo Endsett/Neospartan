@@ -290,6 +290,6 @@ class MicroCycle {
   }
 
   List<double> get rpeTrend {
-    return days.expand((d) => d.rpeEntries).toList();
+    return days.expand((d) => d.rpeEntries).cast<double>().toList();
   }
 }

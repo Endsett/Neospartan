@@ -13,6 +13,9 @@ COPY database.py .
 COPY ai_engine.py .
 COPY auth.py .
 COPY websocket_manager.py .
+COPY worker.py .
+COPY migrations.py .
+COPY logging_config.py .
 
 # Expose port
 EXPOSE 8000

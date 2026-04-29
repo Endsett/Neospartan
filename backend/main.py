@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from contextlib import asynccontextmanager
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, Request, Depends, WebSocket, WebSocketDisconnect, status, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request, Depends, WebSocket, WebSocketDisconnect, status, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
@@ -35,6 +35,9 @@ from database import (
     WarriorProfileRepository,
     AchievementRepository,
     BattleChronicleRepository,
+    WorkoutSessionRepository,
+    NotificationRepository,
+    ProgressRepository,
     DatabaseError
 )
 from ai_engine import (
@@ -55,6 +58,14 @@ from auth import (
     get_current_user_supabase
 )
 from websocket_manager import manager
+from cache import cache, cached, invalidate_cache, CACHE_TTL
+from rate_limiter import rate_limiter, RateLimitTier, rate_limit, auth_rate_limit, ai_rate_limit, public_rate_limit
+from middleware import (
+    RequestIDMiddleware,
+    TimingMiddleware,
+    ErrorHandlingMiddleware,
+    SecurityHeadersMiddleware
+)
 
 # Initialize FastAPI with lifespan
 @asynccontextmanager
@@ -70,10 +81,15 @@ async def lifespan(app: FastAPI):
     else:
         print("✅ Database connected")
     
+    # Connect to Redis for caching and rate limiting
+    await cache.connect()
+    await rate_limiter.connect()
+    
     yield
     
     # Shutdown
     print("🛑 Shutting down...")
+    await cache.disconnect()
 
 app = FastAPI(
     title=settings.app_name,
@@ -98,6 +114,12 @@ app.add_middleware(
     TrustedHostMiddleware, 
     allowed_hosts=settings.allowed_hosts_list
 )
+
+# Custom middleware for enhanced functionality
+app.add_middleware(ErrorHandlingMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestIDMiddleware)
+app.add_middleware(TimingMiddleware, slow_threshold=2.0)
 
 # Rate limiting (simple in-memory, use Redis in production)
 request_counts: Dict[str, List[datetime]] = {}
@@ -1409,6 +1431,570 @@ def get_warrior_ranks():
         {"level": 10, "name": "Archon", "subtitle": "Master", "required_xp": 60000, "icon": "military_tech"},
     ]
     return {"ranks": ranks}
+
+
+# ============== Workout Session Management API ==============
+
+class CreateWorkoutSessionRequest(BaseModel):
+    name: str = Field(default="Workout Session", description="Name of the workout session")
+    scheduled_date: Optional[str] = Field(None, description="Scheduled date for the workout")
+    notes: Optional[str] = Field(None, description="Optional notes")
+
+class AddExerciseEntryRequest(BaseModel):
+    exercise_id: str = Field(..., description="ID of the exercise")
+    exercise_name: str = Field(..., description="Name of the exercise")
+    target_sets: int = Field(default=3, ge=1, description="Target number of sets")
+    target_reps: int = Field(default=10, ge=1, description="Target number of reps")
+    target_weight: float = Field(default=0.0, ge=0, description="Target weight")
+    rest_seconds: int = Field(default=60, ge=0, description="Rest time in seconds")
+    notes: Optional[str] = Field(None, description="Optional notes")
+    order_index: int = Field(default=0, ge=0, description="Order in the workout")
+
+class AddSetRequest(BaseModel):
+    set_number: int = Field(..., ge=1, description="Set number")
+    reps: int = Field(default=0, ge=0, description="Number of reps completed")
+    weight: float = Field(default=0.0, ge=0, description="Weight used")
+    rpe: Optional[int] = Field(None, ge=1, le=10, description="Rate of perceived exertion (1-10)")
+    is_completed: bool = Field(default=False, description="Whether the set is completed")
+    notes: Optional[str] = Field(None, description="Optional notes")
+
+class CompleteWorkoutRequest(BaseModel):
+    duration_seconds: int = Field(..., ge=0, description="Total duration in seconds")
+    total_volume: float = Field(..., ge=0, description="Total volume (weight * reps)")
+    notes: Optional[str] = Field(None, description="Post-workout notes")
+
+@app.post("/workout-sessions")
+async def create_workout_session(
+    request: CreateWorkoutSessionRequest,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Create a new workout session."""
+    try:
+        session_data = {
+            "name": request.name,
+            "status": "planned",
+            "scheduled_date": request.scheduled_date,
+            "notes": request.notes or "",
+        }
+        session = await WorkoutSessionRepository.create_session(current_user["id"], session_data)
+        return {
+            "success": True,
+            "session": session,
+            "message": "Workout session created successfully"
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/workout-sessions")
+async def get_workout_sessions(
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Get user's workout sessions."""
+    try:
+        sessions = await WorkoutSessionRepository.get_by_user(current_user["id"], limit, offset)
+        return {
+            "success": True,
+            "sessions": sessions,
+            "count": len(sessions)
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/workout-sessions/{session_id}")
+async def get_workout_session(
+    session_id: str,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Get a specific workout session with all details."""
+    try:
+        session = await WorkoutSessionRepository.get_by_id(session_id, current_user["id"])
+        if not session:
+            raise HTTPException(status_code=404, detail="Workout session not found")
+        return {
+            "success": True,
+            "session": session
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/workout-sessions/{session_id}/exercises")
+async def add_exercise_to_session(
+    session_id: str,
+    request: AddExerciseEntryRequest,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Add an exercise to a workout session."""
+    try:
+        # Verify session exists and belongs to user
+        session = await WorkoutSessionRepository.get_by_id(session_id, current_user["id"])
+        if not session:
+            raise HTTPException(status_code=404, detail="Workout session not found")
+
+        exercise_data = {
+            "exercise_id": request.exercise_id,
+            "exercise_name": request.exercise_name,
+            "target_sets": request.target_sets,
+            "target_reps": request.target_reps,
+            "target_weight": request.target_weight,
+            "rest_seconds": request.rest_seconds,
+            "notes": request.notes or "",
+            "order_index": request.order_index,
+        }
+        entry = await WorkoutSessionRepository.add_exercise_entry(session_id, exercise_data)
+        return {
+            "success": True,
+            "exercise_entry": entry,
+            "message": "Exercise added to session"
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/workout-sessions/{session_id}/exercises/{exercise_entry_id}/sets")
+async def add_set_to_exercise(
+    session_id: str,
+    exercise_entry_id: str,
+    request: AddSetRequest,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Add a set to an exercise entry."""
+    try:
+        # Verify session exists and belongs to user
+        session = await WorkoutSessionRepository.get_by_id(session_id, current_user["id"])
+        if not session:
+            raise HTTPException(status_code=404, detail="Workout session not found")
+
+        set_data = {
+            "set_number": request.set_number,
+            "reps": request.reps,
+            "weight": request.weight,
+            "rpe": request.rpe,
+            "is_completed": request.is_completed,
+            "notes": request.notes or "",
+        }
+        set_entry = await WorkoutSessionRepository.add_set(exercise_entry_id, session_id, set_data)
+        return {
+            "success": True,
+            "set": set_entry,
+            "message": "Set added successfully"
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/workout-sessions/{session_id}/complete")
+async def complete_workout_session(
+    session_id: str,
+    request: CompleteWorkoutRequest,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Mark a workout session as completed."""
+    try:
+        # Verify session exists and belongs to user
+        session = await WorkoutSessionRepository.get_by_id(session_id, current_user["id"])
+        if not session:
+            raise HTTPException(status_code=404, detail="Workout session not found")
+
+        completion_data = {
+            "duration_seconds": request.duration_seconds,
+            "total_volume": request.total_volume,
+            "notes": request.notes or "",
+        }
+        updated_session = await WorkoutSessionRepository.complete_session(session_id, current_user["id"], completion_data)
+
+        # Award XP for completing workout
+        xp_data = {
+            "xp_amount": calculate_workout_xp(request.duration_seconds, request.total_volume),
+            "activity": "Completed workout session",
+        }
+        await WarriorProfileRepository.add_xp(current_user["id"], xp_data)
+
+        return {
+            "success": True,
+            "session": updated_session,
+            "xp_awarded": xp_data["xp_amount"],
+            "message": "Workout completed successfully"
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/workout-sessions/{session_id}")
+async def delete_workout_session(
+    session_id: str,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Delete a workout session."""
+    try:
+        success = await WorkoutSessionRepository.delete_session(session_id, current_user["id"])
+        if not success:
+            raise HTTPException(status_code=404, detail="Workout session not found")
+        return {
+            "success": True,
+            "message": "Workout session deleted successfully"
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+def calculate_workout_xp(duration_seconds: int, total_volume: float) -> int:
+    """Calculate XP awarded for a workout based on duration and volume."""
+    base_xp = 50
+    duration_bonus = min(duration_seconds // 300, 50)  # +10 XP per 5 minutes, max 50
+    volume_bonus = min(int(total_volume / 1000), 50)  # +1 XP per 1000 volume, max 50
+    return base_xp + duration_bonus + volume_bonus
+
+
+# ============== Notification API ==============
+
+@app.get("/notifications")
+async def get_notifications(
+    limit: int = Query(default=50, ge=1, le=100),
+    include_read: bool = Query(default=False),
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Get user's notifications."""
+    try:
+        notifications = await NotificationRepository.get_by_user(current_user["id"], limit, include_read)
+        unread_count = await NotificationRepository.get_unread_count(current_user["id"])
+        return {
+            "success": True,
+            "notifications": notifications,
+            "unread_count": unread_count
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: str,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Mark a notification as read."""
+    try:
+        notification = await NotificationRepository.mark_as_read(notification_id, current_user["id"])
+        return {
+            "success": True,
+            "notification": notification
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/notifications/read-all")
+async def mark_all_notifications_read(
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Mark all notifications as read."""
+    try:
+        success = await NotificationRepository.mark_all_as_read(current_user["id"])
+        return {
+            "success": success,
+            "message": "All notifications marked as read"
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============== Progress Tracking API ==============
+
+class RecordProgressRequest(BaseModel):
+    metric_type: str = Field(..., description="Type of metric (weight, body_fat, measurement, etc.)")
+    value: float = Field(..., description="Metric value")
+    unit: str = Field(default="", description="Unit of measurement")
+    notes: Optional[str] = Field(None, description="Optional notes")
+    measured_at: Optional[str] = Field(None, description="ISO timestamp when measured")
+
+class RecordPersonalRecordRequest(BaseModel):
+    exercise_id: str = Field(..., description="ID of the exercise")
+    exercise_name: str = Field(..., description="Name of the exercise")
+    metric_type: str = Field(..., description="Type of PR (weight, reps, volume)")
+    value: float = Field(..., description="PR value")
+    previous_value: Optional[float] = Field(None, description="Previous PR value for comparison")
+    improvement_percent: float = Field(default=0.0, description="Percentage improvement")
+
+@app.post("/progress/metrics")
+async def record_progress_metric(
+    request: RecordProgressRequest,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Record a progress metric (weight, body fat, measurements, etc.)."""
+    try:
+        metric_data = {
+            "metric_type": request.metric_type,
+            "value": request.value,
+            "unit": request.unit,
+            "notes": request.notes or "",
+            "measured_at": request.measured_at,
+        }
+        metric = await ProgressRepository.record_metric(current_user["id"], metric_data)
+        return {
+            "success": True,
+            "metric": metric,
+            "message": "Progress metric recorded"
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/progress/metrics")
+async def get_progress_metrics(
+    metric_type: Optional[str] = Query(None, description="Filter by metric type"),
+    limit: int = Query(default=100, ge=1, le=500),
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Get user's progress metrics."""
+    try:
+        metrics = await ProgressRepository.get_metrics(current_user["id"], metric_type, limit)
+        return {
+            "success": True,
+            "metrics": metrics,
+            "count": len(metrics)
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/progress/personal-records")
+async def record_personal_record(
+    request: RecordPersonalRecordRequest,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Record a personal record for an exercise."""
+    try:
+        pr_data = {
+            "exercise_id": request.exercise_id,
+            "exercise_name": request.exercise_name,
+            "metric_type": request.metric_type,
+            "value": request.value,
+            "previous_value": request.previous_value,
+            "improvement_percent": request.improvement_percent,
+        }
+        pr = await ProgressRepository.record_personal_record(current_user["id"], pr_data)
+
+        # Award bonus XP for PR
+        xp_bonus = min(int(request.improvement_percent), 100)
+        await WarriorProfileRepository.add_xp(current_user["id"], {
+            "xp_amount": 20 + xp_bonus,
+            "activity": f"New PR: {request.exercise_name}"
+        })
+
+        return {
+            "success": True,
+            "personal_record": pr,
+            "xp_awarded": 20 + xp_bonus,
+            "message": "Personal record recorded"
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/progress/personal-records")
+async def get_personal_records(
+    exercise_id: Optional[str] = Query(None, description="Filter by exercise ID"),
+    limit: int = Query(default=50, ge=1, le=100),
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Get user's personal records."""
+    try:
+        records = await ProgressRepository.get_personal_records(current_user["id"], exercise_id, limit)
+        return {
+            "success": True,
+            "personal_records": records,
+            "count": len(records)
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============== AI Memory Management API ==============
+
+class StoreAIMemoryRequest(BaseModel):
+    memory_type: str = Field(..., description="Type of memory (workout_preference, feedback, pattern, etc.)")
+    data: Dict[str, Any] = Field(..., description="Memory data")
+    priority: str = Field(default="medium", description="Priority: low, medium, high")
+    tags: List[str] = Field(default_factory=list, description="Tags for categorization")
+
+@app.post("/ai-memories")
+async def store_ai_memory(
+    request: StoreAIMemoryRequest,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Store an AI memory for personalized workout generation."""
+    try:
+        memory = await AIMemoryRepository.store(
+            current_user["id"],
+            request.memory_type,
+            request.data,
+            request.priority,
+            request.tags
+        )
+        return {
+            "success": True,
+            "memory": memory,
+            "message": "AI memory stored successfully"
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/ai-memories")
+async def get_ai_memories(
+    memory_type: Optional[str] = Query(None, description="Filter by memory type"),
+    limit: int = Query(default=50, ge=1, le=100),
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Get AI memories for personalized context."""
+    try:
+        memories = await AIMemoryRepository.get_by_user(current_user["id"], memory_type, limit)
+        return {
+            "success": True,
+            "memories": memories,
+            "count": len(memories)
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============== User Profile Management API ==============
+
+class UpdateProfileRequest(BaseModel):
+    display_name: Optional[str] = Field(None, description="User's display name")
+    bio: Optional[str] = Field(None, description="User bio")
+    fitness_goal: Optional[str] = Field(None, description="Primary fitness goal")
+    experience_level: Optional[str] = Field(None, description="Experience level (beginner, intermediate, advanced)")
+    preferred_workout_duration: Optional[int] = Field(None, ge=10, description="Preferred workout duration in minutes")
+    workout_days_per_week: Optional[int] = Field(None, ge=1, le=7, description="Number of workout days per week")
+
+@app.get("/users/profile")
+async def get_user_profile(
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Get current user's profile."""
+    try:
+        profile = await UserRepository.get_by_id(current_user["id"])
+        if not profile:
+            # Create default profile
+            profile_data = {
+                "display_name": current_user.get("email", "").split("@")[0],
+                "bio": "",
+                "fitness_goal": "general_fitness",
+                "experience_level": "beginner",
+            }
+            profile = await UserRepository.create_or_update(current_user["id"], profile_data)
+        return {
+            "success": True,
+            "profile": profile
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/users/profile")
+async def update_user_profile(
+    request: UpdateProfileRequest,
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Update current user's profile."""
+    try:
+        profile_data = {
+            k: v for k, v in request.dict().items() if v is not None
+        }
+        profile_data["updated_at"] = "now()"
+        profile = await UserRepository.create_or_update(current_user["id"], profile_data)
+        return {
+            "success": True,
+            "profile": profile,
+            "message": "Profile updated successfully"
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============== Analytics API ==============
+
+@app.get("/analytics/summary")
+async def get_analytics_summary(
+    days: int = Query(default=30, ge=7, le=365),
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Get comprehensive analytics summary for the user."""
+    try:
+        # Get workout sessions in date range
+        from datetime import datetime, timedelta
+        cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+
+        # Fetch sessions
+        all_sessions = await WorkoutSessionRepository.get_by_user(current_user["id"], limit=1000)
+        recent_sessions = [s for s in all_sessions if s.get("created_at", "") >= cutoff_date]
+
+        # Calculate metrics
+        total_workouts = len(recent_sessions)
+        completed_workouts = len([s for s in recent_sessions if s.get("status") == "completed"])
+        total_volume = sum(s.get("total_volume", 0) for s in recent_sessions)
+        total_duration = sum(s.get("duration_seconds", 0) for s in recent_sessions)
+
+        # Get personal records
+        recent_prs = await ProgressRepository.get_personal_records(current_user["id"], limit=50)
+        recent_prs = [pr for pr in recent_prs if pr.get("achieved_at", "") >= cutoff_date]
+
+        # Get warrior profile for streak info
+        warrior_profile = await WarriorProfileRepository.get_by_user_id(current_user["id"])
+
+        return {
+            "success": True,
+            "period_days": days,
+            "summary": {
+                "total_workouts": total_workouts,
+                "completed_workouts": completed_workouts,
+                "completion_rate": round(completed_workouts / total_workouts * 100, 1) if total_workouts > 0 else 0,
+                "total_volume": round(total_volume, 2),
+                "total_duration_hours": round(total_duration / 3600, 2),
+                "average_workout_duration_minutes": round(total_duration / completed_workouts / 60, 1) if completed_workouts > 0 else 0,
+                "personal_records_count": len(recent_prs),
+                "current_streak_days": warrior_profile.get("current_streak_days", 0) if warrior_profile else 0,
+            }
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/analytics/workout-trends")
+async def get_workout_trends(
+    days: int = Query(default=30, ge=7, le=365),
+    current_user: Dict = Depends(get_current_user_supabase)
+):
+    """Get workout trends over time."""
+    try:
+        from datetime import datetime, timedelta
+        from collections import defaultdict
+
+        cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+
+        # Fetch sessions
+        all_sessions = await WorkoutSessionRepository.get_by_user(current_user["id"], limit=1000)
+        recent_sessions = [s for s in all_sessions if s.get("completed_at") and s.get("completed_at") >= cutoff_date]
+
+        # Group by week
+        weekly_data = defaultdict(lambda: {"count": 0, "volume": 0, "duration": 0})
+        for session in recent_sessions:
+            completed_at = session.get("completed_at", "")
+            if completed_at:
+                week_key = completed_at[:10]  # YYYY-MM-DD
+                weekly_data[week_key]["count"] += 1
+                weekly_data[week_key]["volume"] += session.get("total_volume", 0)
+                weekly_data[week_key]["duration"] += session.get("duration_seconds", 0)
+
+        # Convert to list
+        trends = [
+            {
+                "week": week,
+                "workouts": data["count"],
+                "volume": round(data["volume"], 2),
+                "duration_hours": round(data["duration"] / 3600, 2),
+            }
+            for week, data in sorted(weekly_data.items())
+        ]
+
+        return {
+            "success": True,
+            "period_days": days,
+            "trends": trends
+        }
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     import uvicorn

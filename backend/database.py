@@ -365,6 +365,339 @@ class BattleChronicleRepository:
             raise DatabaseError(f"Failed to fetch chronicle: {e}")
 
 
+class WorkoutSessionRepository:
+    """Repository for workout session tracking."""
+
+    TABLE_NAME = "workout_sessions"
+    EXERCISE_ENTRIES_TABLE = "workout_exercise_entries"
+    SETS_TABLE = "workout_sets"
+
+    @classmethod
+    async def create_session(cls, user_id: str, session_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new workout session."""
+        try:
+            data = {
+                "user_id": user_id,
+                "name": session_data.get("name", "Untitled Workout"),
+                "status": session_data.get("status", "planned"),
+                "scheduled_date": session_data.get("scheduled_date"),
+                "started_at": session_data.get("started_at"),
+                "completed_at": session_data.get("completed_at"),
+                "duration_seconds": session_data.get("duration_seconds", 0),
+                "total_volume": session_data.get("total_volume", 0.0),
+                "notes": session_data.get("notes", ""),
+                "created_at": "now()",
+            }
+            result = db.table(cls.TABLE_NAME).insert(data).execute()
+            if not result.data:
+                raise DatabaseError("Failed to create workout session")
+            return result.data[0]
+        except APIError as e:
+            raise DatabaseError(f"Failed to create workout session: {e}")
+
+    @classmethod
+    async def get_by_user(cls, user_id: str, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        """Get workout sessions for a user."""
+        try:
+            result = db.table(cls.TABLE_NAME).select("*").eq("user_id", user_id).order("created_at", desc=True).range(offset, offset + limit - 1).execute()
+            return result.data or []
+        except APIError as e:
+            raise DatabaseError(f"Failed to fetch workout sessions: {e}")
+
+    @classmethod
+    async def get_by_id(cls, session_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific workout session with all exercise entries."""
+        try:
+            result = db.table(cls.TABLE_NAME).select("*").eq("id", session_id).eq("user_id", user_id).single().execute()
+            if not result.data:
+                return None
+
+            session = result.data
+            # Get exercise entries
+            entries_result = db.table(cls.EXERCISE_ENTRIES_TABLE).select("*").eq("session_id", session_id).execute()
+            session["exercises"] = entries_result.data or []
+
+            # Get sets for each exercise
+            for exercise in session["exercises"]:
+                sets_result = db.table(cls.SETS_TABLE).select("*").eq("exercise_entry_id", exercise["id"]).execute()
+                exercise["sets"] = sets_result.data or []
+
+            return session
+        except APIError:
+            return None
+
+    @classmethod
+    async def update_session(cls, session_id: str, user_id: str, update_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Update a workout session."""
+        try:
+            result = db.table(cls.TABLE_NAME).update(update_data).eq("id", session_id).eq("user_id", user_id).execute()
+            if not result.data:
+                raise DatabaseError("Failed to update workout session")
+            return result.data[0]
+        except APIError as e:
+            raise DatabaseError(f"Failed to update workout session: {e}")
+
+    @classmethod
+    async def delete_session(cls, session_id: str, user_id: str) -> bool:
+        """Delete a workout session and all related data."""
+        try:
+            # Delete sets first (cascade)
+            db.table(cls.SETS_TABLE).delete().eq("session_id", session_id).execute()
+            # Delete exercise entries
+            db.table(cls.EXERCISE_ENTRIES_TABLE).delete().eq("session_id", session_id).execute()
+            # Delete session
+            db.table(cls.TABLE_NAME).delete().eq("id", session_id).eq("user_id", user_id).execute()
+            return True
+        except APIError as e:
+            raise DatabaseError(f"Failed to delete workout session: {e}")
+
+    @classmethod
+    async def add_exercise_entry(cls, session_id: str, exercise_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Add an exercise entry to a session."""
+        try:
+            data = {
+                "session_id": session_id,
+                "exercise_id": exercise_data["exercise_id"],
+                "exercise_name": exercise_data.get("exercise_name", ""),
+                "target_sets": exercise_data.get("target_sets", 3),
+                "target_reps": exercise_data.get("target_reps", 10),
+                "target_weight": exercise_data.get("target_weight", 0.0),
+                "rest_seconds": exercise_data.get("rest_seconds", 60),
+                "notes": exercise_data.get("notes", ""),
+                "order_index": exercise_data.get("order_index", 0),
+                "created_at": "now()",
+            }
+            result = db.table(cls.EXERCISE_ENTRIES_TABLE).insert(data).execute()
+            if not result.data:
+                raise DatabaseError("Failed to add exercise entry")
+            return result.data[0]
+        except APIError as e:
+            raise DatabaseError(f"Failed to add exercise entry: {e}")
+
+    @classmethod
+    async def add_set(cls, exercise_entry_id: str, session_id: str, set_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Add a set to an exercise entry."""
+        try:
+            data = {
+                "exercise_entry_id": exercise_entry_id,
+                "session_id": session_id,
+                "set_number": set_data["set_number"],
+                "reps": set_data.get("reps", 0),
+                "weight": set_data.get("weight", 0.0),
+                "rpe": set_data.get("rpe"),
+                "is_completed": set_data.get("is_completed", False),
+                "notes": set_data.get("notes", ""),
+                "created_at": "now()",
+            }
+            result = db.table(cls.SETS_TABLE).insert(data).execute()
+            if not result.data:
+                raise DatabaseError("Failed to add set")
+            return result.data[0]
+        except APIError as e:
+            raise DatabaseError(f"Failed to add set: {e}")
+
+    @classmethod
+    async def complete_session(cls, session_id: str, user_id: str, completion_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Mark a workout session as completed with final stats."""
+        try:
+            update_data = {
+                "status": "completed",
+                "completed_at": "now()",
+                "duration_seconds": completion_data.get("duration_seconds", 0),
+                "total_volume": completion_data.get("total_volume", 0.0),
+                "notes": completion_data.get("notes", ""),
+            }
+            result = db.table(cls.TABLE_NAME).update(update_data).eq("id", session_id).eq("user_id", user_id).execute()
+            if not result.data:
+                raise DatabaseError("Failed to complete workout session")
+            return result.data[0]
+        except APIError as e:
+            raise DatabaseError(f"Failed to complete workout session: {e}")
+
+
+class NotificationRepository:
+    """Repository for user notifications."""
+
+    TABLE_NAME = "notifications"
+
+    @classmethod
+    async def create(cls, user_id: str, notification_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new notification."""
+        try:
+            data = {
+                "user_id": user_id,
+                "type": notification_data["type"],
+                "title": notification_data["title"],
+                "message": notification_data["message"],
+                "data": notification_data.get("data", {}),
+                "is_read": False,
+                "action_url": notification_data.get("action_url"),
+                "created_at": "now()",
+            }
+            result = db.table(cls.TABLE_NAME).insert(data).execute()
+            if not result.data:
+                raise DatabaseError("Failed to create notification")
+            return result.data[0]
+        except APIError as e:
+            raise DatabaseError(f"Failed to create notification: {e}")
+
+    @classmethod
+    async def get_by_user(cls, user_id: str, limit: int = 50, include_read: bool = False) -> List[Dict[str, Any]]:
+        """Get notifications for a user."""
+        try:
+            query = db.table(cls.TABLE_NAME).select("*").eq("user_id", user_id)
+            if not include_read:
+                query = query.eq("is_read", False)
+            result = query.order("created_at", desc=True).limit(limit).execute()
+            return result.data or []
+        except APIError as e:
+            raise DatabaseError(f"Failed to fetch notifications: {e}")
+
+    @classmethod
+    async def mark_as_read(cls, notification_id: str, user_id: str) -> Dict[str, Any]:
+        """Mark a notification as read."""
+        try:
+            result = db.table(cls.TABLE_NAME).update({"is_read": True, "read_at": "now()"}).eq("id", notification_id).eq("user_id", user_id).execute()
+            if not result.data:
+                raise DatabaseError("Failed to mark notification as read")
+            return result.data[0]
+        except APIError as e:
+            raise DatabaseError(f"Failed to mark notification as read: {e}")
+
+    @classmethod
+    async def mark_all_as_read(cls, user_id: str) -> bool:
+        """Mark all notifications as read for a user."""
+        try:
+            db.table(cls.TABLE_NAME).update({"is_read": True, "read_at": "now()"}).eq("user_id", user_id).eq("is_read", False).execute()
+            return True
+        except APIError as e:
+            raise DatabaseError(f"Failed to mark all notifications as read: {e}")
+
+    @classmethod
+    async def delete_old_notifications(cls, user_id: str, days: int = 30) -> bool:
+        """Delete notifications older than specified days."""
+        try:
+            from datetime import datetime, timedelta
+            cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+            db.table(cls.TABLE_NAME).delete().eq("user_id", user_id).lt("created_at", cutoff_date).execute()
+            return True
+        except APIError as e:
+            raise DatabaseError(f"Failed to delete old notifications: {e}")
+
+    @classmethod
+    async def get_unread_count(cls, user_id: str) -> int:
+        """Get count of unread notifications."""
+        try:
+            result = db.table(cls.TABLE_NAME).select("id", count="exact").eq("user_id", user_id).eq("is_read", False).execute()
+            return result.count or 0
+        except APIError:
+            return 0
+
+
+class ProgressRepository:
+    """Repository for user progress tracking and analytics."""
+
+    TABLE_NAME = "progress_metrics"
+    PERSONAL_RECORDS_TABLE = "personal_records"
+
+    @classmethod
+    async def record_metric(cls, user_id: str, metric_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Record a progress metric (weight, body fat, measurements, etc.)."""
+        try:
+            data = {
+                "user_id": user_id,
+                "metric_type": metric_data["metric_type"],  # weight, body_fat, measurement, etc.
+                "value": metric_data["value"],
+                "unit": metric_data.get("unit", ""),
+                "notes": metric_data.get("notes", ""),
+                "measured_at": metric_data.get("measured_at", "now()"),
+                "created_at": "now()",
+            }
+            result = db.table(cls.TABLE_NAME).insert(data).execute()
+            if not result.data:
+                raise DatabaseError("Failed to record progress metric")
+            return result.data[0]
+        except APIError as e:
+            raise DatabaseError(f"Failed to record progress metric: {e}")
+
+    @classmethod
+    async def get_metrics(cls, user_id: str, metric_type: str = None, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get progress metrics for a user."""
+        try:
+            query = db.table(cls.TABLE_NAME).select("*").eq("user_id", user_id)
+            if metric_type:
+                query = query.eq("metric_type", metric_type)
+            result = query.order("measured_at", desc=True).limit(limit).execute()
+            return result.data or []
+        except APIError as e:
+            raise DatabaseError(f"Failed to fetch progress metrics: {e}")
+
+    @classmethod
+    async def record_personal_record(cls, user_id: str, pr_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Record a personal record for an exercise."""
+        try:
+            data = {
+                "user_id": user_id,
+                "exercise_id": pr_data["exercise_id"],
+                "exercise_name": pr_data.get("exercise_name", ""),
+                "metric_type": pr_data["metric_type"],  # weight, reps, volume
+                "value": pr_data["value"],
+                "previous_value": pr_data.get("previous_value"),
+                "improvement_percent": pr_data.get("improvement_percent", 0.0),
+                "achieved_at": pr_data.get("achieved_at", "now()"),
+                "created_at": "now()",
+            }
+            result = db.table(cls.PERSONAL_RECORDS_TABLE).insert(data).execute()
+            if not result.data:
+                raise DatabaseError("Failed to record personal record")
+            return result.data[0]
+        except APIError as e:
+            raise DatabaseError(f"Failed to record personal record: {e}")
+
+    @classmethod
+    async def get_personal_records(cls, user_id: str, exercise_id: str = None, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get personal records for a user."""
+        try:
+            query = db.table(cls.PERSONAL_RECORDS_TABLE).select("*").eq("user_id", user_id)
+            if exercise_id:
+                query = query.eq("exercise_id", exercise_id)
+            result = query.order("achieved_at", desc=True).limit(limit).execute()
+            return result.data or []
+        except APIError as e:
+            raise DatabaseError(f"Failed to fetch personal records: {e}")
+
+
+class AnalyticsRepository:
+    """Repository for analytics data."""
+
+    TABLE_NAME = "analytics"
+
+    @classmethod
+    async def record_event(cls, event_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Record an analytics event."""
+        try:
+            data = {
+                "event_type": event_data["event_type"],
+                "event_data": event_data.get("event_data", {}),
+                "created_at": "now()",
+            }
+            result = db.table(cls.TABLE_NAME).insert(data).execute()
+            if not result.data:
+                raise DatabaseError("Failed to record analytics event")
+            return result.data[0]
+        except APIError as e:
+            raise DatabaseError(f"Failed to record analytics event: {e}")
+
+    @classmethod
+    async def get_events(cls, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get analytics events."""
+        try:
+            result = db.table(cls.TABLE_NAME).select("*").order("created_at", desc=True).limit(limit).execute()
+            return result.data or []
+        except APIError as e:
+            raise DatabaseError(f"Failed to fetch analytics events: {e}")
+
+
 class DatabaseError(Exception):
     """Custom exception for database operations."""
     pass
