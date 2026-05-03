@@ -942,4 +942,473 @@ class BackendApiService {
       'mindset_prompt': protocol.mindsetPrompt,
     };
   }
+
+  // ============ WORKOUT SESSIONS ============
+
+  /// Create a new workout session
+  Future<Map<String, dynamic>?> createWorkoutSession({
+    required String name,
+    String? notes,
+    DateTime? scheduledDate,
+  }) async {
+    if (_isSimulated) {
+      return _simulateCreateWorkoutSession(name: name, notes: notes);
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/workout-sessions'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'name': name,
+          'notes': notes,
+          'scheduled_date': scheduledDate?.toIso8601String(),
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (e) {
+      debugPrint('Create workout session API error: $e');
+    }
+    return _simulateCreateWorkoutSession(name: name, notes: notes);
+  }
+
+  /// Get all workout sessions for the current user
+  Future<List<Map<String, dynamic>>> getWorkoutSessions({
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    if (_isSimulated) {
+      return _simulateGetWorkoutSessions();
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/workout-sessions?limit=$limit&offset=$offset'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['sessions'] is List) {
+          return List<Map<String, dynamic>>.from(data['sessions']);
+        }
+      }
+    } catch (e) {
+      debugPrint('Get workout sessions API error: $e');
+    }
+    return _simulateGetWorkoutSessions();
+  }
+
+  /// Get a specific workout session by ID
+  Future<Map<String, dynamic>?> getWorkoutSession(String sessionId) async {
+    if (_isSimulated) {
+      return _simulateGetWorkoutSession(sessionId);
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/workout-sessions/$sessionId'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data['session'] as Map<String, dynamic>?;
+        }
+      }
+    } catch (e) {
+      debugPrint('Get workout session API error: $e');
+    }
+    return _simulateGetWorkoutSession(sessionId);
+  }
+
+  /// Complete a workout session
+  Future<Map<String, dynamic>?> completeWorkoutSession(
+    String sessionId, {
+    required int durationSeconds,
+    required double totalVolume,
+    String? notes,
+  }) async {
+    if (_isSimulated) {
+      return {
+        'success': true,
+        'xp_awarded': 50,
+        'session': {'status': 'completed'},
+      };
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/workout-sessions/$sessionId/complete'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'duration_seconds': durationSeconds,
+          'total_volume': totalVolume,
+          'notes': notes,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (e) {
+      debugPrint('Complete workout session API error: $e');
+    }
+    return null;
+  }
+
+  // ============ NOTIFICATIONS ============
+
+  /// Get all notifications for the current user
+  Future<Map<String, dynamic>> getNotifications({int limit = 50}) async {
+    if (_isSimulated) {
+      return {'notifications': [], 'unread_count': 0};
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/notifications?limit=$limit'),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (e) {
+      debugPrint('Get notifications API error: $e');
+    }
+    return {'notifications': [], 'unread_count': 0};
+  }
+
+  /// Mark a notification as read
+  Future<bool> markNotificationRead(String notificationId) async {
+    if (_isSimulated) return true;
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/notifications/$notificationId/read'),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Mark notification read API error: $e');
+      return false;
+    }
+  }
+
+  /// Mark all notifications as read
+  Future<bool> markAllNotificationsRead() async {
+    if (_isSimulated) return true;
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/notifications/read-all'),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Mark all notifications read API error: $e');
+      return false;
+    }
+  }
+
+  // ============ PROGRESS TRACKING ============
+
+  /// Record a progress metric (weight, body fat, etc.)
+  Future<Map<String, dynamic>?> recordProgressMetric({
+    required String metricType,
+    required double value,
+    String? unit,
+    String? notes,
+  }) async {
+    if (_isSimulated) {
+      return {
+        'success': true,
+        'metric': {'id': 'simulated'},
+      };
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/progress/metrics'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'metric_type': metricType,
+          'value': value,
+          'unit': unit,
+          'notes': notes,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (e) {
+      debugPrint('Record progress metric API error: $e');
+    }
+    return null;
+  }
+
+  /// Get progress metrics history
+  Future<List<Map<String, dynamic>>> getProgressMetrics({
+    String? metricType,
+    int days = 30,
+  }) async {
+    if (_isSimulated) {
+      return _simulateGetProgressMetrics(metricType);
+    }
+
+    try {
+      final queryParams = <String, String>{
+        'days': days.toString(),
+        if (metricType != null) 'metric_type': metricType,
+      };
+      final uri = Uri.parse(
+        '$_baseUrl/progress/metrics',
+      ).replace(queryParameters: queryParams);
+
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['metrics'] is List) {
+          return List<Map<String, dynamic>>.from(data['metrics']);
+        }
+      }
+    } catch (e) {
+      debugPrint('Get progress metrics API error: $e');
+    }
+    return _simulateGetProgressMetrics(metricType);
+  }
+
+  /// Record a personal record
+  Future<Map<String, dynamic>?> recordPersonalRecord({
+    required String exerciseId,
+    required String exerciseName,
+    required String metricType,
+    required double value,
+  }) async {
+    if (_isSimulated) {
+      return {'success': true, 'xp_awarded': 25};
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/progress/personal-records'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'exercise_id': exerciseId,
+          'exercise_name': exerciseName,
+          'metric_type': metricType,
+          'value': value,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (e) {
+      debugPrint('Record personal record API error: $e');
+    }
+    return null;
+  }
+
+  // ============ AI MEMORIES ============
+
+  /// Store AI memory/context
+  Future<Map<String, dynamic>?> storeAIMemory({
+    required String memoryType,
+    required Map<String, dynamic> data,
+    String priority = 'medium',
+    List<String> tags = const [],
+  }) async {
+    if (_isSimulated) {
+      return {'success': true, 'memory_id': 'simulated'};
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/ai-memories'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'memory_type': memoryType,
+          'data': data,
+          'priority': priority,
+          'tags': tags,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (e) {
+      debugPrint('Store AI memory API error: $e');
+    }
+    return null;
+  }
+
+  /// Get AI memories for current user
+  Future<List<Map<String, dynamic>>> getAIMemories({
+    String? memoryType,
+    int limit = 50,
+  }) async {
+    if (_isSimulated) {
+      return [];
+    }
+
+    try {
+      final queryParams = <String, String>{
+        'limit': limit.toString(),
+        if (memoryType != null) 'memory_type': memoryType,
+      };
+      final uri = Uri.parse(
+        '$_baseUrl/ai-memories',
+      ).replace(queryParameters: queryParams);
+
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['memories'] is List) {
+          return List<Map<String, dynamic>>.from(data['memories']);
+        }
+      }
+    } catch (e) {
+      debugPrint('Get AI memories API error: $e');
+    }
+    return [];
+  }
+
+  // ============ ANALYTICS ============
+
+  /// Get comprehensive analytics summary
+  Future<Map<String, dynamic>> getAnalyticsSummary({int days = 30}) async {
+    if (_isSimulated) {
+      return _simulateAnalyticsSummary();
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/analytics/summary?days=$days'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return data['summary'] as Map<String, dynamic>? ?? {};
+        }
+      }
+    } catch (e) {
+      debugPrint('Get analytics summary API error: $e');
+    }
+    return _simulateAnalyticsSummary();
+  }
+
+  /// Get workout trends over time
+  Future<Map<String, dynamic>> getWorkoutTrends({int days = 30}) async {
+    if (_isSimulated) {
+      return {'trends': [], 'trend_slope': 0.0};
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/analytics/workout-trends?days=$days'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return {
+            'trends': data['trends'] ?? [],
+            'trend_slope': data['trend_slope'] ?? 0.0,
+          };
+        }
+      }
+    } catch (e) {
+      debugPrint('Get workout trends API error: $e');
+    }
+    return {'trends': [], 'trend_slope': 0.0};
+  }
+
+  // ============ SIMULATION METHODS (NEW) ============
+
+  Map<String, dynamic> _simulateCreateWorkoutSession({
+    required String name,
+    String? notes,
+  }) {
+    return {
+      'success': true,
+      'session': {
+        'id': 'sim_session_${DateTime.now().millisecondsSinceEpoch}',
+        'name': name,
+        'status': 'planned',
+        'notes': notes,
+        'created_at': DateTime.now().toIso8601String(),
+      },
+    };
+  }
+
+  List<Map<String, dynamic>> _simulateGetWorkoutSessions() {
+    return [
+      {
+        'id': 'sim_session_1',
+        'name': 'Morning Strength',
+        'status': 'completed',
+        'total_volume': 12500.0,
+        'duration_seconds': 3600,
+        'completed_at': DateTime.now()
+            .subtract(const Duration(days: 1))
+            .toIso8601String(),
+      },
+      {
+        'id': 'sim_session_2',
+        'name': 'Cardio Blast',
+        'status': 'completed',
+        'total_volume': 0.0,
+        'duration_seconds': 2700,
+        'completed_at': DateTime.now()
+            .subtract(const Duration(days: 2))
+            .toIso8601String(),
+      },
+    ];
+  }
+
+  Map<String, dynamic>? _simulateGetWorkoutSession(String sessionId) {
+    return {
+      'id': sessionId,
+      'name': 'Sample Workout',
+      'status': 'completed',
+      'exercises': [],
+      'total_volume': 10000.0,
+      'duration_seconds': 3600,
+    };
+  }
+
+  List<Map<String, dynamic>> _simulateGetProgressMetrics(String? metricType) {
+    final now = DateTime.now();
+    return List.generate(10, (index) {
+      return {
+        'id': 'metric_$index',
+        'metric_type': metricType ?? 'weight',
+        'value': 75.0 - (index * 0.1),
+        'unit': 'kg',
+        'measured_at': now
+            .subtract(Duration(days: index * 7))
+            .toIso8601String(),
+      };
+    });
+  }
+
+  Map<String, dynamic> _simulateAnalyticsSummary() {
+    return {
+      'total_workouts': 24,
+      'total_volume': 285000.0,
+      'avg_workout_duration': 3240,
+      'current_streak': 5,
+      'personal_records': 3,
+      'period_comparison': {
+        'workouts_change_percent': 20.0,
+        'volume_change_percent': 15.5,
+      },
+    };
+  }
 }
